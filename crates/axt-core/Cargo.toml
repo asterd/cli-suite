@@ -1,6 +1,6 @@
 [package]
-name = "ax-fs"
-description = "Internal filesystem helpers for the ax Foundation CLI Suite."
+name = "axt-core"
+description = "Internal core primitives for the axt Foundation CLI Suite."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,20 +8,21 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
-publish = false
 
 [lib]
+name = "axt_core"
 path = "src/lib.rs"
 
+[features]
+test-support = []
+
 [dependencies]
-blake3.workspace = true
+anstream.workspace = true
 camino.workspace = true
-ignore.workspace = true
-infer.workspace = true
-mime_guess.workspace = true
+clap.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+time.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
-tempfile.workspace = true

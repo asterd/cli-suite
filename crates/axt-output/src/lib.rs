@@ -17,7 +17,7 @@ use std::{
 };
 
 use anstyle::{AnsiColor, Style};
-use ax_core::{Clock, ColorChoice, ErrorCode, OutputLimits, OutputMode};
+use axt_core::{Clock, ColorChoice, ErrorCode, OutputLimits, OutputMode};
 use serde::Serialize;
 use serde_json::Value;
 use thiserror::Error;
@@ -521,17 +521,18 @@ pub fn muted_style(choice: ColorChoice) -> Style {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ax_core::SystemClock;
+    use axt_core::SystemClock;
     use serde_json::json;
 
     #[test]
     fn json_envelope_serializes_in_standard_shape() -> Result<()> {
-        let envelope = JsonEnvelope::new("ax.peek.v1", json!({ "status": "stub" }), vec![], vec![]);
+        let envelope =
+            JsonEnvelope::new("axt.peek.v1", json!({ "status": "stub" }), vec![], vec![]);
         let value = serde_json::to_value(envelope)?;
         assert_eq!(
             value,
             json!({
-                "schema": "ax.peek.v1",
+                "schema": "axt.peek.v1",
                 "ok": true,
                 "data": { "status": "stub" },
                 "warnings": [],
@@ -616,7 +617,7 @@ mod tests {
     #[test]
     fn acf_fields_quote_only_when_needed() -> Result<()> {
         let line = format_agent_fields(&[
-            AgentField::str("schema", "ax.run.agent.v1"),
+            AgentField::str("schema", "axt.run.agent.v1"),
             AgentField::bool("ok", false),
             AgentField::str("cmd", "npm test"),
             AgentField::usize("ms", 42),
@@ -624,7 +625,7 @@ mod tests {
         ])?;
         assert_eq!(
             line,
-            "schema=ax.run.agent.v1 ok=false cmd=\"npm test\" ms=42 exit=-1"
+            "schema=axt.run.agent.v1 ok=false cmd=\"npm test\" ms=42 exit=-1"
         );
         Ok(())
     }

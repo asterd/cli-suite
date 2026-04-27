@@ -1,44 +1,50 @@
-# ax-peek
+# axt-peek
 
-`ax-peek` returns a compact snapshot of a directory tree: paths, entry kind,
+`axt-peek` returns a compact snapshot of a directory tree: paths, entry kind,
 size, language, git status, mtime, and a summary.
 
 ## Usage
 
 ```bash
-ax-peek [PATHS]...
+axt-peek [PATHS]...
 ```
 
-When no path is provided, `ax-peek` scans `.`.
+The unprefixed `peek` alias is opt-in for local installs:
+
+```bash
+cargo install axt-peek --features aliases
+```
+
+When no path is provided, `axt-peek` scans `.`.
 
 ## Examples
 
 ```bash
-ax-peek
-ax-peek crates/ax-peek --depth 3
-ax-peek fixtures/fs-small --json
-ax-peek fixtures/fs-small --jsonl --summary-only
-ax-peek fixtures/fs-small --agent --limit 50
-ax-peek . --changed
-ax-peek . --changed-since HEAD~1
-ax-peek . --hash blake3 --lang rust
-ax-peek --list-errors
-ax-peek --print-schema json
-ax-peek --print-schema agent
+axt-peek
+axt-peek crates/axt-peek --depth 3
+axt-peek fixtures/fs-small --json
+axt-peek fixtures/fs-small --jsonl --summary-only
+axt-peek fixtures/fs-small --agent --limit 50
+axt-peek . --changed
+axt-peek . --changed-since HEAD~1
+axt-peek . --hash blake3 --lang rust
+axt-peek --list-errors
+axt-peek --print-schema json
+axt-peek --print-schema agent
 ```
 
 ## Output Modes
 
 - Human mode is the default and prints a compact table plus a summary.
 - `--plain` uses the same non-decorative table shape.
-- `--json` emits an `ax.peek.v1` JSON envelope.
+- `--json` emits an `axt.peek.v1` JSON envelope.
 - `--json-data` emits only the envelope `data` object.
 - `--jsonl` emits a summary record first, then one entry record per row.
 - `--agent` emits ACF table output for LLM/tool consumption.
 
 ## JSON Schema
 
-`--print-schema json` prints `schemas/ax.peek.v1.schema.json`.
+`--print-schema json` prints `schemas/axt.peek.v1.schema.json`.
 `--print-schema agent`, `--print-schema jsonl`, and `--print-schema human`
 print compact descriptions for those output contracts.
 
@@ -46,7 +52,7 @@ The JSON envelope shape is:
 
 ```json
 {
-  "schema": "ax.peek.v1",
+  "schema": "axt.peek.v1",
   "ok": true,
   "data": {
     "root": ".",
@@ -70,9 +76,9 @@ The JSON envelope shape is:
 ## JSONL Records
 
 The first record always has `type:"summary"` and schema
-`ax.peek.summary.v1`.
+`axt.peek.summary.v1`.
 
-Entry records use schema `ax.peek.entry.v1` and include:
+Entry records use schema `axt.peek.entry.v1` and include:
 
 - `type`: `file`, `dir`, `symlink`, or `other`
 - `path`: path relative to the scan root
@@ -85,7 +91,7 @@ Entry records use schema `ax.peek.entry.v1` and include:
 When output truncates, JSONL appends:
 
 ```json
-{"schema":"ax.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records","truncated":true}
+{"schema":"axt.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records","truncated":true}
 ```
 
 ## Agent Output
@@ -94,13 +100,13 @@ Agent mode follows ACF. The first line always includes `schema`, `ok`, `mode`,
 and `truncated`.
 
 ```text
-schema=ax.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git,mtime rows=4 total=42 truncated=false
+schema=axt.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git,mtime rows=4 total=42 truncated=false
 Cargo.toml,file,2102,toml,clean,2026-04-26T18:02:11Z
 ```
 
-Agent keys used by `ax-peek`:
+Agent keys used by `axt-peek`:
 
-- `schema`: `ax.peek.agent.v1`
+- `schema`: `axt.peek.agent.v1`
 - `ok`: top-level success marker
 - `mode`: `table`
 - `root`: displayed scan root
@@ -166,7 +172,7 @@ Output mode flags are mutually exclusive.
 
 ## Error Codes
 
-`--list-errors` prints the full standard catalog from `ax-core`.
+`--list-errors` prints the full standard catalog from `axt-core`.
 
 Full catalog:
 

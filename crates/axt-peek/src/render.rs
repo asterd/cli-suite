@@ -1,7 +1,7 @@
 use std::io::Write;
 
-use ax_core::ErrorCode;
-use ax_output::{
+use axt_core::ErrorCode;
+use axt_output::{
     format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
     OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
 };
@@ -99,7 +99,7 @@ impl Renderable for PeekData {
 
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
-            "ax.peek.v1",
+            "axt.peek.v1",
             self,
             json_warnings(&self.warnings),
             Vec::new(),
@@ -120,7 +120,7 @@ impl Renderable for PeekData {
         for warning in &self.warnings {
             writer.write_record(&jsonl_warning(warning))?;
         }
-        let _summary = writer.finish("ax.peek.warn.v1")?;
+        let _summary = writer.finish("axt.peek.warn.v1")?;
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl Renderable for PeekData {
         let rows = emitted_agent_rows(self, ctx)?;
         let truncated = agent_output_truncated(self, ctx)?;
         writer.write_line(&format!(
-            "schema=ax.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
+            "schema=axt.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
             agent_value(&self.root),
             rows,
             total,
@@ -172,7 +172,7 @@ const fn warning_error_code(code: WarningCode) -> ErrorCode {
 
 fn jsonl_summary<'a>(root: &'a str, summary: &Summary, truncated: bool) -> JsonlSummary<'a> {
     JsonlSummary {
-        schema: "ax.peek.summary.v1",
+        schema: "axt.peek.summary.v1",
         kind: "summary",
         ok: true,
         root,
@@ -189,15 +189,13 @@ fn jsonl_summary<'a>(root: &'a str, summary: &Summary, truncated: bool) -> Jsonl
 
 fn emitted_agent_rows(data: &PeekData, ctx: &RenderContext<'_>) -> RenderResult<usize> {
     let header_len = agent_header(data, false, data.entries.len())?.len() + 1;
-    let mut records = 1;
     let mut bytes = header_len;
     let mut rows = 0;
-    for entry in &data.entries {
+    for (records, entry) in (1..).zip(data.entries.iter()) {
         let len = agent_row(entry).len() + 1;
         if records >= ctx.limits.max_records || bytes + len > ctx.limits.max_bytes {
             break;
         }
-        records += 1;
         bytes += len;
         rows += 1;
     }
@@ -209,7 +207,6 @@ fn agent_output_truncated(data: &PeekData, ctx: &RenderContext<'_>) -> RenderRes
     if rows < data.entries.len() {
         return Ok(true);
     }
-    let mut records = 1 + data.entries.len();
     let mut bytes = agent_header(data, false, data.entries.len())?.len()
         + 1
         + data
@@ -217,20 +214,19 @@ fn agent_output_truncated(data: &PeekData, ctx: &RenderContext<'_>) -> RenderRes
             .iter()
             .map(|entry| agent_row(entry).len() + 1)
             .sum::<usize>();
-    for warning in &data.warnings {
+    for (records, warning) in (1 + data.entries.len()..).zip(data.warnings.iter()) {
         let len = agent_warning(warning)?.len() + 1;
         if records >= ctx.limits.max_records || bytes + len > ctx.limits.max_bytes {
             return Ok(true);
         }
-        records += 1;
         bytes += len;
     }
-    Ok(records == 1 && bytes > ctx.limits.max_bytes)
+    Ok(data.entries.is_empty() && data.warnings.is_empty() && bytes > ctx.limits.max_bytes)
 }
 
 fn agent_header(data: &PeekData, truncated: bool, rows: usize) -> RenderResult<String> {
     Ok(format!(
-        "schema=ax.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
+        "schema=axt.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
         agent_value(&data.root),
         rows,
         data.entries.len(),
@@ -292,7 +288,7 @@ fn agent_value(value: &str) -> String {
 
 fn jsonl_entry(entry: &Entry) -> JsonlEntry<'_> {
     JsonlEntry {
-        schema: "ax.peek.entry.v1",
+        schema: "axt.peek.entry.v1",
         kind: entry.kind.as_str(),
         path: &entry.path,
         bytes: entry.bytes,
@@ -304,7 +300,7 @@ fn jsonl_entry(entry: &Entry) -> JsonlEntry<'_> {
 
 fn jsonl_warning(warning: &PeekWarning) -> JsonlWarning<'_> {
     JsonlWarning {
-        schema: "ax.peek.warn.v1",
+        schema: "axt.peek.warn.v1",
         kind: "warn",
         code: warning.code.as_str(),
         path: warning.path.as_deref(),

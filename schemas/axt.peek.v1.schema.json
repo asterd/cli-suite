@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ax.dev/schemas/ax.peek.v1.schema.json",
+  "$id": "https://axt.dev/schemas/axt.peek.v1.schema.json",
   "type": "object",
   "required": ["schema", "ok", "data", "warnings", "errors"],
   "additionalProperties": false,
   "properties": {
-    "schema": { "const": "ax.peek.v1" },
+    "schema": { "const": "axt.peek.v1" },
     "ok": { "const": true },
     "data": {
       "type": "object",

@@ -1,6 +1,6 @@
-# `ax` Coding-Agent Prompt Playbook
+# `axt` Coding-Agent Prompt Playbook
 
-How to drive Claude Code, Codex, Aider, or any coding agent through the implementation of `ax` without losing the plot.
+How to drive Claude Code, Codex, Aider, or any coding agent through the implementation of `axt` without losing the plot.
 
 This file is meant to live at `docs/agent-prompts.md` in the repo, alongside `spec.md` and `spec-addendum.md`. The prompts below are **copy-paste ready**.
 
@@ -27,22 +27,22 @@ This separation matters. Permanent rules in `CLAUDE.md` cost zero tokens to repe
 Create this file once, commit it. Claude Code auto-loads it. For Codex, rename to `AGENTS.md`. For other agents, paste its content into the system prompt.
 
 ```markdown
-# `ax` — Project Rules for AI Agents
+# `axt` — Project Rules for AI Agents
 
-You are implementing the `ax` Foundation CLI Suite. Source of truth: `docs/spec.md` and `docs/spec-addendum.md`.
+You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec.md` and `docs/spec-addendum.md`.
 
 ## Hard rules (never violate)
 
 1. **Stop at milestone boundaries.** Each session has a single target milestone. Do not start the next one without explicit instruction.
 2. **No `unwrap()` or `expect()` in non-test code.** Use typed errors via `thiserror` in libraries; `anyhow` is allowed only at the binary edge (`main.rs`).
 3. **No deviation from the spec without updating the spec first.** If you find an ambiguity or a real reason to change behavior, edit the relevant spec section, explain why in the commit message, then implement. Never silent-drift.
-4. **No new commands or binaries beyond the six in the spec** (`ax-peek`, `ax-run`, `ax-doc`, `ax-drift`, `ax-port`, `ax-test`).
-5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/ax-*/Cargo.toml`.
+4. **No new commands or binaries beyond the six in the spec** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`).
+5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
 8. **Four primary output modes always, even for stub commands**: `--json`, `--jsonl`, `--agent`, human (default). `--plain`, `--json-data`, `--print-schema`, and `--list-errors` are also standard shared flags.
 9. **Cross-platform parity is the default.** When a feature degrades on Windows or macOS, document it in the per-command cross-platform matrix (`docs/commands/<cmd>.md`) and exit with code 9 (`feature_unsupported`) rather than fail silently.
-10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `ax-peek`, `ax-core`).
+10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `axt-peek`, `axt-core`).
 
 ## Quality gates (run before declaring a milestone done)
 
@@ -66,7 +66,7 @@ CI must pass on Linux, macOS, and Windows. If a test depends on platform-specifi
 
 ## Files you may freely create
 
-- New crates under `crates/`, but only `ax-*` per the spec.
+- New crates under `crates/`, but only `axt-*` per the spec.
 - New tests anywhere appropriate.
 - New docs under `docs/`.
 - New fixtures under `fixtures/`.
@@ -102,7 +102,7 @@ Commit this as `CLAUDE.md` at the repo root. Done once.
 Use this **exactly once**, at project start, after you've created the empty repo with `CLAUDE.md`, `docs/spec.md`, `docs/spec-addendum.md`, and nothing else.
 
 ```
-You are starting the `ax` Foundation CLI Suite.
+You are starting the `axt` Foundation CLI Suite.
 
 Your task this session is **Milestone 0 only**, defined in `docs/spec.md` section 14, "Milestone 0 — workspace scaffolding".
 
@@ -122,12 +122,12 @@ Wait for me to confirm before proceeding.
 When I confirm, implement Milestone 0:
 - Create the repository structure from spec.md section 6.
 - Workspace `Cargo.toml` from section 7.
-- Empty crate stubs for `ax-core`, `ax-output`, `ax-fs`, `ax-git`, `ax-peek`, plus `xtask`.
+- Empty crate stubs for `axt-core`, `axt-output`, `axt-fs`, `axt-git`, `axt-peek`, plus `xtask`.
 - License files, README, CONTRIBUTING, SECURITY.
 - A green CI workflow on Linux/macOS/Windows running fmt, clippy, test on stable Rust.
 - `cargo dist init --ci=github --installer shell --installer powershell --installer homebrew`, configured for tier-1 targets only.
 
-Do not implement anything for Milestone 1 yet. Do not write `ax-peek` logic. Stub crates should compile but not do real work.
+Do not implement anything for Milestone 1 yet. Do not write `axt-peek` logic. Stub crates should compile but not do real work.
 
 When done, produce the status report described in `docs/agent-prompts.md` section 6.
 ```
@@ -157,7 +157,7 @@ Wait for me to confirm the plan before writing code.
 
 When I confirm:
 - Implement only this milestone. Stop at its boundary.
-- Preserve all existing public schemas (`ax.*.v1`). Schema changes require a major version bump and explicit instruction.
+- Preserve all existing public schemas (`axt.*.v1`). Schema changes require a major version bump and explicit instruction.
 - Add tests before or alongside production code.
 - Run all three quality gates before declaring done.
 - Produce the status report.
@@ -170,15 +170,15 @@ Spec sections to read for this milestone:
 
 | N | Target | Spec sections to read | Approx duration |
 |---|---|---|---|
-| 1 | `ax-core` and `ax-output` foundations | `spec.md` §3, §5, §8.1, §8.2, §13, §14 (M1) | 3–5 days |
-| 2 | `ax-fs` and `ax-git` shared crates | `spec.md` §8.3, §8.4, §14 (M2) | 5–7 days |
-| 3 | `ax-peek` MVP, end-to-end | `spec.md` §9 (full), §14 (M3) | 5–7 days |
+| 1 | `axt-core` and `axt-output` foundations | `spec.md` §3, §5, §8.1, §8.2, §13, §14 (M1) | 3–5 days |
+| 2 | `axt-fs` and `axt-git` shared crates | `spec.md` §8.3, §8.4, §14 (M2) | 5–7 days |
+| 3 | `axt-peek` MVP, end-to-end | `spec.md` §9 (full), §14 (M3) | 5–7 days |
 | 4 | Release pipeline shakedown | `spec.md` §12 (full), §14 (M4) | 1–3 days |
-| 5 | `ax-run` MVP | `spec.md` §10 (full) | 5–10 days |
-| 6 | `ax-doc` MVP | `spec.md` §11.1 | 5–7 days |
-| 7 | `ax-drift` MVP | `spec.md` §11.2 | 3–5 days |
-| 8 | `ax-port` MVP | `spec-addendum.md` §11.3 (full) | 5–7 days |
-| 9 | `ax-test` MVP | `spec-addendum.md` §11.4 (full) | 10–14 days |
+| 5 | `axt-run` MVP | `spec.md` §10 (full) | 5–10 days |
+| 6 | `axt-doc` MVP | `spec.md` §11.1 | 5–7 days |
+| 7 | `axt-drift` MVP | `spec.md` §11.2 | 3–5 days |
+| 8 | `axt-port` MVP | `spec-addendum.md` §11.3 (full) | 5–7 days |
+| 9 | `axt-test` MVP | `spec-addendum.md` §11.4 (full) | 10–14 days |
 
 (Milestones 0 + 1–9 = 10 sessions total. Some milestones split into sub-sessions for the bigger ones; see section 7.)
 
@@ -261,20 +261,20 @@ Commit this as `docs/status/M{N}.md` so it's discoverable in future sessions.
 Milestones 1, 5, 6, and 9 are large. Don't run them as one session. Split:
 
 ### Milestone 1 — split into 1a, 1b
-- **1a**: `ax-core` only. Errors, exit codes, `Clock`, `OutputMode`, common flags, `--print-schema`/`--list-errors` machinery. Tests for everything.
-- **1b**: `ax-output` only. `JsonEnvelope`, `JsonlWriter`, `AgentCompactWriter`, color/TTY handling, truncation. Snapshot tests.
+- **1a**: `axt-core` only. Errors, exit codes, `Clock`, `OutputMode`, common flags, `--print-schema`/`--list-errors` machinery. Tests for everything.
+- **1b**: `axt-output` only. `JsonEnvelope`, `JsonlWriter`, `AgentCompactWriter`, color/TTY handling, truncation. Snapshot tests.
 
 ### Milestone 5 — split into 5a, 5b
-- **5a**: `ax-run` core: spawn, capture, exit code, timeout. JSON envelope. No file-watching yet.
-- **5b**: `ax-run` extras: `--watch-files`, artifact storage (`.ax/runs/`), `runx show/list/clean`, agent ACF plus JSONL.
+- **5a**: `axt-run` core: spawn, capture, exit code, timeout. JSON envelope. No file-watching yet.
+- **5b**: `axt-run` extras: `--watch-files`, artifact storage (`.axt/runs/`), `runx show/list/clean`, agent ACF plus JSONL.
 
 ### Milestone 6 — split into 6a, 6b, 6c
-- **6a**: `ax-doc which <cmd>` only.
-- **6b**: `ax-doc path` (PATH duplicates, missing dirs, broken symlinks).
-- **6c**: `ax-doc env` (var listing, secret-like detection) + `ax-doc all`.
+- **6a**: `axt-doc which <cmd>` only.
+- **6b**: `axt-doc path` (PATH duplicates, missing dirs, broken symlinks).
+- **6c**: `axt-doc env` (var listing, secret-like detection) + `axt-doc all`.
 
 ### Milestone 9 — split into 9a, 9b, 9c, 9d
-- **9a**: `ax-test` framework, `TestFrontend` trait, jest frontend only.
+- **9a**: `axt-test` framework, `TestFrontend` trait, jest frontend only.
 - **9b**: pytest frontend.
 - **9c**: cargo and go test frontends.
 - **9d**: vitest, bun, deno frontends + monorepo multi-framework merging.
@@ -344,7 +344,7 @@ Steps:
 3. Bump version in workspace `Cargo.toml` and per-crate `Cargo.toml` files. All binary crates use the same version. Internal library crates may bump independently.
 4. Run `cargo dist plan` and confirm the build matrix matches the targets in `spec.md` §12.2.
 5. Commit with message `chore(release): v{VERSION}`.
-6. Tag: `git tag v{VERSION} -s -m "ax v{VERSION}"`.
+6. Tag: `git tag v{VERSION} -s -m "axt v{VERSION}"`.
 7. Do not push the tag yet. Output the exact commands I should run, including the smoke-test plan from `spec.md` §12.4 step 7.
 
 After I push and the workflow runs, I'll start a new session with the release-verification prompt.
@@ -357,9 +357,9 @@ Verify release v{VERSION}.
 
 The release workflow has finished. Run:
 1. The shell installer on a clean Linux fixture (use a Docker container or a fresh VM).
-2. `brew install <org>/ax/ax-peek` on macOS (if local).
-3. `scoop install ax-peek` on Windows (if local).
-4. `cargo install ax-peek` from a fresh `cargo` install.
+2. `brew install <org>/axt/axt-peek` on macOS (if local).
+3. `scoop install axt-peek` on Windows (if local).
+4. `cargo install axt-peek` from a fresh `cargo` install.
 
 For each: confirm the binary runs, `--version` reports the expected version, and `--help` works.
 

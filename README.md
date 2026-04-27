@@ -1,17 +1,17 @@
-# ax Foundation CLI Suite
+# axt Foundation CLI Suite
 
-`ax` is a Rust workspace for small, agent-friendly CLI tools with stable machine-readable output and human-readable defaults.
+`axt` is a Rust workspace for small, agent-friendly CLI tools with stable machine-readable output and human-readable defaults.
 
-Milestone 0 contains scaffolding only. The first shipped command will be `ax-peek`.
+Milestone 0 contains scaffolding only. The first shipped command will be `axt-peek`.
 
 ## Planned Binaries
 
-- `ax-peek`
-- `ax-run`
-- `ax-doc`
-- `ax-drift`
-- `ax-port`
-- `ax-test`
+- `axt-peek`
+- `axt-run`
+- `axt-doc`
+- `axt-drift`
+- `axt-port`
+- `axt-test`
 
 ## Install
 

@@ -1,19 +1,19 @@
-# `ax` — Project Rules for AI Agents
+# `axt` — Project Rules for AI Agents
 
-You are implementing the `ax` Foundation CLI Suite. Source of truth: `docs/spec.md` and `docs/spec-addendum.md`.
+You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec.md` and `docs/spec-addendum.md`.
 
 ## Hard rules (never violate)
 
 1. **Stop at milestone boundaries.** Each session has a single target milestone. Do not start the next one without explicit instruction.
 2. **No `unwrap()` or `expect()` in non-test code.** Use typed errors via `thiserror` in libraries; `anyhow` is allowed only at the binary edge (`main.rs`).
 3. **No deviation from the spec without updating the spec first.** If you find an ambiguity or a real reason to change behavior, edit the relevant spec section, explain why in the commit message, then implement. Never silent-drift.
-4. **No new commands or binaries beyond the six in the spec** (`ax-peek`, `ax-run`, `ax-doc`, `ax-drift`, `ax-port`, `ax-test`).
-5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/ax-*/Cargo.toml`.
+4. **No new commands or binaries beyond the six in the spec** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`).
+5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
 8. **Four primary output modes always, even for stub commands**: `--json`, `--jsonl`, `--agent`, human (default). `--plain`, `--json-data`, `--print-schema`, and `--list-errors` are also standard shared flags.
 9. **Cross-platform parity is the default.** When a feature degrades on Windows or macOS, document it in the per-command cross-platform matrix (`docs/commands/<cmd>.md`) and exit with code 9 (`feature_unsupported`) rather than fail silently.
-10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `ax-peek`, `ax-core`).
+10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `axt-peek`, `axt-core`).
 
 ## Quality gates (run before declaring a milestone done)
 
@@ -37,7 +37,7 @@ CI must pass on Linux, macOS, and Windows. If a test depends on platform-specifi
 
 ## Files you may freely create
 
-- New crates under `crates/`, but only `ax-*` per the spec.
+- New crates under `crates/`, but only `axt-*` per the spec.
 - New tests anywhere appropriate.
 - New docs under `docs/`.
 - New fixtures under `fixtures/`.

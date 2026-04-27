@@ -1,7 +1,7 @@
-# `ax` Foundation CLI Suite — Spec Addendum: Two New Commands
+# `axt` Foundation CLI Suite — Spec Addendum: Two New Commands
 
-**Status**: Addendum to `ax-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `ax-port` (Phase 5), `ax-test` (Phase 6).
+**Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -24,18 +24,18 @@ Other candidates were considered and rejected, with rationale recorded at the en
 Build a small suite of single-binary CLI tools, written in Rust, designed to be agent-friendly and human-friendly. Each binary is independently installable.
 
 **Phase 1 (ship first):**
-- `ax-peek` — directory & repo snapshot.
+- `axt-peek` — directory & repo snapshot.
 - Shared library crates.
 - Full release pipeline.
 
 **Phase 2–4 (after Phase 1 is shipping):**
-- `ax-run` — observable command execution.
-- `ax-doc` — environment & toolchain doctor.
-- `ax-drift` — filesystem diff from a marker.
+- `axt-run` — observable command execution.
+- `axt-doc` — environment & toolchain doctor.
+- `axt-drift` — filesystem diff from a marker.
 
 **Phase 5–6 (added in this addendum):**
-- `ax-port` — port-occupancy inspection and reclaim, cross-platform.
-- `ax-test` — test runner normalizer for jest, pytest, cargo, go, vitest, etc.
+- `axt-port` — port-occupancy inspection and reclaim, cross-platform.
+- `axt-test` — test runner normalizer for jest, pytest, cargo, go, vitest, etc.
 
 **Total surface**: 6 binaries. After Phase 6 the suite is feature-complete for v1.0; no further commands are planned.
 
@@ -45,16 +45,16 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 
 | Binary | Phase | One-line purpose |
 |---|---|---|
-| `ax-peek` | 1 | Snapshot of a directory + repo + git + language metadata in one shot. |
-| `ax-run` | 2 | Run a command and produce a structured envelope of what happened. |
-| `ax-doc` | 3 | Diagnose the dev environment: PATH, version managers, env vars. |
-| `ax-drift` | 4 | Mark filesystem state, then later report what changed since the mark. |
-| `ax-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
-| `ax-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
+| `axt-peek` | 1 | Snapshot of a directory + repo + git + language metadata in one shot. |
+| `axt-run` | 2 | Run a command and produce a structured envelope of what happened. |
+| `axt-doc` | 3 | Diagnose the dev environment: PATH, version managers, env vars. |
+| `axt-drift` | 4 | Mark filesystem state, then later report what changed since the mark. |
+| `axt-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
+| `axt-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
 
 ---
 
-## 11.3 — `ax-port` (Phase 5)
+## 11.3 — `axt-port` (Phase 5)
 
 ### 11.3.1 Purpose
 
@@ -69,15 +69,15 @@ Today, the workflow is:
 
 Every developer has hit this. Tools that solve it (e.g., `kill-my-port`, `kill-port-process`) are npm-only, target one ecosystem, return text, and have no agent mode. There is no single static binary that does this consistently with structured output.
 
-`ax-port` does. It is small, focused, and the agent value is high: one call replaces a 3-step OS-specific recipe.
+`axt-port` does. It is small, focused, and the agent value is high: one call replaces a 3-step OS-specific recipe.
 
 ### 11.3.3 CLI surface
 
 ```
-ax-port list                          # all listening ports
-ax-port who <PORT> [<PORT>...]        # who holds these ports
-ax-port free <PORT> [<PORT>...]       # send termination signal to holders
-ax-port watch <PORT>                  # poll until the port is free or held
+axt-port list                          # all listening ports
+axt-port who <PORT> [<PORT>...]        # who holds these ports
+axt-port free <PORT> [<PORT>...]       # send termination signal to holders
+axt-port watch <PORT>                  # poll until the port is free or held
 
   --proto tcp|udp|both            # default: tcp
   --signal term|kill|int          # for `free`; default: term, escalate to kill after --grace
@@ -97,7 +97,7 @@ ax-port watch <PORT>                  # poll until the port is free or held
 ### 11.3.4 Output: human mode
 
 ```
-$ ax-port who 3000
+$ axt-port who 3000
 Port 3000 (tcp, listening)
   PID 47281    node    /Users/dario/projects/api    "node server.js"
   Bound:       0.0.0.0:3000  ::1:3000
@@ -107,7 +107,7 @@ Port 3000 (tcp, listening)
 ```
 
 ```
-$ ax-port list
+$ axt-port list
 Port    Proto  PID    Process       Bound          State
 3000    tcp    47281  node          0.0.0.0:3000   LISTEN
 5432    tcp    1284   postgres      127.0.0.1:5432 LISTEN
@@ -115,7 +115,7 @@ Port    Proto  PID    Process       Bound          State
 ```
 
 ```
-$ ax-port free 3000
+$ axt-port free 3000
 Port 3000 held by PID 47281 (node)
 Sent SIGTERM. Waiting up to 3s...
 Port 3000 freed.
@@ -124,22 +124,22 @@ Port 3000 freed.
 ### 11.3.5 Output: agent mode (ACF)
 
 ```text
-schema=ax.port.agent.v1 ok=true mode=records action=who port=3000 proto=tcp held=true holders=1 truncated=false
+schema=axt.port.agent.v1 ok=true mode=records action=who port=3000 proto=tcp held=true holders=1 truncated=false
 H port=3000 proto=tcp pid=47281 name=node cmd="node server.js" cwd=/Users/dario/projects/api bound=0.0.0.0:3000 owner=dario mem=190840832 started=2026-04-27T08:14:22Z
 ```
 
 For `free`:
 
 ```text
-schema=ax.port.agent.v1 ok=true mode=records action=free port=3000 freed=true signal_sent=term escalated=false ms=1240 truncated=false
+schema=axt.port.agent.v1 ok=true mode=records action=free port=3000 freed=true signal_sent=term escalated=false ms=1240 truncated=false
 A port=3000 pid=47281 name=node signal=term result=freed ms=1240
 ```
 
 For an unfreeable port (process won't die or insufficient permissions):
 
 ```text
-schema=ax.port.agent.v1 ok=false mode=records action=free port=3000 freed=false truncated=false
-X code=permission_denied port=3000 pid=47281 name=system_daemon owner=root hint="sudo ax-port free 3000"
+schema=axt.port.agent.v1 ok=false mode=records action=free port=3000 freed=false truncated=false
+X code=permission_denied port=3000 pid=47281 name=system_daemon owner=root hint="sudo axt-port free 3000"
 ```
 
 ### 11.3.6 Cross-platform implementation
@@ -158,7 +158,7 @@ X code=permission_denied port=3000 pid=47281 name=system_daemon owner=root hint=
 If `cwd` cannot be obtained, the field is `null` in JSON and omitted in agent mode rather than fabricated.
 
 Crates to use:
-- `sysinfo` — already in workspace deps for `ax-doc`/`ax-drift`. Provides cross-platform process enumeration with command line, owner, memory.
+- `sysinfo` — already in workspace deps for `axt-doc`/`axt-drift`. Provides cross-platform process enumeration with command line, owner, memory.
 - `netstat2` or hand-rolled bindings to platform APIs for socket→PID mapping. `sysinfo` does not currently expose this on all platforms; this is the only platform-specific code in the binary.
 - `nix` for Unix signals; `windows` crate for `TerminateProcess`.
 
@@ -166,7 +166,7 @@ Crates to use:
 
 This is the only command in the suite that **mutates external state by default**. We treat that with respect:
 
-- `ax-port free` is the only mutating subcommand. `list`, `who`, `watch` are read-only.
+- `axt-port free` is the only mutating subcommand. `list`, `who`, `watch` are read-only.
 - `--dry-run` is supported on `free` and produces the same JSON/JSONL schema and ACF keys with `freed: false` and an `action: simulated` flag.
 - `--confirm` requires interactive y/n if stdout is a TTY. Non-interactive (agent) calls bypass this — the agent is responsible for explicit consent in its own loop.
 - We refuse to kill PID 1 always. We refuse to kill the current process. We refuse to kill our own parent unless `--force-self` is passed (which prints a stderr warning).
@@ -179,25 +179,25 @@ This is the only command in the suite that **mutates external state by default**
 2. `who <port>` returns full holder info with PID, command, owner, bind addresses.
 3. `free <port>` actually frees the port on all three OSes; `--dry-run` works.
 4. `watch <port>` polls until the port is held or freed, with a `--timeout` option.
-5. JSON output validates against `ax.port.v1`; JSONL records validate against their record schemas; agent output follows ACF.
+5. JSON output validates against `axt.port.v1`; JSONL records validate against their record schemas; agent output follows ACF.
 6. Snapshot tests on a fixture that spawns a known-port-listener process.
 7. Cross-platform CI runs the full suite. Where a feature degrades (cwd on Windows), the test asserts graceful degradation, not failure.
 8. `docs/commands/port.md` written, with safety section explicit.
 
-### 11.3.9 What `ax-port` is not
+### 11.3.9 What `axt-port` is not
 
 - Not a network sniffer. We do not capture packets.
 - Not a firewall manager. We do not modify rules.
-- Not a port scanner against remote hosts. The scope is **local sockets only**. (`ax-port who example.com:443` returns a usage error.)
+- Not a port scanner against remote hosts. The scope is **local sockets only**. (`axt-port who example.com:443` returns a usage error.)
 - Not a docker-port-mapper. Containers have their own port namespace; we report what the host sees.
 
 ---
 
-## 11.4 — `ax-test` (Phase 6)
+## 11.4 — `axt-test` (Phase 6)
 
 ### 11.4.1 Purpose
 
-Run a project's test suite and emit normalized JSON/JSONL plus compact ACF, regardless of which framework is being used. The agent calls `ax-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
+Run a project's test suite and emit normalized JSON/JSONL plus compact ACF, regardless of which framework is being used. The agent calls `axt-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
 
 ### 11.4.2 Why this exists
 
@@ -208,23 +208,23 @@ The pain is concrete:
 - Some frameworks have no machine output at all by default (e.g., bare `mocha` requires a custom reporter; `go test` needs `-json`).
 - Agents waste tokens parsing partial output, retrying when JSON is invalid, or asking the user "what test runner is this?".
 
-`ax-test` solves all of these by detecting the framework, invoking it correctly, parsing whatever native machine output exists, and re-emitting in a stable schema.
+`axt-test` solves all of these by detecting the framework, invoking it correctly, parsing whatever native machine output exists, and re-emitting in a stable schema.
 
 ### 11.4.3 CLI surface
 
 ```
-ax-test                                   # auto-detect and run
-ax-test --framework jest                  # force a framework
-ax-test --filter <PATTERN>                # pass-through to the framework's name filter
-ax-test --files <PATH>...                 # run only specified files
-ax-test --changed                         # only test files that changed in git
-ax-test --changed-since <REF>             # files changed since a ref
-ax-test --bail                            # stop at first failure
-ax-test --workers <N>                     # set parallelism (per-framework mapping)
-ax-test --top-failures <N>                # only emit the first N failure records (default 5)
-ax-test --include-output / --no-include-output   # include stdout/stderr per failed test (default: only failed)
-ax-test --pass-through -- <FRAMEWORK_FLAGS>  # raw flags to the underlying runner
-ax-test list-frameworks                   # what we support and how we detect
+axt-test                                   # auto-detect and run
+axt-test --framework jest                  # force a framework
+axt-test --filter <PATTERN>                # pass-through to the framework's name filter
+axt-test --files <PATH>...                 # run only specified files
+axt-test --changed                         # only test files that changed in git
+axt-test --changed-since <REF>             # files changed since a ref
+axt-test --bail                            # stop at first failure
+axt-test --workers <N>                     # set parallelism (per-framework mapping)
+axt-test --top-failures <N>                # only emit the first N failure records (default 5)
+axt-test --include-output / --no-include-output   # include stdout/stderr per failed test (default: only failed)
+axt-test --pass-through -- <FRAMEWORK_FLAGS>  # raw flags to the underlying runner
+axt-test list-frameworks                   # what we support and how we detect
 
   + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
 ```
@@ -234,7 +234,7 @@ ax-test list-frameworks                   # what we support and how we detect
 Order of detection:
 
 1. Explicit `--framework <name>`.
-2. `ax-test.toml` or `[tool.ax-test]` in `pyproject.toml` / `package.json#ax-test`.
+2. `axt-test.toml` or `[tool.axt-test]` in `pyproject.toml` / `package.json#axt-test`.
 3. Package files inspected:
    - `package.json#scripts.test` and `package.json#devDependencies` for jest, vitest, mocha, ava, jasmine, bun.
    - `Cargo.toml` for `cargo test` (workspaces detected).
@@ -242,18 +242,18 @@ Order of detection:
    - `pyproject.toml` for pytest / unittest.
    - `Gemfile` for rspec / minitest.
    - `deno.json` for `deno test`.
-4. If multiple frameworks detected (monorepo), `ax-test` runs each in turn and merges output, prefixing path with subproject. `--single` to refuse.
+4. If multiple frameworks detected (monorepo), `axt-test` runs each in turn and merges output, prefixing path with subproject. `--single` to refuse.
 
 ### 11.4.5 Normalized output schema
 
 Agent mode (ACF):
 
 ```text
-schema=ax.test.agent.v1 ok=false mode=records frameworks=jest total=124 passed=118 failed=3 skipped=3 todo=0 ms=12405 started=2026-04-27T10:12:00Z truncated=false
+schema=axt.test.agent.v1 ok=false mode=records frameworks=jest total=124 passed=118 failed=3 skipped=3 todo=0 ms=12405 started=2026-04-27T10:12:00Z truncated=false
 U name="checkout flow" file=tests/checkout.test.ts passed=12 failed=2 skipped=0 ms=3402
 C status=failed name="creates an order with a discount code" suite="checkout flow" file=tests/checkout.test.ts line=47 ms=234 message="expected 200, got 500" actual=500 expected=200
 C status=failed name="applies tax for EU customers" suite="checkout flow" file=tests/checkout.test.ts line=89 ms=118 message="Internal server error: undefined is not a function"
-S run="ax-test --filter 'checkout flow' --include-output"
+S run="axt-test --filter 'checkout flow' --include-output"
 ```
 
 Human mode prints a compact table with only failures expanded; success cases are summarized. `--include-output` shows stdout/stderr for failed cases.
@@ -270,7 +270,7 @@ Human mode prints a compact table with only failures expanded; success cases are
 | `failure.stack` | Full stack if the framework provides it. May be `null`. |
 | `failure.actual` / `expected` / `diff` | Filled when the framework reports them (jest, vitest, rspec); `null` otherwise. |
 
-For frameworks without native JSON, we run the framework with our own reporter where supported (e.g., `mocha --reporter <ax-test-bundled-reporter>`), or parse text output as a fallback. The agent should not need to know which path was taken.
+For frameworks without native JSON, we run the framework with our own reporter where supported (e.g., `mocha --reporter <axt-test-bundled-reporter>`), or parse text output as a fallback. The agent should not need to know which path was taken.
 
 ### 11.4.7 Implementation strategy
 
@@ -287,7 +287,7 @@ trait TestFrontend {
 
 `NormalizedEvent` is the union of summary/suite/case events. The streaming parser is critical: long test runs must produce records as they arrive, not after the run completes. (jest's stream-json reporter, cargo test's `--format json -Z unstable-options`, go test's `-json`, pytest with `--report-output-format=json` all support streaming.)
 
-Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `regex` for fallback text parsers; `tokio::process` for async invocation (already in workspace for `ax-run`).
+Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `regex` for fallback text parsers; `tokio::process` for async invocation (already in workspace for `axt-run`).
 
 ### 11.4.8 What we will and will not support
 
@@ -317,11 +317,11 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 1. Auto-detection works for the seven primary frameworks.
 2. JSONL schemas validated for every supported framework against committed fixtures; ACF snapshots cover compact agent output.
 3. Streaming: failures appear in `--jsonl` as they happen, not at the end.
-4. `--changed` and `--changed-since` integrate with `ax-git` to filter affected files.
+4. `--changed` and `--changed-since` integrate with `axt-git` to filter affected files.
 5. Cross-platform: jest and pytest work the same on Linux/macOS/Windows. cargo and go test work where their toolchain works.
 6. `docs/commands/test.md` documents every framework's mapping in a table.
 
-### 11.4.10 What `ax-test` is not
+### 11.4.10 What `axt-test` is not
 
 - Not a test runner itself. It does not discover or execute tests independently of an underlying framework.
 - Not a benchmarking tool. `cargo bench`, `vitest bench`, etc., are out of scope.
@@ -334,28 +334,28 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 
 | Capability | Linux | macOS | Windows | Notes |
 |---|---|---|---|---|
-| `ax-port`: list listening sockets | ✅ | ✅ | ✅ | |
-| `ax-port`: who-has-port | ✅ | ✅ | ✅ | |
-| `ax-port`: free port (TERM/KILL) | ✅ | ✅ | ✅ | |
-| `ax-port`: PID → cwd | ✅ via `/proc` | ⚠️ best-effort via `libproc` | ⚠️ requires elevation; field is `null` otherwise | |
-| `ax-port`: process tree kill | ✅ | ✅ | ✅ via Job Object | |
-| `ax-test`: jest, vitest | ✅ | ✅ | ✅ | |
-| `ax-test`: pytest | ✅ | ✅ | ✅ | |
-| `ax-test`: cargo test | ✅ | ✅ | ✅ | |
-| `ax-test`: go test | ✅ | ✅ | ✅ | |
-| `ax-test`: bun, deno | ✅ | ✅ | ✅ | requires the toolchain installed |
-| `ax-test`: streaming output | ✅ | ✅ | ✅ | |
+| `axt-port`: list listening sockets | ✅ | ✅ | ✅ | |
+| `axt-port`: who-has-port | ✅ | ✅ | ✅ | |
+| `axt-port`: free port (TERM/KILL) | ✅ | ✅ | ✅ | |
+| `axt-port`: PID → cwd | ✅ via `/proc` | ⚠️ best-effort via `libproc` | ⚠️ requires elevation; field is `null` otherwise | |
+| `axt-port`: process tree kill | ✅ | ✅ | ✅ via Job Object | |
+| `axt-test`: jest, vitest | ✅ | ✅ | ✅ | |
+| `axt-test`: pytest | ✅ | ✅ | ✅ | |
+| `axt-test`: cargo test | ✅ | ✅ | ✅ | |
+| `axt-test`: go test | ✅ | ✅ | ✅ | |
+| `axt-test`: bun, deno | ✅ | ✅ | ✅ | requires the toolchain installed |
+| `axt-test`: streaming output | ✅ | ✅ | ✅ | |
 
 ---
 
 ## Updated implementation plan (additions to section 14)
 
-### Milestone 5 — `ax-port` (target: 5–7 days)
+### Milestone 5 — `axt-port` (target: 5–7 days)
 
-After `ax-drift` is shipping in v0.4. Build, test, ship.
+After `axt-drift` is shipping in v0.4. Build, test, ship.
 
 Steps:
-1. New crate `crates/ax-port`.
+1. New crate `crates/axt-port`.
 2. Cross-platform socket→PID mapping (the only platform-specific code; abstract behind a trait).
 3. CLI surface from 11.3.3.
 4. Renderers: human, JSON, agent.
@@ -365,12 +365,12 @@ Steps:
 
 Done criteria: see 11.3.8.
 
-### Milestone 6 — `ax-test` (target: 10–14 days)
+### Milestone 6 — `axt-test` (target: 10–14 days)
 
 This is the largest single binary in the suite. Plan accordingly.
 
 Steps:
-1. New crate `crates/ax-test`.
+1. New crate `crates/axt-test`.
 2. Define `TestFrontend` trait and `NormalizedEvent` union.
 3. Implement frontends in priority order: jest, pytest, cargo test, go test, vitest, bun, deno.
 4. Streaming infrastructure: line-buffered async reads, per-frontend parsers.
@@ -388,12 +388,12 @@ Done criteria: see 11.4.9.
 
 These commands were considered for the suite and explicitly rejected. Future maintainers should not relitigate without new evidence:
 
-- **`ax-watch`** (file watcher with JSONL events). Reason: `watchexec` is mature and widely installed; agents are session-based and rarely benefit from continuous watching; the unique value-add (JSONL events) is small.
-- **`ax-log`** (log analyzer with error extraction). Reason: `lnav` and `goaccess` cover this for humans; for agents, `ax-run --tail-bytes` already extracts errors from the run we just executed, which is the common case. Standalone log post-mortem is a niche.
-- **`ax-net`** (network diagnostic structured). Reason: `curl --json` plus `jc dig` already give structured network output; nothing meaningful to add.
-- **`ax-deps`** (cross-package-manager dependency analyzer). Reason: Each ecosystem has tools that already produce JSON (`npm ls --json`, `pnpm why`, `cargo metadata`, `pip show --format=json`); a unifying layer would either lose fidelity or be enormous. Better to let agents call the native tools.
-- **`ax-git`** (git status/log/diff agent-friendly). Reason: `gix` is complex; `ax-peek --changed` and `--changed-since` cover the high-frequency cases; `git status --porcelain=v2` is stable and parsable. Insufficient new value to justify another binary.
-- **`ax-bench`** (benchmark runner normalizer). Reason: too niche, agent value is low (benchmarks are rarely in the agent's loop).
+- **`axt-watch`** (file watcher with JSONL events). Reason: `watchexec` is mature and widely installed; agents are session-based and rarely benefit from continuous watching; the unique value-add (JSONL events) is small.
+- **`axt-log`** (log analyzer with error extraction). Reason: `lnav` and `goaccess` cover this for humans; for agents, `axt-run --tail-bytes` already extracts errors from the run we just executed, which is the common case. Standalone log post-mortem is a niche.
+- **`axt-net`** (network diagnostic structured). Reason: `curl --json` plus `jc dig` already give structured network output; nothing meaningful to add.
+- **`axt-deps`** (cross-package-manager dependency analyzer). Reason: Each ecosystem has tools that already produce JSON (`npm ls --json`, `pnpm why`, `cargo metadata`, `pip show --format=json`); a unifying layer would either lose fidelity or be enormous. Better to let agents call the native tools.
+- **`axt-git`** (git status/log/diff agent-friendly). Reason: `gix` is complex; `axt-peek --changed` and `--changed-since` cover the high-frequency cases; `git status --porcelain=v2` is stable and parsable. Insufficient new value to justify another binary.
+- **`axt-bench`** (benchmark runner normalizer). Reason: too niche, agent value is low (benchmarks are rarely in the agent's loop).
 
 If a clear, repeated pain point emerges in the v1.0 roadmap that one of these would solve, reopen the question with measurements, not opinions.
 
@@ -401,8 +401,8 @@ If a clear, repeated pain point emerges in the v1.0 roadmap that one of these wo
 
 ## Continuation prompt for Phase 5 (use after Phase 4 ships)
 
-> Continue with Milestone 5 from the spec addendum. Implement `ax-port` per the spec in section 11.3. Preserve all existing public schemas. Add tests before or alongside code, including a fixture process that listens on a known port. Run `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`. Verify the safety guarantees in section 11.3.7 with explicit tests (refuse to kill PID 1, refuse to kill self, etc.). Stop when the milestone's Done criteria in 11.3.8 are met.
+> Continue with Milestone 5 from the spec addendum. Implement `axt-port` per the spec in section 11.3. Preserve all existing public schemas. Add tests before or alongside code, including a fixture process that listens on a known port. Run `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`. Verify the safety guarantees in section 11.3.7 with explicit tests (refuse to kill PID 1, refuse to kill self, etc.). Stop when the milestone's Done criteria in 11.3.8 are met.
 
 ## Continuation prompt for Phase 6 (use after Phase 5 ships)
 
-> Continue with Milestone 6 from the spec addendum. Implement `ax-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against normalized JSONL plus compact ACF agent output. Streaming is required for `--jsonl`: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.
+> Continue with Milestone 6 from the spec addendum. Implement `axt-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against normalized JSONL plus compact ACF agent output. Streaming is required for `--jsonl`: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.

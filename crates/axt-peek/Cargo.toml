@@ -1,6 +1,6 @@
 [package]
-name = "ax-peek"
-description = "Directory and repository snapshot command for the ax Foundation CLI Suite."
+name = "axt-peek"
+description = "Directory and repository snapshot command for the axt Foundation CLI Suite."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,17 +10,25 @@ homepage.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "ax-peek"
+name = "axt-peek"
 path = "src/main.rs"
+
+[[bin]]
+name = "peek"
+path = "src/main.rs"
+required-features = ["aliases"]
+
+[features]
+aliases = []
 
 [package.metadata.dist]
 dist = true
 
 [dependencies]
-ax-core = { path = "../ax-core" }
-ax-fs = { path = "../ax-fs" }
-ax-git = { path = "../ax-git" }
-ax-output = { path = "../ax-output" }
+axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-fs = { package = "axt-fs", path = "../axt-fs", version = "0.1.0-rc1" }
+axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
+axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
 anyhow.workspace = true
 camino.workspace = true
 clap.workspace = true

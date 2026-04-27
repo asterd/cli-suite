@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, fs};
 
-use ax_fs::{EntryMetadata, HashAlgorithm, WalkOptions};
+use axt_fs::{EntryMetadata, HashAlgorithm, WalkOptions};
 use camino::{Utf8Path, Utf8PathBuf};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
@@ -66,7 +66,7 @@ struct RootCollection {
 }
 
 fn collect_root(root: &Utf8Path, args: &Args) -> Result<RootCollection> {
-    let metadata = ax_fs::collect_metadata_with_warnings(root, walk_options(args))?;
+    let metadata = axt_fs::collect_metadata_with_warnings(root, walk_options(args))?;
     let git = if args.git_enabled() {
         GitContext::for_root(root)?
     } else {
@@ -111,11 +111,11 @@ fn ignored_count(root: &Utf8Path, args: &Args) -> Result<usize> {
     if args.no_ignore {
         return Ok(0);
     }
-    let visible = ax_fs::collect_metadata(root, walk_options(args))?
+    let visible = axt_fs::collect_metadata(root, walk_options(args))?
         .into_iter()
         .map(|entry| entry.path)
         .collect::<BTreeSet<_>>();
-    let all = ax_fs::collect_metadata(
+    let all = axt_fs::collect_metadata(
         root,
         WalkOptions {
             no_ignore: true,
@@ -128,11 +128,11 @@ fn ignored_count(root: &Utf8Path, args: &Args) -> Result<usize> {
     Ok(all.difference(&visible).count())
 }
 
-fn peek_warning_from_fs(warning: ax_fs::FsWarning) -> PeekWarning {
+fn peek_warning_from_fs(warning: axt_fs::FsWarning) -> PeekWarning {
     let code = match warning.code {
-        ax_fs::FsWarningCode::PermissionDenied => WarningCode::PermissionDenied,
-        ax_fs::FsWarningCode::SymlinkLoop => WarningCode::SymlinkLoop,
-        ax_fs::FsWarningCode::PathNotUtf8 => WarningCode::PathNotUtf8,
+        axt_fs::FsWarningCode::PermissionDenied => WarningCode::PermissionDenied,
+        axt_fs::FsWarningCode::SymlinkLoop => WarningCode::SymlinkLoop,
+        axt_fs::FsWarningCode::PathNotUtf8 => WarningCode::PathNotUtf8,
     };
     PeekWarning {
         code,
@@ -152,7 +152,7 @@ fn changed_since_paths(
         return Ok(Some(BTreeSet::new()));
     };
     Ok(Some(
-        ax_git::diff_paths(repo, reference, "HEAD")?
+        axt_git::diff_paths(repo, reference, "HEAD")?
             .into_iter()
             .collect(),
     ))
@@ -162,7 +162,7 @@ fn changed_since_matches(
     entry: &EntryMetadata,
     changed_since: Option<&BTreeSet<Utf8PathBuf>>,
 ) -> bool {
-    changed_since.map_or(true, |paths| paths.contains(&entry.path))
+    changed_since.is_none_or(|paths| paths.contains(&entry.path))
 }
 
 fn entry_from_metadata(
@@ -171,7 +171,7 @@ fn entry_from_metadata(
     metadata: EntryMetadata,
     git: &GitContext,
 ) -> Result<Entry> {
-    let git_status = if metadata.kind == ax_fs::EntryKind::Dir
+    let git_status = if metadata.kind == axt_fs::EntryKind::Dir
         && root.join(&metadata.path).join(".git").exists()
     {
         GitStatus::Mixed
@@ -187,16 +187,17 @@ fn entry_from_metadata(
     Ok(Entry {
         path,
         kind: map_entry_kind(metadata.kind),
-        bytes: if metadata.kind == ax_fs::EntryKind::File {
+        bytes: if metadata.kind == axt_fs::EntryKind::File {
             metadata.size
         } else {
             0
         },
         language: metadata.language.map(|value| value.to_ascii_lowercase()),
         mime: metadata.mime,
-        encoding: (metadata.kind == ax_fs::EntryKind::File)
+        encoding: (metadata.kind == axt_fs::EntryKind::File)
             .then_some(map_encoding(metadata.encoding)),
-        newline: (metadata.kind == ax_fs::EntryKind::File).then_some(map_newline(metadata.newline)),
+        newline: (metadata.kind == axt_fs::EntryKind::File)
+            .then_some(map_newline(metadata.newline)),
         is_generated: metadata.generated_likely,
         git: git_status,
         mtime: format_mtime(metadata.mtime_unix_ms)?,
@@ -207,12 +208,13 @@ fn entry_from_metadata(
 fn apply_filters(entries: &mut Vec<Entry>, args: &Args) {
     entries.retain(|entry| {
         let changed = !args.changed || !matches!(entry.git, GitStatus::Clean | GitStatus::None);
-        let lang = args.lang.as_ref().map_or(true, |lang| {
-            entry.language.as_deref() == Some(lang.as_str())
-        });
+        let lang = args
+            .lang
+            .as_ref()
+            .is_none_or(|lang| entry.language.as_deref() == Some(lang.as_str()));
         let kind = args
             .type_filter
-            .map_or(true, |filter| entry_matches_type(entry, filter));
+            .is_none_or(|filter| entry_matches_type(entry, filter));
         changed && lang && kind
     });
 }
@@ -336,30 +338,30 @@ fn format_mtime(mtime_unix_ms: Option<i128>) -> Result<Option<String>> {
     Ok(Some(ts.format(&Rfc3339)?))
 }
 
-fn map_entry_kind(kind: ax_fs::EntryKind) -> EntryKind {
+fn map_entry_kind(kind: axt_fs::EntryKind) -> EntryKind {
     match kind {
-        ax_fs::EntryKind::File => EntryKind::File,
-        ax_fs::EntryKind::Dir => EntryKind::Dir,
-        ax_fs::EntryKind::Symlink => EntryKind::Symlink,
-        ax_fs::EntryKind::Other => EntryKind::Other,
+        axt_fs::EntryKind::File => EntryKind::File,
+        axt_fs::EntryKind::Dir => EntryKind::Dir,
+        axt_fs::EntryKind::Symlink => EntryKind::Symlink,
+        axt_fs::EntryKind::Other => EntryKind::Other,
     }
 }
 
-fn map_encoding(encoding: ax_fs::Encoding) -> Encoding {
+fn map_encoding(encoding: axt_fs::Encoding) -> Encoding {
     match encoding {
-        ax_fs::Encoding::Utf8 => Encoding::Utf8,
-        ax_fs::Encoding::Utf16 => Encoding::Utf16,
-        ax_fs::Encoding::Latin1 => Encoding::Latin1,
-        ax_fs::Encoding::Unknown => Encoding::Unknown,
+        axt_fs::Encoding::Utf8 => Encoding::Utf8,
+        axt_fs::Encoding::Utf16 => Encoding::Utf16,
+        axt_fs::Encoding::Latin1 => Encoding::Latin1,
+        axt_fs::Encoding::Unknown => Encoding::Unknown,
     }
 }
 
-fn map_newline(newline: ax_fs::NewlineStyle) -> NewlineStyle {
+fn map_newline(newline: axt_fs::NewlineStyle) -> NewlineStyle {
     match newline {
-        ax_fs::NewlineStyle::Lf => NewlineStyle::Lf,
-        ax_fs::NewlineStyle::Crlf => NewlineStyle::Crlf,
-        ax_fs::NewlineStyle::Mixed => NewlineStyle::Mixed,
-        ax_fs::NewlineStyle::None => NewlineStyle::None,
+        axt_fs::NewlineStyle::Lf => NewlineStyle::Lf,
+        axt_fs::NewlineStyle::Crlf => NewlineStyle::Crlf,
+        axt_fs::NewlineStyle::Mixed => NewlineStyle::Mixed,
+        axt_fs::NewlineStyle::None => NewlineStyle::None,
     }
 }
 
@@ -387,8 +389,8 @@ fn root_label(roots: &[Utf8PathBuf], cwd: &Utf8Path) -> String {
 }
 
 struct GitContext {
-    repo: Option<ax_git::RepoHandle>,
-    cache: Option<ax_git::StatusCache>,
+    repo: Option<axt_git::RepoHandle>,
+    cache: Option<axt_git::StatusCache>,
 }
 
 impl GitContext {
@@ -400,10 +402,10 @@ impl GitContext {
     }
 
     fn for_root(root: &Utf8Path) -> Result<Self> {
-        let Some(repo) = ax_git::repo_root_for(root)? else {
+        let Some(repo) = axt_git::repo_root_for(root)? else {
             return Ok(Self::disabled());
         };
-        let cache = ax_git::StatusCache::from_repo(&repo)?;
+        let cache = axt_git::StatusCache::from_repo(&repo)?;
         Ok(Self {
             repo: Some(repo),
             cache: Some(cache),
@@ -425,14 +427,14 @@ impl GitContext {
     }
 }
 
-fn map_git_status(status: ax_git::GitStatus) -> GitStatus {
+fn map_git_status(status: axt_git::GitStatus) -> GitStatus {
     match status {
-        ax_git::GitStatus::Clean => GitStatus::Clean,
-        ax_git::GitStatus::Modified => GitStatus::Modified,
-        ax_git::GitStatus::Untracked => GitStatus::Untracked,
-        ax_git::GitStatus::Added => GitStatus::Added,
-        ax_git::GitStatus::Deleted => GitStatus::Deleted,
-        ax_git::GitStatus::Renamed => GitStatus::Renamed,
-        ax_git::GitStatus::Mixed => GitStatus::Mixed,
+        axt_git::GitStatus::Clean => GitStatus::Clean,
+        axt_git::GitStatus::Modified => GitStatus::Modified,
+        axt_git::GitStatus::Untracked => GitStatus::Untracked,
+        axt_git::GitStatus::Added => GitStatus::Added,
+        axt_git::GitStatus::Deleted => GitStatus::Deleted,
+        axt_git::GitStatus::Renamed => GitStatus::Renamed,
+        axt_git::GitStatus::Mixed => GitStatus::Mixed,
     }
 }

@@ -5,7 +5,7 @@ Agent mode emits ACF: Agent Compact Format. It is the LLM-first output format fo
 ACF is line-oriented text:
 
 ```text
-schema=ax.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git rows=3 total=42 truncated=false
+schema=axt.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git rows=3 total=42 truncated=false
 Cargo.toml,file,2102,toml,clean
 README.md,file,8902,markdown,modified
 src,dir,0,,mixed
@@ -25,7 +25,7 @@ src,dir,0,,mixed
 ## Shared Keys
 
 ```text
-schema     schema identifier, usually ax.<command>.agent.v<N>
+schema     schema identifier, usually axt.<command>.agent.v<N>
 ok         bool, top-level success
 mode       records|table
 cols       comma-separated table columns

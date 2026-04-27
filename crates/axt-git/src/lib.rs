@@ -169,7 +169,7 @@ pub fn repo_root_for(path: &Utf8Path) -> Result<Option<RepoHandle>> {
     match gix::discover(path.as_std_path()) {
         Ok(inner) => {
             let root = inner
-                .work_dir()
+                .workdir()
                 .unwrap_or_else(|| inner.git_dir())
                 .to_path_buf();
             Ok(Some(RepoHandle {
@@ -211,7 +211,6 @@ pub fn diff_paths(repo: &RepoHandle, ref_a: &str, ref_b: &str) -> Result<Vec<Utf
     let mut platform = old_tree
         .changes()
         .map_err(|err| git_error("create tree diff", err))?;
-    platform.track_path().track_rewrites(None);
     platform
         .for_each_to_obtain_tree(&new_tree, |change| {
             collect_diff_path(&mut paths, change)?;
@@ -236,7 +235,7 @@ fn collect_diff_path(
     paths: &mut BTreeSet<Utf8PathBuf>,
     change: gix::object::tree::diff::Change<'_, '_, '_>,
 ) -> Result<()> {
-    paths.insert(bstr_path(change.location)?);
+    paths.insert(bstr_path(change.location())?);
     Ok(())
 }
 
@@ -255,7 +254,7 @@ fn relative_to_repo(repo: &RepoHandle, path: &Utf8Path) -> Result<Utf8PathBuf> {
         })
 }
 
-fn status_from_item(item: &gix::status::index_worktree::iter::Item) -> GitStatus {
+fn status_from_item(item: &gix::status::index_worktree::Item) -> GitStatus {
     item.summary()
         .map_or(GitStatus::Clean, status_from_worktree_summary)
 }
@@ -529,8 +528,11 @@ mod tests {
         copy_dir(&fixture_root(), &root)?;
 
         run_git(&root, &["init"])?;
-        run_git(&root, &["config", "user.name", "ax tests"])?;
-        run_git(&root, &["config", "user.email", "ax-tests@example.invalid"])?;
+        run_git(&root, &["config", "user.name", "axt tests"])?;
+        run_git(
+            &root,
+            &["config", "user.email", "axt-tests@example.invalid"],
+        )?;
         run_git(&root, &["add", "."])?;
         run_git(&root, &["commit", "-m", "initial"])?;
         run_git(&root, &["branch", "-M", "main"])?;

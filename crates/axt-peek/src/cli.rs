@@ -2,12 +2,12 @@ use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum};
 
 #[derive(Debug, Parser)]
-#[command(name = "ax-peek")]
+#[command(name = "axt-peek")]
 #[command(about = "Directory and repository snapshot command.")]
 #[command(version)]
 pub struct Args {
     #[command(flatten)]
-    pub common: ax_core::CommonArgs,
+    pub common: axt_core::CommonArgs,
 
     #[arg(value_name = "PATHS", default_value = ".")]
     pub paths: Vec<Utf8PathBuf>,

@@ -7,8 +7,8 @@ mod render;
 
 use std::{io::Write, process::ExitCode};
 
-use ax_core::{ErrorCatalogEntry, ErrorCode, OutputMode, SchemaFormat, STANDARD_ERROR_CATALOG};
-use ax_output::Renderable;
+use axt_core::{ErrorCatalogEntry, ErrorCode, OutputMode, SchemaFormat, STANDARD_ERROR_CATALOG};
+use axt_output::Renderable;
 use clap::Parser;
 
 use crate::{cli::Args, command::run};
@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     let mode = args.common.mode()?;
     let ctx =
-        ax_core::CommandContext::from_common_args(&args.common, Box::new(ax_core::SystemClock))?;
+        axt_core::CommandContext::from_common_args(&args.common, Box::new(axt_core::SystemClock))?;
     let data = match run(&args, &ctx) {
         Ok(data) => data,
         Err(err) => {
@@ -36,7 +36,8 @@ fn main() -> anyhow::Result<ExitCode> {
             return Ok(ExitCode::from(exit_code_for_peek_error(&err)));
         }
     };
-    let render_ctx = ax_output::RenderContext::new(mode, ctx.limits, ctx.color, ctx.clock.as_ref());
+    let render_ctx =
+        axt_output::RenderContext::new(mode, ctx.limits, ctx.color, ctx.clock.as_ref());
     let mut stdout = std::io::stdout().lock();
 
     let result = match mode {
@@ -49,7 +50,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     match result {
         Ok(()) => Ok(ExitCode::SUCCESS),
-        Err(ax_output::OutputError::TruncatedStrict) => {
+        Err(axt_output::OutputError::TruncatedStrict) => {
             Ok(ExitCode::from(ErrorCode::OutputTruncatedStrict.exit_code()))
         }
         Err(err) => Err(err.into()),
@@ -58,15 +59,15 @@ fn main() -> anyhow::Result<ExitCode> {
 
 fn print_schema(format: SchemaFormat) {
     match format {
-        SchemaFormat::Json => print!("{}", include_str!("../../../schemas/ax.peek.v1.schema.json")),
+        SchemaFormat::Json => print!("{}", include_str!("../../../schemas/axt.peek.v1.schema.json")),
         SchemaFormat::Jsonl => println!(
-            "schema=ax.peek.jsonl.v1 records=ax.peek.summary.v1,ax.peek.entry.v1,ax.peek.warn.v1 first=summary"
+            "schema=axt.peek.jsonl.v1 records=axt.peek.summary.v1,axt.peek.entry.v1,axt.peek.warn.v1 first=summary"
         ),
         SchemaFormat::Agent => println!(
-            "schema=ax.peek.agent.v1 mode=table cols=path,kind,bytes,lang,git,mtime warnings=W"
+            "schema=axt.peek.agent.v1 mode=table cols=path,kind,bytes,lang,git,mtime warnings=W"
         ),
         SchemaFormat::Human => println!(
-            "schema=ax.peek.human.v1 sections=tree,summary columns=path,bytes,lang,git"
+            "schema=axt.peek.human.v1 sections=tree,summary columns=path,bytes,lang,git"
         ),
     }
 }
@@ -75,8 +76,8 @@ fn exit_code_for_peek_error(err: &crate::error::PeekError) -> u8 {
     match err {
         crate::error::PeekError::PathNotFound(_) => ErrorCode::PathNotFound.exit_code(),
         crate::error::PeekError::Git(_) => ErrorCode::GitUnavailable.exit_code(),
-        crate::error::PeekError::Fs(ax_fs::FsError::Metadata { source, .. })
-        | crate::error::PeekError::Fs(ax_fs::FsError::Read { source, .. })
+        crate::error::PeekError::Fs(axt_fs::FsError::Metadata { source, .. })
+        | crate::error::PeekError::Fs(axt_fs::FsError::Read { source, .. })
             if source.kind() == std::io::ErrorKind::PermissionDenied =>
         {
             ErrorCode::PermissionDenied.exit_code()

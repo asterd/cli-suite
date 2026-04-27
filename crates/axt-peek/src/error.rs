@@ -7,10 +7,10 @@ pub enum PeekError {
     PathNotFound(Utf8PathBuf),
 
     #[error("filesystem error: {0}")]
-    Fs(#[from] ax_fs::FsError),
+    Fs(#[from] axt_fs::FsError),
 
     #[error("git error: {0}")]
-    Git(#[from] ax_git::GitError),
+    Git(#[from] axt_git::GitError),
 
     #[error("failed to canonicalize {path}: {source}")]
     Canonicalize {

@@ -1,6 +1,6 @@
 [package]
-name = "ax-output"
-description = "Internal output helpers for the ax Foundation CLI Suite."
+name = "axt-git"
+description = "Internal git helpers for the axt Foundation CLI Suite."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,15 +8,16 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
-publish = false
 
 [lib]
+name = "axt_git"
 path = "src/lib.rs"
 
 [dependencies]
-anstream.workspace = true
-anstyle.workspace = true
-ax-core = { path = "../ax-core" }
+camino.workspace = true
+gix = { workspace = true, features = ["status", "revision"] }
 serde.workspace = true
-serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

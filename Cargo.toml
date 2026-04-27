@@ -1,26 +1,26 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/ax-core",
-  "crates/ax-output",
-  "crates/ax-fs",
-  "crates/ax-git",
-  "crates/ax-peek",
+  "crates/axt-core",
+  "crates/axt-output",
+  "crates/axt-fs",
+  "crates/axt-git",
+  "crates/axt-peek",
   # phases 2-4 added later:
-  # "crates/ax-run",
-  # "crates/ax-doc",
-  # "crates/ax-drift",
+  # "crates/axt-run",
+  # "crates/axt-doc",
+  # "crates/axt-drift",
   "xtask",
 ]
 
 [workspace.package]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-rust-version = "1.78"
-repository = "https://github.com/ddurzo/ax"
-homepage  = "https://github.com/ddurzo/ax"
-authors = ["ax contributors"]
-version = "0.0.1"
+rust-version = "1.82"
+repository = "https://github.com/ddurzo/axt"
+homepage  = "https://github.com/ddurzo/axt"
+authors = ["axt contributors"]
+version = "0.1.0-rc1"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -36,7 +36,7 @@ anstyle = "1"
 ignore = "0.4"
 walkdir = "2"
 jwalk = "0.8"
-gix = { version = "0.66", default-features = false, features = ["max-performance-safe"] }
+gix = { version = "0.77", default-features = false, features = ["max-performance-safe"] }
 blake3 = "1"
 content_inspector = "0.2"
 infer = "0.16"

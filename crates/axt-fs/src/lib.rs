@@ -69,7 +69,7 @@ pub enum FsError {
 /// Filesystem helper result type.
 pub type Result<T> = std::result::Result<T, FsError>;
 
-/// Hash algorithms supported by `ax-fs`.
+/// Hash algorithms supported by `axt-fs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashAlgorithm {
     /// BLAKE3, the only v1 hash algorithm.

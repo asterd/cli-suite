@@ -1,0 +1,94 @@
+name: Release Follow-Up
+
+on:
+  release:
+    types: [published, prereleased, released]
+
+permissions:
+  attestations: write
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  harden-release:
+    name: Attest artifacts and upload SBOM
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Download release artifacts
+        run: gh release download "$RELEASE_TAG" --dir artifacts --pattern "*"
+
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: "artifacts/*"
+
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --locked
+
+      - name: Generate release SBOM
+        run: |
+          mkdir -p target/sbom
+          cargo cyclonedx --manifest-path crates/axt-peek/Cargo.toml --format json --override-filename axt-peek
+          cp crates/axt-peek/axt-peek.json target/sbom/axt-peek.cdx.json
+          test -f target/sbom/axt-peek.cdx.json
+
+      - name: Upload release SBOM
+        run: gh release upload "$RELEASE_TAG" target/sbom/axt-peek.cdx.json --clobber
+
+  scoop-manifest:
+    name: Open Scoop bucket PR
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+
+    steps:
+      - name: Validate Scoop configuration
+        run: |
+          test -n "${{ vars.SCOOP_BUCKET_REPOSITORY }}"
+          test -n "$SCOOP_BUCKET_TOKEN"
+
+      - name: Checkout axt
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+          path: axt
+
+      - name: Checkout Scoop bucket
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.SCOOP_BUCKET_REPOSITORY }}
+          token: ${{ env.SCOOP_BUCKET_TOKEN }}
+          path: scoop-bucket
+
+      - name: Download release artifacts
+        run: gh release download "$RELEASE_TAG" --dir artifacts --pattern "*"
+
+      - name: Generate Scoop manifest
+        run: |
+          python3 axt/scripts/release/scoop-manifest.py \
+            --dist-manifest artifacts/dist-manifest.json \
+            --sha256-file artifacts/axt-peek-x86_64-pc-windows-msvc.zip.sha256 \
+            --output scoop-bucket/bucket/axt-peek.json
+
+      - name: Open Scoop bucket PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ env.SCOOP_BUCKET_TOKEN }}
+          path: scoop-bucket
+          branch: "release/${{ env.RELEASE_TAG }}"
+          title: "Update axt-peek to ${{ env.RELEASE_TAG }}"
+          commit-message: "chore(bucket): update axt-peek to ${{ env.RELEASE_TAG }}"
+          body: "Generated from the axt release workflow for ${{ env.RELEASE_TAG }}."
