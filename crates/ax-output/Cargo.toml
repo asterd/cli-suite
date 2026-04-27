@@ -12,3 +12,11 @@ publish = false
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+anstream.workspace = true
+anstyle.workspace = true
+ax-core = { path = "../ax-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

@@ -17,6 +17,14 @@ path = "src/main.rs"
 dist = true
 
 [dependencies]
+ax-core = { path = "../ax-core" }
+ax-output = { path = "../ax-output" }
 anyhow.workspace = true
 clap.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+insta.workspace = true
+jsonschema.workspace = true

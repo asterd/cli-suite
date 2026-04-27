@@ -12,3 +12,17 @@ publish = false
 
 [lib]
 path = "src/lib.rs"
+
+[features]
+test-support = []
+
+[dependencies]
+anstream.workspace = true
+camino.workspace = true
+clap.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
