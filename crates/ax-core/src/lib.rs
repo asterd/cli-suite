@@ -15,7 +15,7 @@ use std::{env, fmt, io::IsTerminal, path::PathBuf, str::FromStr};
 
 pub use anstream::ColorChoice;
 use camino::Utf8PathBuf;
-use clap::{ArgGroup, Args};
+use clap::{ArgGroup, Args, ValueEnum};
 use serde::Serialize;
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -59,6 +59,30 @@ pub enum OutputMode {
     Agent,
     /// Human-readable output without color or decorations.
     Plain,
+}
+
+/// Output schema formats shared by commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SchemaFormat {
+    /// Human output schema or description.
+    Human,
+    /// JSON envelope schema.
+    Json,
+    /// JSONL record schema or description.
+    Jsonl,
+    /// Agent Compact Format schema or description.
+    Agent,
+}
+
+impl fmt::Display for SchemaFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Human => "human",
+            Self::Json => "json",
+            Self::Jsonl => "jsonl",
+            Self::Agent => "agent",
+        })
+    }
 }
 
 impl OutputMode {
@@ -249,9 +273,9 @@ pub struct CommonArgs {
     #[command(flatten)]
     pub limits: OutputLimitFlags,
 
-    /// Print this command's JSON schema and exit.
-    #[arg(long)]
-    pub print_schema: bool,
+    /// Print this command's output schema and exit.
+    #[arg(long, value_name = "FORMAT", num_args = 0..=1, default_missing_value = "json")]
+    pub print_schema: Option<SchemaFormat>,
 
     /// List the standard error catalog as JSONL and exit.
     #[arg(long)]
@@ -783,6 +807,17 @@ mod tests {
                 strict: true,
             }
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn print_schema_accepts_optional_format() -> Result<(), Box<dyn std::error::Error>> {
+        let default_schema = TestCli::try_parse_from(["test", "--print-schema"])?;
+        assert_eq!(default_schema.common.print_schema, Some(SchemaFormat::Json));
+
+        let agent_schema = TestCli::try_parse_from(["test", "--print-schema", "agent"])?;
+        assert_eq!(agent_schema.common.print_schema, Some(SchemaFormat::Agent));
 
         Ok(())
     }

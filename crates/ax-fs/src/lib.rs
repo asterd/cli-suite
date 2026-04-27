@@ -20,7 +20,7 @@ use std::{
 };
 
 use camino::{Utf8Path, Utf8PathBuf};
-use ignore::WalkBuilder;
+use ignore::{Error as IgnoreError, WalkBuilder};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -182,8 +182,48 @@ pub struct EntryMetadata {
     pub blake3: Option<String>,
 }
 
+/// Non-fatal filesystem warning emitted while walking.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FsWarning {
+    /// Stable warning code.
+    pub code: FsWarningCode,
+    /// Path associated with the warning, when available.
+    pub path: Option<Utf8PathBuf>,
+    /// Human-readable reason.
+    pub reason: String,
+}
+
+/// Warning codes from filesystem walking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FsWarningCode {
+    /// A subtree could not be read due to permissions.
+    PermissionDenied,
+    /// A followed symlink would create a loop.
+    SymlinkLoop,
+    /// A path was not valid UTF-8.
+    PathNotUtf8,
+}
+
+/// Metadata collection plus non-fatal warnings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetadataCollection {
+    /// Collected entries.
+    pub entries: Vec<EntryMetadata>,
+    /// Non-fatal warnings encountered during collection.
+    pub warnings: Vec<FsWarning>,
+}
+
 /// Walk `root` and collect deterministic per-entry metadata.
 pub fn collect_metadata(root: &Utf8Path, options: WalkOptions) -> Result<Vec<EntryMetadata>> {
+    collect_metadata_with_warnings(root, options).map(|collection| collection.entries)
+}
+
+/// Walk `root` and collect deterministic metadata plus non-fatal warnings.
+pub fn collect_metadata_with_warnings(
+    root: &Utf8Path,
+    options: WalkOptions,
+) -> Result<MetadataCollection> {
     let mut builder = WalkBuilder::new(root.as_std_path());
     builder.hidden(!options.include_hidden);
     builder.ignore(!options.no_ignore);
@@ -197,18 +237,52 @@ pub fn collect_metadata(root: &Utf8Path, options: WalkOptions) -> Result<Vec<Ent
 
     let mut seen_dirs = HashSet::new();
     let mut entries = Vec::new();
+    let mut warnings = Vec::new();
     for item in builder.build() {
-        let entry = item.map_err(|err| FsError::Walk(err.to_string()))?;
+        let entry = match item {
+            Ok(entry) => entry,
+            Err(err) if handle_walk_warning(&mut warnings, &err) => continue,
+            Err(err) => return Err(FsError::Walk(err.to_string())),
+        };
         if entry.depth() == 0 {
             continue;
         }
 
-        let path = utf8_path(entry.path().to_path_buf())?;
-        let metadata = metadata_for(&path, options.follow_symlinks)?;
+        let path = match utf8_path(entry.path().to_path_buf()) {
+            Ok(path) => path,
+            Err(FsError::PathNotUtf8(path)) => {
+                warnings.push(FsWarning {
+                    code: FsWarningCode::PathNotUtf8,
+                    path: None,
+                    reason: format!("path is not valid UTF-8: {}", path.display()),
+                });
+                continue;
+            }
+            Err(err) => return Err(err),
+        };
+        let metadata = match metadata_for(&path, options.follow_symlinks) {
+            Ok(metadata) => metadata,
+            Err(FsError::Metadata { path, source })
+                if source.kind() == io::ErrorKind::PermissionDenied =>
+            {
+                warnings.push(FsWarning {
+                    code: FsWarningCode::PermissionDenied,
+                    path: Some(relative_path_lossy(root, &path)),
+                    reason: source.to_string(),
+                });
+                continue;
+            }
+            Err(err) => return Err(err),
+        };
         if options.follow_symlinks
             && metadata.is_dir()
             && seen_dir_before(&mut seen_dirs, path.as_std_path(), &metadata)
         {
+            warnings.push(FsWarning {
+                code: FsWarningCode::SymlinkLoop,
+                path: Some(relative_path_lossy(root, &path)),
+                reason: "directory was already visited".to_owned(),
+            });
             continue;
         }
 
@@ -221,7 +295,43 @@ pub fn collect_metadata(root: &Utf8Path, options: WalkOptions) -> Result<Vec<Ent
     }
 
     entries.sort_by(|left, right| left.path.cmp(&right.path));
-    Ok(entries)
+    Ok(MetadataCollection { entries, warnings })
+}
+
+fn handle_walk_warning(warnings: &mut Vec<FsWarning>, err: &IgnoreError) -> bool {
+    let Some(warning) = warning_from_ignore_error(err, err) else {
+        return false;
+    };
+    warnings.push(warning);
+    true
+}
+
+fn warning_from_ignore_error(err: &IgnoreError, root_err: &IgnoreError) -> Option<FsWarning> {
+    match err {
+        IgnoreError::Loop { child, .. } => Some(FsWarning {
+            code: FsWarningCode::SymlinkLoop,
+            path: Utf8PathBuf::from_path_buf(child.clone()).ok(),
+            reason: root_err.to_string(),
+        }),
+        IgnoreError::WithPath { path, err }
+            if err
+                .io_error()
+                .is_some_and(|io_err| io_err.kind() == io::ErrorKind::PermissionDenied) =>
+        {
+            Some(FsWarning {
+                code: FsWarningCode::PermissionDenied,
+                path: Utf8PathBuf::from_path_buf(path.clone()).ok(),
+                reason: root_err.to_string(),
+            })
+        }
+        IgnoreError::WithPath { err, .. }
+        | IgnoreError::WithDepth { err, .. }
+        | IgnoreError::WithLineNumber { err, .. } => warning_from_ignore_error(err, root_err),
+        IgnoreError::Partial(errors) => errors
+            .iter()
+            .find_map(|error| warning_from_ignore_error(error, root_err)),
+        _ => None,
+    }
 }
 
 fn metadata_for_entry(
@@ -292,6 +402,11 @@ fn relative_path(root: &Utf8Path, path: &Utf8Path) -> Result<Utf8PathBuf> {
             root: root.to_owned(),
             path: path.to_owned(),
         })
+}
+
+fn relative_path_lossy(root: &Utf8Path, path: &Utf8Path) -> Utf8PathBuf {
+    path.strip_prefix(root)
+        .map_or_else(|_err| path.to_path_buf(), Utf8Path::to_path_buf)
 }
 
 fn entry_kind(metadata: &Metadata) -> EntryKind {

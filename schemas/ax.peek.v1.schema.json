@@ -5,27 +5,95 @@
   "required": ["schema", "ok", "data", "warnings", "errors"],
   "additionalProperties": false,
   "properties": {
-    "schema": {
-      "const": "ax.peek.v1"
-    },
-    "ok": {
-      "const": true
-    },
+    "schema": { "const": "ax.peek.v1" },
+    "ok": { "const": true },
     "data": {
       "type": "object",
-      "required": ["status"],
+      "required": ["root", "summary", "entries"],
       "additionalProperties": false,
       "properties": {
-        "status": {
-          "const": "stub"
+        "root": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": [
+            "files",
+            "dirs",
+            "bytes",
+            "git_state",
+            "modified",
+            "untracked",
+            "ignored",
+            "truncated"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "files": { "type": "integer", "minimum": 0 },
+            "dirs": { "type": "integer", "minimum": 0 },
+            "bytes": { "type": "integer", "minimum": 0 },
+            "git_state": { "enum": ["clean", "dirty", "none"] },
+            "modified": { "type": "integer", "minimum": 0 },
+            "untracked": { "type": "integer", "minimum": 0 },
+            "ignored": { "type": "integer", "minimum": 0 },
+            "truncated": { "type": "boolean" }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "kind",
+              "bytes",
+              "language",
+              "mime",
+              "encoding",
+              "newline",
+              "is_generated",
+              "git",
+              "mtime",
+              "hash"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "kind": { "enum": ["file", "dir", "symlink", "other"] },
+              "bytes": { "type": "integer", "minimum": 0 },
+              "language": { "type": ["string", "null"] },
+              "mime": { "type": ["string", "null"] },
+              "encoding": {
+                "anyOf": [
+                  { "enum": ["utf-8", "utf-16", "latin1", "unknown"] },
+                  { "type": "null" }
+                ]
+              },
+              "newline": {
+                "anyOf": [
+                  { "enum": ["lf", "crlf", "mixed", "none"] },
+                  { "type": "null" }
+                ]
+              },
+              "is_generated": { "type": "boolean" },
+              "git": {
+                "enum": [
+                  "clean",
+                  "modified",
+                  "untracked",
+                  "added",
+                  "deleted",
+                  "renamed",
+                  "mixed",
+                  "none"
+                ]
+              },
+              "mtime": { "type": ["string", "null"], "format": "date-time" },
+              "hash": { "type": ["string", "null"] }
+            }
+          }
         }
       }
     },
-    "warnings": {
-      "type": "array"
-    },
-    "errors": {
-      "type": "array"
-    }
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
   }
 }
