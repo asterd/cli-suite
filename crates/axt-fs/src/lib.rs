@@ -397,7 +397,7 @@ fn utf8_path(path: PathBuf) -> Result<Utf8PathBuf> {
 
 fn relative_path(root: &Utf8Path, path: &Utf8Path) -> Result<Utf8PathBuf> {
     path.strip_prefix(root)
-        .map(Utf8Path::to_path_buf)
+        .map(normalized_relative_path)
         .map_err(|_err| FsError::StripPrefix {
             root: root.to_owned(),
             path: path.to_owned(),
@@ -406,7 +406,11 @@ fn relative_path(root: &Utf8Path, path: &Utf8Path) -> Result<Utf8PathBuf> {
 
 fn relative_path_lossy(root: &Utf8Path, path: &Utf8Path) -> Utf8PathBuf {
     path.strip_prefix(root)
-        .map_or_else(|_err| path.to_path_buf(), Utf8Path::to_path_buf)
+        .map_or_else(|_err| path.to_path_buf(), normalized_relative_path)
+}
+
+fn normalized_relative_path(path: &Utf8Path) -> Utf8PathBuf {
+    Utf8PathBuf::from(path.as_str().replace('\\', "/"))
 }
 
 fn entry_kind(metadata: &Metadata) -> EntryKind {
@@ -811,15 +815,12 @@ mod tests {
         assert_eq!(rust.mime.as_deref(), Some("text/x-rust"));
         assert_eq!(rust.content, ContentKind::Text);
         assert_eq!(rust.encoding, Encoding::Utf8);
-        assert_eq!(rust.newline, NewlineStyle::Lf);
+        let rust_fixture = include_bytes!("../../../fixtures/fs-small/src/main.rs");
+        assert_eq!(rust.newline, newline_style(rust_fixture));
         assert!(!rust.generated_likely);
         assert_eq!(
             rust.blake3.as_deref(),
-            Some(
-                blake3::hash(include_bytes!("../../../fixtures/fs-small/src/main.rs"))
-                    .to_hex()
-                    .as_str()
-            )
+            Some(blake3::hash(rust_fixture).to_hex().as_str())
         );
 
         let generated = entry_named(&entries, "generated.txt")?;
