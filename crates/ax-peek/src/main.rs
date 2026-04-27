@@ -4,7 +4,8 @@ use ax_core::{
     CommonArgs, ErrorCatalogEntry, ErrorCode, OutputMode, SystemClock, STANDARD_ERROR_CATALOG,
 };
 use ax_output::{
-    AgentNdjsonWriter, JsonEnvelope, RenderContext, Renderable, Result as RenderResult,
+    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter, RenderContext,
+    Renderable, Result as RenderResult,
 };
 use clap::Parser;
 use serde::Serialize;
@@ -48,6 +49,14 @@ fn main() -> anyhow::Result<ExitCode> {
         OutputMode::Human | OutputMode::Plain => stub.render_human(&mut stdout, &ctx)?,
         OutputMode::Json => stub.render_json(&mut stdout, &ctx)?,
         OutputMode::JsonData => write_json_data(&mut stdout)?,
+        OutputMode::Jsonl => {
+            if let Err(err) = stub.render_jsonl(&mut stdout, &ctx) {
+                if matches!(err, ax_output::OutputError::TruncatedStrict) {
+                    return Ok(ExitCode::from(ErrorCode::OutputTruncatedStrict.exit_code()));
+                }
+                return Err(err.into());
+            }
+        }
         OutputMode::Agent => {
             if let Err(err) = stub.render_agent(&mut stdout, &ctx) {
                 if matches!(err, ax_output::OutputError::TruncatedStrict) {
@@ -68,8 +77,9 @@ struct PeekData {
 
 #[derive(Debug, Serialize)]
 struct PeekSummary {
-    s: &'static str,
-    t: &'static str,
+    schema: &'static str,
+    #[serde(rename = "type")]
+    kind: &'static str,
     ok: bool,
     stub: bool,
 }
@@ -95,16 +105,37 @@ impl Renderable for PeekStub {
         Ok(())
     }
 
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = AgentNdjsonWriter::new(w, ctx.limits);
+    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let mut writer = JsonlWriter::new(w, ctx.limits);
         let summary = PeekSummary {
-            s: "ax.peek.summary.v1",
-            t: "summary",
+            schema: "ax.peek.summary.v1",
+            kind: "summary",
             ok: true,
             stub: true,
         };
         let _written = writer.write_record(&summary)?;
         let _summary = writer.finish("ax.peek.warn.v1")?;
+        Ok(())
+    }
+
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let mut writer = AgentCompactWriter::new(w, ctx.limits);
+        let mut fields = [
+            AgentField::str("schema", "ax.peek.agent.v1"),
+            AgentField::bool("ok", true),
+            AgentField::str("mode", "records"),
+            AgentField::bool("stub", true),
+            AgentField::bool("truncated", false),
+        ];
+        let probe_line = format_agent_fields(&fields)?;
+        let line = if ctx.limits.max_records == 0 || probe_line.len() + 1 > ctx.limits.max_bytes {
+            fields[4] = AgentField::bool("truncated", true);
+            format_agent_fields(&fields)?
+        } else {
+            probe_line
+        };
+        let _written = writer.write_line(&line)?;
+        let _summary = writer.finish()?;
         Ok(())
     }
 }

@@ -50,7 +50,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `ax-doc` | 3 | Diagnose the dev environment: PATH, version managers, env vars. |
 | `ax-drift` | 4 | Mark filesystem state, then later report what changed since the mark. |
 | `ax-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
-| `ax-test` | 6 | Run a project's test suite and emit normalized NDJSON, regardless of framework. |
+| `ax-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
 
 ---
 
@@ -90,7 +90,7 @@ ax-port watch <PORT>                  # poll until the port is free or held
   --dry-run                       # for `free`: print what would be killed, do nothing
   --confirm                       # for `free`: require manual confirmation if interactive
 
-  + standard --json/--agent/--plain/--limit/--max-bytes/--strict
+  + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
   + --print-schema, --list-errors
 ```
 
@@ -121,25 +121,25 @@ Sent SIGTERM. Waiting up to 3s...
 Port 3000 freed.
 ```
 
-### 11.3.5 Output: agent mode (NDJSON)
+### 11.3.5 Output: agent mode (ACF)
 
-```
-{"s":"ax.port.summary.v1","t":"summary","ok":true,"action":"who","port":3000,"proto":"tcp","held":true,"holders":1}
-{"s":"ax.port.holder.v1","t":"holder","port":3000,"proto":"tcp","pid":47281,"name":"node","cmd":"node server.js","cwd":"/Users/dario/projects/api","bound":["0.0.0.0:3000"],"owner":"dario","mem":190840832,"started":"2026-04-27T08:14:22Z"}
+```text
+schema=ax.port.agent.v1 ok=true mode=records action=who port=3000 proto=tcp held=true holders=1 truncated=false
+H port=3000 proto=tcp pid=47281 name=node cmd="node server.js" cwd=/Users/dario/projects/api bound=0.0.0.0:3000 owner=dario mem=190840832 started=2026-04-27T08:14:22Z
 ```
 
 For `free`:
 
-```
-{"s":"ax.port.summary.v1","t":"summary","ok":true,"action":"free","port":3000,"freed":true,"signal_sent":"term","escalated":false,"ms":1240}
-{"s":"ax.port.action.v1","t":"action","port":3000,"pid":47281,"name":"node","signal":"term","result":"freed","ms":1240}
+```text
+schema=ax.port.agent.v1 ok=true mode=records action=free port=3000 freed=true signal_sent=term escalated=false ms=1240 truncated=false
+A port=3000 pid=47281 name=node signal=term result=freed ms=1240
 ```
 
 For an unfreeable port (process won't die or insufficient permissions):
 
-```
-{"s":"ax.port.summary.v1","t":"summary","ok":false,"action":"free","port":3000,"freed":false}
-{"s":"ax.port.err.v1","t":"err","code":"permission_denied","port":3000,"pid":47281,"context":{"name":"system_daemon","owner":"root"},"hint":"sudo ax-port free 3000"}
+```text
+schema=ax.port.agent.v1 ok=false mode=records action=free port=3000 freed=false truncated=false
+X code=permission_denied port=3000 pid=47281 name=system_daemon owner=root hint="sudo ax-port free 3000"
 ```
 
 ### 11.3.6 Cross-platform implementation
@@ -167,7 +167,7 @@ Crates to use:
 This is the only command in the suite that **mutates external state by default**. We treat that with respect:
 
 - `ax-port free` is the only mutating subcommand. `list`, `who`, `watch` are read-only.
-- `--dry-run` is supported on `free` and produces the same NDJSON schema with `freed: false` and an `action: simulated` flag.
+- `--dry-run` is supported on `free` and produces the same JSON/JSONL schema and ACF keys with `freed: false` and an `action: simulated` flag.
 - `--confirm` requires interactive y/n if stdout is a TTY. Non-interactive (agent) calls bypass this — the agent is responsible for explicit consent in its own loop.
 - We refuse to kill PID 1 always. We refuse to kill the current process. We refuse to kill our own parent unless `--force-self` is passed (which prints a stderr warning).
 - We respect process trees: `--tree` propagates the signal to children (process group on Unix, Job Object on Windows).
@@ -179,7 +179,7 @@ This is the only command in the suite that **mutates external state by default**
 2. `who <port>` returns full holder info with PID, command, owner, bind addresses.
 3. `free <port>` actually frees the port on all three OSes; `--dry-run` works.
 4. `watch <port>` polls until the port is held or freed, with a `--timeout` option.
-5. NDJSON output validates against `ax.port.v1` schema.
+5. JSON output validates against `ax.port.v1`; JSONL records validate against their record schemas; agent output follows ACF.
 6. Snapshot tests on a fixture that spawns a known-port-listener process.
 7. Cross-platform CI runs the full suite. Where a feature degrades (cwd on Windows), the test asserts graceful degradation, not failure.
 8. `docs/commands/port.md` written, with safety section explicit.
@@ -197,7 +197,7 @@ This is the only command in the suite that **mutates external state by default**
 
 ### 11.4.1 Purpose
 
-Run a project's test suite and emit a single normalized NDJSON stream, regardless of which framework is being used. The agent calls `ax-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
+Run a project's test suite and emit normalized JSON/JSONL plus compact ACF, regardless of which framework is being used. The agent calls `ax-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
 
 ### 11.4.2 Why this exists
 
@@ -226,7 +226,7 @@ ax-test --include-output / --no-include-output   # include stdout/stderr per fai
 ax-test --pass-through -- <FRAMEWORK_FLAGS>  # raw flags to the underlying runner
 ax-test list-frameworks                   # what we support and how we detect
 
-  + standard --json/--agent/--plain/--limit/--max-bytes/--strict
+  + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
 ```
 
 ### 11.4.4 Framework auto-detection
@@ -246,14 +246,14 @@ Order of detection:
 
 ### 11.4.5 Normalized output schema
 
-Agent mode (NDJSON):
+Agent mode (ACF):
 
-```
-{"s":"ax.test.summary.v1","t":"summary","ok":false,"frameworks":["jest"],"total":124,"passed":118,"failed":3,"skipped":3,"todo":0,"ms":12405,"started":"2026-04-27T10:12:00Z"}
-{"s":"ax.test.suite.v1","t":"suite","name":"checkout flow","file":"tests/checkout.test.ts","passed":12,"failed":2,"skipped":0,"ms":3402}
-{"s":"ax.test.case.v1","t":"case","status":"failed","name":"creates an order with a discount code","suite":"checkout flow","file":"tests/checkout.test.ts","line":47,"ms":234,"failure":{"message":"expected 200, got 500","actual":500,"expected":200,"diff":null}}
-{"s":"ax.test.case.v1","t":"case","status":"failed","name":"applies tax for EU customers","suite":"checkout flow","file":"tests/checkout.test.ts","line":89,"ms":118,"failure":{"message":"Internal server error: undefined is not a function","stack":"at applyTax (src/tax.ts:42:11)\n  at processOrder (src/checkout.ts:88:7)"}}
-{"s":"ax.test.hint.v1","t":"hint","run":"ax-test --filter 'checkout flow' --include-output"}
+```text
+schema=ax.test.agent.v1 ok=false mode=records frameworks=jest total=124 passed=118 failed=3 skipped=3 todo=0 ms=12405 started=2026-04-27T10:12:00Z truncated=false
+U name="checkout flow" file=tests/checkout.test.ts passed=12 failed=2 skipped=0 ms=3402
+C status=failed name="creates an order with a discount code" suite="checkout flow" file=tests/checkout.test.ts line=47 ms=234 message="expected 200, got 500" actual=500 expected=200
+C status=failed name="applies tax for EU customers" suite="checkout flow" file=tests/checkout.test.ts line=89 ms=118 message="Internal server error: undefined is not a function"
+S run="ax-test --filter 'checkout flow' --include-output"
 ```
 
 Human mode prints a compact table with only failures expanded; success cases are summarized. `--include-output` shows stdout/stderr for failed cases.
@@ -315,8 +315,8 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 ### 11.4.9 Definition of done for v0.6
 
 1. Auto-detection works for the seven primary frameworks.
-2. NDJSON schema validated for every supported framework against committed fixtures.
-3. Streaming: failures appear in the output as they happen, not at the end.
+2. JSONL schemas validated for every supported framework against committed fixtures; ACF snapshots cover compact agent output.
+3. Streaming: failures appear in `--jsonl` as they happen, not at the end.
 4. `--changed` and `--changed-since` integrate with `ax-git` to filter affected files.
 5. Cross-platform: jest and pytest work the same on Linux/macOS/Windows. cargo and go test work where their toolchain works.
 6. `docs/commands/test.md` documents every framework's mapping in a table.
@@ -388,7 +388,7 @@ Done criteria: see 11.4.9.
 
 These commands were considered for the suite and explicitly rejected. Future maintainers should not relitigate without new evidence:
 
-- **`ax-watch`** (file watcher with NDJSON events). Reason: `watchexec` is mature and widely installed; agents are session-based and rarely benefit from continuous watching; the unique value-add (NDJSON events) is small.
+- **`ax-watch`** (file watcher with JSONL events). Reason: `watchexec` is mature and widely installed; agents are session-based and rarely benefit from continuous watching; the unique value-add (JSONL events) is small.
 - **`ax-log`** (log analyzer with error extraction). Reason: `lnav` and `goaccess` cover this for humans; for agents, `ax-run --tail-bytes` already extracts errors from the run we just executed, which is the common case. Standalone log post-mortem is a niche.
 - **`ax-net`** (network diagnostic structured). Reason: `curl --json` plus `jc dig` already give structured network output; nothing meaningful to add.
 - **`ax-deps`** (cross-package-manager dependency analyzer). Reason: Each ecosystem has tools that already produce JSON (`npm ls --json`, `pnpm why`, `cargo metadata`, `pip show --format=json`); a unifying layer would either lose fidelity or be enormous. Better to let agents call the native tools.
@@ -405,4 +405,4 @@ If a clear, repeated pain point emerges in the v1.0 roadmap that one of these wo
 
 ## Continuation prompt for Phase 6 (use after Phase 5 ships)
 
-> Continue with Milestone 6 from the spec addendum. Implement `ax-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against the normalized NDJSON output. Streaming is required: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.
+> Continue with Milestone 6 from the spec addendum. Implement `ax-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against normalized JSONL plus compact ACF agent output. Streaming is required for `--jsonl`: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.

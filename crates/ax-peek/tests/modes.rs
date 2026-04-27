@@ -48,19 +48,38 @@ fn json_data_mode_preserves_stub_payload() -> Result<(), Box<dyn std::error::Err
 }
 
 #[test]
-fn agent_mode_matches_snapshot_and_ndjson_contract() -> Result<(), Box<dyn std::error::Error>> {
-    let stdout = run_ax_peek(&["--agent"])?;
-    insta::assert_snapshot!(stdout, @r###"{"s":"ax.peek.summary.v1","t":"summary","ok":true,"stub":true}
+fn jsonl_mode_matches_snapshot_and_contract() -> Result<(), Box<dyn std::error::Error>> {
+    let stdout = run_ax_peek(&["--jsonl"])?;
+    insta::assert_snapshot!(stdout, @r###"{"schema":"ax.peek.summary.v1","type":"summary","ok":true,"stub":true}
 "###);
 
     let lines = stdout.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     let first: Value = serde_json::from_str(lines[0])?;
     assert_eq!(
-        first.get("s"),
+        first.get("schema"),
         Some(&Value::String("ax.peek.summary.v1".to_owned()))
     );
-    assert_eq!(first.get("t"), Some(&Value::String("summary".to_owned())));
+    assert_eq!(
+        first.get("type"),
+        Some(&Value::String("summary".to_owned()))
+    );
+
+    Ok(())
+}
+
+#[test]
+fn agent_mode_matches_snapshot_and_acf_contract() -> Result<(), Box<dyn std::error::Error>> {
+    let stdout = run_ax_peek(&["--agent"])?;
+    insta::assert_snapshot!(stdout, @"schema=ax.peek.agent.v1 ok=true mode=records stub=true truncated=false
+");
+
+    let lines = stdout.lines().collect::<Vec<_>>();
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].starts_with("schema=ax.peek.agent.v1 "));
+    assert!(lines[0].contains(" ok=true "));
+    assert!(lines[0].contains(" mode=records "));
+    assert!(lines[0].contains(" truncated=false"));
 
     Ok(())
 }
@@ -68,20 +87,24 @@ fn agent_mode_matches_snapshot_and_ndjson_contract() -> Result<(), Box<dyn std::
 #[test]
 fn agent_mode_preserves_summary_first_when_truncated() -> Result<(), Box<dyn std::error::Error>> {
     let stdout = run_ax_peek(&["--agent", "--limit", "0"])?;
-    insta::assert_snapshot!(stdout, @r###"{"s":"ax.peek.summary.v1","t":"summary","ok":true,"stub":true}
-{"s":"ax.peek.warn.v1","t":"warn","code":"truncated","reason":"max_records","trunc":true}
+    insta::assert_snapshot!(stdout, @r###"schema=ax.peek.agent.v1 ok=true mode=records stub=true truncated=true
+W code=truncated reason=max_records truncated=true
 "###);
 
     let lines = stdout.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
-    let first: Value = serde_json::from_str(lines[0])?;
-    assert_eq!(first.get("t"), Some(&Value::String("summary".to_owned())));
+    assert!(lines[0].starts_with("schema=ax.peek.agent.v1 "));
+    assert!(lines[0].contains(" truncated=true"));
+    assert_eq!(
+        lines[1],
+        "W code=truncated reason=max_records truncated=true"
+    );
 
     Ok(())
 }
 
 #[test]
-fn list_errors_outputs_full_catalog_as_ndjson() -> Result<(), Box<dyn std::error::Error>> {
+fn list_errors_outputs_full_catalog_as_jsonl() -> Result<(), Box<dyn std::error::Error>> {
     let stdout = run_ax_peek(&["--list-errors"])?;
     let lines = stdout.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 15);
@@ -108,6 +131,11 @@ fn list_errors_outputs_full_catalog_as_ndjson() -> Result<(), Box<dyn std::error
 fn conflicting_modes_are_rejected_by_clap() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("ax-peek")?
         .args(["--json", "--agent"])
+        .assert()
+        .failure()
+        .code(2);
+    Command::cargo_bin("ax-peek")?
+        .args(["--jsonl", "--agent"])
         .assert()
         .failure()
         .code(2);

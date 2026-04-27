@@ -11,7 +11,7 @@ You are implementing the `ax` Foundation CLI Suite. Source of truth: `docs/spec.
 5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/ax-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
-8. **Three output modes always, even for stub commands**: `--json`, `--agent`, human (default). Plus `--print-schema` and `--list-errors` flags.
+8. **Four primary output modes always, even for stub commands**: `--json`, `--jsonl`, `--agent`, human (default). `--plain`, `--json-data`, `--print-schema`, and `--list-errors` are also standard shared flags.
 9. **Cross-platform parity is the default.** When a feature degrades on Windows or macOS, document it in the per-command cross-platform matrix (`docs/commands/<cmd>.md`) and exit with code 9 (`feature_unsupported`) rather than fail silently.
 10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `ax-peek`, `ax-core`).
 
@@ -33,7 +33,7 @@ CI must pass on Linux, macOS, and Windows. If a test depends on platform-specifi
 - Prefer typed enum errors (`#[derive(thiserror::Error)]`) over string errors.
 - Prefer `serde` with `#[derive]` over hand-rolled JSON.
 - Prefer snapshot tests (`insta`) for output assertions.
-- Match agent-mode key names to the dictionary in `docs/agent-mode.md`. Add new keys only when no existing one fits, and document them.
+- Match ACF agent-mode key names and prefixes to the dictionary in `docs/agent-mode.md`. Add new keys only when no existing one fits, and document them.
 
 ## Files you may freely create
 

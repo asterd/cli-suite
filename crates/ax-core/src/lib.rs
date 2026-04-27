@@ -53,7 +53,9 @@ pub enum OutputMode {
     Json,
     /// The JSON envelope's `data` payload only.
     JsonData,
-    /// Agent-oriented NDJSON.
+    /// Newline-delimited JSON for streaming and pipelines.
+    Jsonl,
+    /// Agent Compact Format.
     Agent,
     /// Human-readable output without color or decorations.
     Plain,
@@ -65,11 +67,15 @@ impl OutputMode {
     pub fn from_flags(
         json: bool,
         json_data: bool,
+        jsonl: bool,
         agent: bool,
         plain: bool,
     ) -> Result<Self, CoreError> {
-        let selected =
-            usize::from(json) + usize::from(json_data) + usize::from(agent) + usize::from(plain);
+        let selected = usize::from(json)
+            + usize::from(json_data)
+            + usize::from(jsonl)
+            + usize::from(agent)
+            + usize::from(plain);
 
         if selected > 1 {
             return Err(CoreError::ConflictingOutputModes);
@@ -79,6 +85,8 @@ impl OutputMode {
             Ok(Self::Json)
         } else if json_data {
             Ok(Self::JsonData)
+        } else if jsonl {
+            Ok(Self::Jsonl)
         } else if agent {
             Ok(Self::Agent)
         } else if plain {
@@ -95,6 +103,7 @@ impl fmt::Display for OutputMode {
             Self::Human => "human",
             Self::Json => "json",
             Self::JsonData => "json-data",
+            Self::Jsonl => "jsonl",
             Self::Agent => "agent",
             Self::Plain => "plain",
         })
@@ -109,6 +118,7 @@ impl FromStr for OutputMode {
             "human" => Ok(Self::Human),
             "json" => Ok(Self::Json),
             "json-data" => Ok(Self::JsonData),
+            "jsonl" => Ok(Self::Jsonl),
             "agent" => Ok(Self::Agent),
             "plain" => Ok(Self::Plain),
             other => Err(CoreError::UnknownOutputMode(other.to_owned())),
@@ -118,7 +128,7 @@ impl FromStr for OutputMode {
 
 /// Clap flags for shared output mode selection.
 #[derive(Debug, Clone, Default, Args)]
-#[command(group(ArgGroup::new("output_mode").args(["json", "json_data", "agent", "plain"]).multiple(false)))]
+#[command(group(ArgGroup::new("output_mode").args(["json", "json_data", "jsonl", "agent", "plain"]).multiple(false)))]
 pub struct OutputModeFlags {
     /// Emit a JSON envelope.
     #[arg(long)]
@@ -128,7 +138,11 @@ pub struct OutputModeFlags {
     #[arg(long)]
     pub json_data: bool,
 
-    /// Emit agent-oriented NDJSON.
+    /// Emit newline-delimited JSON.
+    #[arg(long)]
+    pub jsonl: bool,
+
+    /// Emit Agent Compact Format.
     #[arg(long)]
     pub agent: bool,
 
@@ -140,16 +154,22 @@ pub struct OutputModeFlags {
 impl OutputModeFlags {
     /// Resolve the selected output mode.
     pub fn mode(&self) -> Result<OutputMode, CoreError> {
-        OutputMode::from_flags(self.json, self.json_data, self.agent, self.plain)
+        OutputMode::from_flags(
+            self.json,
+            self.json_data,
+            self.jsonl,
+            self.agent,
+            self.plain,
+        )
     }
 }
 
 /// Output limits shared by streaming renderers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OutputLimits {
-    /// Maximum agent records to emit before truncating.
+    /// Maximum records to emit before truncating line-oriented output.
     pub max_records: usize,
-    /// Maximum payload bytes to emit before truncating.
+    /// Maximum payload bytes to emit before truncating line-oriented output.
     pub max_bytes: usize,
     /// Treat truncation as a non-zero error.
     pub strict: bool,
@@ -175,11 +195,11 @@ impl Default for OutputLimits {
 /// Clap flags for shared output limits.
 #[derive(Debug, Clone, Args)]
 pub struct OutputLimitFlags {
-    /// Maximum records to emit before truncating agent output.
+    /// Maximum records to emit before truncating line-oriented output.
     #[arg(long = "limit", default_value_t = OutputLimits::DEFAULT_MAX_RECORDS, value_name = "N")]
     pub max_records: usize,
 
-    /// Maximum payload bytes to emit before truncating agent output.
+    /// Maximum payload bytes to emit before truncating line-oriented output.
     #[arg(long, default_value_t = OutputLimits::DEFAULT_MAX_BYTES, value_name = "BYTES")]
     pub max_bytes: usize,
 
@@ -233,7 +253,7 @@ pub struct CommonArgs {
     #[arg(long)]
     pub print_schema: bool,
 
-    /// List the standard error catalog as NDJSON and exit.
+    /// List the standard error catalog as JSONL and exit.
     #[arg(long)]
     pub list_errors: bool,
 }
@@ -721,20 +741,23 @@ mod tests {
 
     #[test]
     fn output_modes_parse_from_clap_flags() -> Result<(), Box<dyn std::error::Error>> {
-        let json_cli = TestCli::try_parse_from(["test", "--json"])?;
-        assert_eq!(json_cli.common.mode()?, OutputMode::Json);
+        let envelope_args = TestCli::try_parse_from(["test", "--json"])?;
+        assert_eq!(envelope_args.common.mode()?, OutputMode::Json);
 
-        let json_data_cli = TestCli::try_parse_from(["test", "--json-data"])?;
-        assert_eq!(json_data_cli.common.mode()?, OutputMode::JsonData);
+        let data_args = TestCli::try_parse_from(["test", "--json-data"])?;
+        assert_eq!(data_args.common.mode()?, OutputMode::JsonData);
 
-        let agent_cli = TestCli::try_parse_from(["test", "--agent"])?;
-        assert_eq!(agent_cli.common.mode()?, OutputMode::Agent);
+        let stream_args = TestCli::try_parse_from(["test", "--jsonl"])?;
+        assert_eq!(stream_args.common.mode()?, OutputMode::Jsonl);
 
-        let plain_cli = TestCli::try_parse_from(["test", "--plain"])?;
-        assert_eq!(plain_cli.common.mode()?, OutputMode::Plain);
+        let acf_args = TestCli::try_parse_from(["test", "--agent"])?;
+        assert_eq!(acf_args.common.mode()?, OutputMode::Agent);
 
-        let default_cli = TestCli::try_parse_from(["test"])?;
-        assert_eq!(default_cli.common.mode()?, OutputMode::Human);
+        let plain_args = TestCli::try_parse_from(["test", "--plain"])?;
+        assert_eq!(plain_args.common.mode()?, OutputMode::Plain);
+
+        let default_args = TestCli::try_parse_from(["test"])?;
+        assert_eq!(default_args.common.mode()?, OutputMode::Human);
 
         Ok(())
     }
