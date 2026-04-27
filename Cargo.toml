@@ -1,0 +1,62 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/ax-core",
+  "crates/ax-output",
+  "crates/ax-fs",
+  "crates/ax-git",
+  "crates/ax-peek",
+  # phases 2-4 added later:
+  # "crates/ax-run",
+  # "crates/ax-doc",
+  # "crates/ax-drift",
+  "xtask",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.78"
+repository = "https://github.com/ddurzo/ax"
+homepage  = "https://github.com/ddurzo/ax"
+authors = ["ax contributors"]
+version = "0.0.1"
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anstream = "0.6"
+anstyle = "1"
+ignore = "0.4"
+walkdir = "2"
+jwalk = "0.8"
+gix = { version = "0.66", default-features = false, features = ["max-performance-safe"] }
+blake3 = "1"
+content_inspector = "0.2"
+infer = "0.16"
+mime_guess = "2"
+encoding_rs = "0.8"
+which = "7"
+camino = { version = "1", features = ["serde1"] }
+dunce = "1"
+pathdiff = "0.2"
+rayon = "1"
+tempfile = "3"
+schemars = "0.8"
+jsonschema = "0.18"
+
+# tests
+assert_cmd = "2"
+predicates = "3"
+insta = { version = "1", features = ["json", "yaml"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
