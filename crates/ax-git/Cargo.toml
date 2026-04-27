@@ -12,3 +12,12 @@ publish = false
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+camino.workspace = true
+gix = { workspace = true, features = ["status", "revision"] }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
