@@ -74,7 +74,40 @@ fn normalize_ms(text: &str) -> String {
 }
 
 fn normalize_run_text(text: &str, helper: &std::path::Path) -> String {
-    normalize_ms(&text.replace(&helper.to_string_lossy().to_string(), "<helper>"))
+    normalize_ms(&normalize_helper_path(text, helper))
+}
+
+fn normalize_helper_path(text: &str, helper: &std::path::Path) -> String {
+    let direct = text.replace(&helper.to_string_lossy().to_string(), "<helper>");
+    let helper_names = ["axt_run_helper.exe", "axt_run_helper"];
+    let mut normalized = direct;
+    for helper_name in helper_names {
+        normalized = replace_helper_name_paths(&normalized, helper_name);
+    }
+    normalized
+}
+
+fn replace_helper_name_paths(text: &str, helper_name: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    let mut cursor = 0;
+    let mut search_from = 0;
+    while let Some(relative_index) = text[search_from..].find(helper_name) {
+        let helper_start = search_from + relative_index;
+        let helper_end = helper_start + helper_name.len();
+        let path_start = text[..helper_start]
+            .rfind(['"', '[', ',', ' ', '\n'])
+            .map_or(0, |index| index + 1);
+        if path_start >= helper_start {
+            search_from = helper_end;
+            continue;
+        }
+        output.push_str(&text[cursor..path_start]);
+        output.push_str("<helper>");
+        cursor = helper_end;
+        search_from = helper_end;
+    }
+    output.push_str(&text[cursor..]);
+    output
 }
 
 #[test]
