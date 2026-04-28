@@ -37,7 +37,7 @@ impl Snapshot {
                 path: path.clone(),
                 source: std::io::Error::other(err.to_string()),
             })?;
-            if rel.as_str() == ".axt" || rel.as_str().starts_with(".axt/") {
+            if is_internal_axt_path(rel) {
                 continue;
             }
             if !entry.file_type().is_file() {
@@ -227,6 +227,12 @@ fn size_delta(before: Option<u64>, after: Option<u64>) -> i64 {
         .and_then(|value| i64::try_from(value).ok())
         .unwrap_or(0);
     after.saturating_sub(before)
+}
+
+fn is_internal_axt_path(path: &Utf8Path) -> bool {
+    path.components()
+        .next()
+        .is_some_and(|component| component.as_str() == ".axt")
 }
 
 fn record_changed(before: &SnapshotRecord, after: &SnapshotRecord) -> bool {
