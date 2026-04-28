@@ -20,8 +20,11 @@ Run options:
 - `--cwd <DIR>` runs the command from a different working directory.
 - `--env KEY=VALUE` and `--env-file <FILE>` add child environment values.
 - `--timeout <DURATION>` terminates the command on timeout.
-- `--capture always|never|auto` controls stream capture. `auto` currently
-  captures because `axt-run` never inherits the child tty.
+- `--capture always|never|auto` controls stream capture. `always` always
+  pipes stdout/stderr through `axt-run` for summaries and saved logs;
+  `never` inherits the parent's stdio so the child can use the terminal
+  directly (no tail or persisted log); `auto` (default) inherits when
+  `axt-run`'s own stdout is a TTY and captures otherwise.
 - `--max-log-bytes <SIZE>` caps each persisted stream log.
 - `--watch-files` / `--no-watch-files` controls cwd file snapshots.
 - `--include <GLOB>` and `--exclude <GLOB>` filter file watching.

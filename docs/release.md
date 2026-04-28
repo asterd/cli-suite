@@ -41,20 +41,38 @@ without the Windows bucket update.
 
 ## Version And Changelog
 
-For the release candidate, the workspace version is `0.1.0-rc1`. All binary crates use the workspace version. Internal crates that must be published for `cargo install axt-peek` also use the same version.
+For the release candidate, the workspace version is `0.1.0-rc1`. All binary crates use the workspace version. Internal crates that must be published for `cargo install axt-*` also use the same version.
 
 Update `CHANGELOG.md` in Keep-a-Changelog style before tagging. Group user-visible changes under the binary name, and keep release-pipeline changes separate.
 
+### Schema versioning
+
+Public JSON / JSONL / ACF schemas are versioned per binary (`axt.<cmd>.v1`,
+`axt.<cmd>.v2`, ...). The contract starts at the first published release
+(`v0.1.0`). Pre-release stub payloads — anything shipped before that tag,
+including the M0/M1 placeholders — do not establish the contract; we may evolve
+their shape without bumping the schema major. Once `v0.1.0` is on crates.io and
+the GitHub release exists, any breaking shape change requires a major schema
+bump (`v1` → `v2`, the new schema id committed under `schemas/`, both schemas
+served in parallel for at least one release for migration), regardless of how
+small the change looks.
+
 ## Cargo Publish Order
 
-`axt-peek` depends on internal library crates, so publish or dry-run them in dependency order:
+The binaries depend on internal library crates, so publish or dry-run them in dependency order. Library crates first, then binaries:
 
 ```bash
 cargo publish -p axt-core --dry-run
 cargo publish -p axt-output --dry-run
 cargo publish -p axt-fs --dry-run
 cargo publish -p axt-git --dry-run
+
 cargo publish -p axt-peek --dry-run
+cargo publish -p axt-run --dry-run
+cargo publish -p axt-doc --dry-run
+cargo publish -p axt-drift --dry-run
+cargo publish -p axt-port --dry-run
+cargo publish -p axt-test --dry-run
 ```
 
 For a real release, remove `--dry-run` and wait for each crate to be available on crates.io before publishing dependents.
@@ -76,9 +94,9 @@ release tags should be pushed.
 
 ## Scoop Manifest
 
-The release workflow generates the Scoop manifest from the final dist manifest
-and Windows archive checksum, then opens a PR against `SCOOP_BUCKET_REPOSITORY`.
-To reproduce that step locally:
+The release workflow generates a Scoop manifest per binary from the final dist
+manifest and the matching Windows archive checksum, then opens a PR against
+`SCOOP_BUCKET_REPOSITORY`. To reproduce that step locally for a single binary:
 
 ```bash
 python3 scripts/release/scoop-manifest.py \
@@ -87,59 +105,67 @@ python3 scripts/release/scoop-manifest.py \
   --output bucket/axt-peek.json
 ```
 
-Open a pull request against `ddurzo/scoop-axt` with the generated
-`bucket/axt-peek.json` only if the automated workflow cannot reach the bucket.
+Repeat for the other binaries (`axt-run`, `axt-doc`, `axt-drift`, `axt-port`,
+`axt-test`) by swapping the `--sha256-file` and `--output` arguments to match
+each binary name. Open a pull request against `ddurzo/scoop-axt` with the
+generated manifests only if the automated workflow cannot reach the bucket.
 
 ## Smoke Tests
 
-Run each install from a clean machine or VM and verify `axt-peek --version` and `axt-peek --help`.
+Run each install from a clean machine or VM and verify `--version` and
+`--help` for every shipped binary: `axt-peek`, `axt-run`, `axt-doc`,
+`axt-drift`, `axt-port`, and `axt-test`.
 
-Linux or macOS shell installer:
+Use this helper after each install so all six binaries are exercised:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/axt-peek-installer.sh | sh
-axt-peek --version
-axt-peek --help
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+  "$bin" --version
+  "$bin" --help >/dev/null
+done
+```
+
+Linux or macOS shell installer (one binary per installer URL — repeat for each):
+
+```bash
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+  curl --proto '=https' --tlsv1.2 -LsSf \
+    "https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/${bin}-installer.sh" | sh
+done
 ```
 
 macOS or Linux Homebrew:
 
 ```bash
-brew install ddurzo/axt/axt-peek
-axt-peek --version
-axt-peek --help
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+  brew install "ddurzo/axt/${bin}"
+done
 ```
 
 Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/axt-peek-installer.ps1 | iex"
-axt-peek --version
-axt-peek --help
+$bins = @('axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test')
+foreach ($bin in $bins) {
+  powershell -ExecutionPolicy Bypass -c "irm https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/$bin-installer.ps1 | iex"
+}
 ```
 
 Windows Scoop:
 
 ```powershell
 scoop bucket add axt https://github.com/ddurzo/scoop-axt
-scoop install axt-peek
-axt-peek --version
-axt-peek --help
+foreach ($bin in 'axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test') {
+  scoop install $bin
+}
 ```
 
 Cargo:
 
 ```bash
-cargo install axt-peek --version 0.1.0-rc1
-axt-peek --version
-axt-peek --help
-```
-
-Optional unprefixed local alias:
-
-```bash
-cargo install axt-peek --version 0.1.0-rc1 --features aliases
-peek --version
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+  cargo install "$bin" --version 0.1.0-rc1
+done
 ```
 
 ## Recovery

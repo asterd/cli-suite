@@ -1,9 +1,10 @@
 use std::{
     collections::BTreeSet,
     io::{self, IsTerminal, Write},
-    process::Command,
     time::{Duration, Instant},
 };
+
+use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
 
 use crate::{
     cli::SignalArg,
@@ -68,7 +69,7 @@ pub async fn free_holder(
     };
     let mut signal_result = Ok(());
     for pid in &pids {
-        signal_result = send_signal(*pid, signal, tree);
+        signal_result = send_signal(*pid, signal);
         if signal_result.is_err() {
             break;
         }
@@ -110,7 +111,7 @@ pub async fn free_holder(
     }
 
     for pid in &pids {
-        let _ignored = send_signal(*pid, SignalArg::Kill, tree);
+        let _ignored = send_signal(*pid, SignalArg::Kill);
     }
     tokio::time::sleep(Duration::from_millis(100)).await;
     let held_after_kill = holder_still_present(holder)?;
@@ -237,38 +238,54 @@ fn holder_still_present(holder: &PortHolder) -> Result<bool> {
 }
 
 #[cfg(unix)]
-fn send_signal(pid: u32, signal: SignalArg, _tree: bool) -> io::Result<()> {
-    let sig = match signal {
-        SignalArg::Term => "-TERM",
-        SignalArg::Kill => "-KILL",
-        SignalArg::Int => "-INT",
+fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
+    use nix::{
+        sys::signal::{kill, Signal},
+        unistd::Pid,
     };
-    let status = Command::new("kill")
-        .args([sig, &pid.to_string()])
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(io::Error::other(format!("kill exited with {status}")))
-    }
+    let raw = match i32::try_from(pid) {
+        Ok(value) => value,
+        Err(_) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "pid out of range",
+            ))
+        }
+    };
+    let sig = match signal {
+        SignalArg::Term => Signal::SIGTERM,
+        SignalArg::Kill => Signal::SIGKILL,
+        SignalArg::Int => Signal::SIGINT,
+    };
+    kill(Pid::from_raw(raw), sig).map_err(|errno| io::Error::from_raw_os_error(errno as i32))
 }
 
 #[cfg(windows)]
-fn send_signal(pid: u32, signal: SignalArg, tree: bool) -> io::Result<()> {
-    let mut command = Command::new("taskkill");
-    command.args(["/PID", &pid.to_string()]);
-    if tree {
-        command.arg("/T");
+fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, FALSE},
+        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+    };
+
+    let exit_code: u32 = match signal {
+        SignalArg::Kill | SignalArg::Term => 1,
+        SignalArg::Int => 0xC000_013A,
+    };
+
+    // SAFETY: We open the process with the minimum rights needed to terminate it,
+    // check the returned handle for null, and always close it before returning.
+    unsafe {
+        let handle = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+        if handle.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let result = TerminateProcess(handle, exit_code);
+        CloseHandle(handle);
+        if result == 0 {
+            return Err(io::Error::last_os_error());
+        }
     }
-    if signal == SignalArg::Kill {
-        command.arg("/F");
-    }
-    let status = command.status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(io::Error::other(format!("taskkill exited with {status}")))
-    }
+    Ok(())
 }
 
 fn tree_pids(root: u32) -> BTreeSet<u32> {
@@ -281,59 +298,28 @@ fn tree_pids(root: u32) -> BTreeSet<u32> {
     pids
 }
 
-#[cfg(unix)]
 fn parent_pid() -> u32 {
+    let current = std::process::id();
     process_parents()
         .into_iter()
-        .find_map(|(pid, parent)| (pid == std::process::id()).then_some(parent))
+        .find_map(|(pid, parent)| (pid == current).then_some(parent))
         .unwrap_or(0)
 }
 
-#[cfg(windows)]
-fn parent_pid() -> u32 {
-    0
-}
-
-#[cfg(target_os = "linux")]
 fn process_parents() -> Vec<(u32, u32)> {
-    let Ok(entries) = std::fs::read_dir("/proc") else {
-        return Vec::new();
-    };
-    entries
-        .flatten()
-        .filter_map(|entry| {
-            let pid = entry.file_name().to_string_lossy().parse::<u32>().ok()?;
-            let status = std::fs::read_to_string(entry.path().join("status")).ok()?;
-            let parent = status.lines().find_map(|line| {
-                line.strip_prefix("PPid:").and_then(|value| {
-                    value
-                        .split_whitespace()
-                        .next()
-                        .and_then(|number| number.parse::<u32>().ok())
-                })
-            })?;
-            Some((pid, parent))
+    let mut system =
+        System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
+    system.refresh_processes_specifics(
+        sysinfo::ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::new(),
+    );
+    system
+        .processes()
+        .iter()
+        .filter_map(|(pid, process)| {
+            let parent = process.parent()?;
+            Some((Pid::as_u32(*pid), parent.as_u32()))
         })
         .collect()
-}
-
-#[cfg(target_os = "macos")]
-fn process_parents() -> Vec<(u32, u32)> {
-    let Ok(output) = Command::new("ps").args(["-axo", "pid=,ppid="]).output() else {
-        return Vec::new();
-    };
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(|line| {
-            let mut fields = line.split_whitespace();
-            let pid = fields.next()?.parse::<u32>().ok()?;
-            let ppid = fields.next()?.parse::<u32>().ok()?;
-            Some((pid, ppid))
-        })
-        .collect()
-}
-
-#[cfg(windows)]
-fn process_parents() -> Vec<(u32, u32)> {
-    Vec::new()
 }

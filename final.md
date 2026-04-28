@@ -15,7 +15,7 @@ Stai realizzando una suite di comandi per Linux / MacOSX e Windows.
 
 4. Vorrei che tutti i comandi, quando installati, siano usabili come ax-<nome-comando> oppure solo <nome-comando> (tramite alias?? vedi tu). Vedi se è il caso di renderla un'opzione di installazione (Se è possibile)
 
-5. Verifica che tutto il codice sia a prova di bomba e di attacco. Varifica tutte le varianti OWASP, i problemi di sicurezza possibili, problemi di memoria, attacchi basso livello, etc. Ogni comando deve essere ultra solido oltre che ultra veloce
+5. Verifica che tutto il codice sia a prova di bomba e di attacco. Varifica tutte le varianti OWASP, i problemi di sicurezza possibili, problemi di memoria, attacchi basso livello, etc. Ogni comando deve essere ultra solido oltre che ultra veloce e scritto con codice super leggibile, super manutenibile, super leggero, nessuna ridondanza o eccessiva astrazione. Codice forte e concreto.
 
 6. Realizza delle skill installabili per ogni comando o per tutta la suite per rendere conosciuti ed usabili i comandi ai vari codex, claude code, etc. (prendi ispirazione da RTK)
 

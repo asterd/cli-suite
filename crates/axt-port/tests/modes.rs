@@ -305,6 +305,11 @@ fn normalize_json_value(value: &mut Value) {
                     map.insert(key.to_owned(), Value::String(format!("<{key}>")));
                 }
             }
+            if let Some(value) = map.get_mut("started") {
+                if !value.is_null() {
+                    *value = Value::String("<started>".to_owned());
+                }
+            }
             if let Some(Value::Array(bound)) = map.get_mut("bound") {
                 for item in bound {
                     *item = Value::String("<bound>".to_owned());
@@ -347,6 +352,8 @@ fn normalize_agent_fixture_output(stdout: &str) -> String {
                 "mem=<mem>".to_owned()
             } else if field.starts_with("ms=") {
                 "ms=<ms>".to_owned()
+            } else if field.starts_with("started=") {
+                "started=<started>".to_owned()
             } else {
                 field.to_owned()
             }

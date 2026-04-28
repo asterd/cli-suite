@@ -32,7 +32,7 @@ struct FileState {
 #[derive(Debug)]
 struct Matchers {
     include: Option<GlobSet>,
-    exclude: GlobSet,
+    exclude: Option<GlobSet>,
 }
 
 impl Snapshot {
@@ -122,7 +122,7 @@ impl Matchers {
     fn new(include: &[String], exclude: &[String]) -> Result<Self> {
         Ok(Self {
             include: build_set(include)?.filter(|set| !set.is_empty()),
-            exclude: build_set(exclude)?.unwrap_or_else(empty_set),
+            exclude: build_set(exclude)?,
         })
     }
 
@@ -131,14 +131,12 @@ impl Matchers {
             .include
             .as_ref()
             .is_none_or(|include| include.is_match(path));
-        included && !self.exclude.is_match(path)
+        let excluded = self
+            .exclude
+            .as_ref()
+            .is_some_and(|exclude| exclude.is_match(path));
+        included && !excluded
     }
-}
-
-fn empty_set() -> GlobSet {
-    GlobSetBuilder::new()
-        .build()
-        .unwrap_or_else(|_| unreachable!("empty glob set should build"))
 }
 
 fn build_set(patterns: &[String]) -> Result<Option<GlobSet>> {

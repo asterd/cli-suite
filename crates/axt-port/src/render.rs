@@ -286,6 +286,9 @@ fn agent_holder_line(holder: &PortHolder) -> RenderResult<String> {
     if let Some(memory) = holder.memory_bytes {
         fields.push(AgentField::u64("mem", memory));
     }
+    if let Some(started) = &holder.started {
+        fields.push(AgentField::str("started", started));
+    }
     prefixed_line("H", &fields)
 }
 

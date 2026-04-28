@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    io::IsTerminal,
     process::Stdio,
     time::{Duration, Instant},
 };
@@ -47,12 +48,13 @@ pub async fn run_command(request: RunRequest<'_>) -> Result<RunData> {
         None
     };
 
-    let mut child = spawn_child(request.args, &cwd, &env)?;
+    let resolved = resolved_capture(request.args.capture);
+    let mut child = spawn_child(request.args, &cwd, &env, resolved)?;
     let stdout = child.child.stdout.take();
     let stderr = child.child.stderr.take();
     let stdout_path = save_paths.as_ref().map(|paths| paths.stdout.clone());
     let stderr_path = save_paths.as_ref().map(|paths| paths.stderr.clone());
-    let capture = request.args.capture != CaptureMode::Never;
+    let capture = matches!(resolved, ResolvedCapture::Pipe);
     let max_log_bytes = request.args.max_log_bytes.0;
     let tail_bytes = request.args.tail_bytes.unwrap_or(4096);
 
@@ -205,7 +207,12 @@ struct ManagedChild {
     job: Option<windows_job::Job>,
 }
 
-fn spawn_child(args: &RunArgs, cwd: &Utf8Path, env: &[(String, String)]) -> Result<ManagedChild> {
+fn spawn_child(
+    args: &RunArgs,
+    cwd: &Utf8Path,
+    env: &[(String, String)],
+    resolved: ResolvedCapture,
+) -> Result<ManagedChild> {
     let mut command = if args.shell {
         shell_command(&args.command)
     } else {
@@ -215,10 +222,13 @@ fn spawn_child(args: &RunArgs, cwd: &Utf8Path, env: &[(String, String)]) -> Resu
     };
     command.current_dir(cwd);
     command.envs(env.iter().map(|(key, value)| (key, value)));
-    if args.capture == CaptureMode::Never {
-        command.stdout(Stdio::null()).stderr(Stdio::null());
-    } else {
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    match resolved {
+        ResolvedCapture::Inherit => {
+            command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        }
+        ResolvedCapture::Pipe => {
+            command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        }
     }
     configure_process_group(&mut command);
     let child = command.spawn().map_err(RunError::Execute)?;
@@ -229,6 +239,26 @@ fn spawn_child(args: &RunArgs, cwd: &Utf8Path, env: &[(String, String)]) -> Resu
         #[cfg(windows)]
         job,
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResolvedCapture {
+    Pipe,
+    Inherit,
+}
+
+fn resolved_capture(mode: CaptureMode) -> ResolvedCapture {
+    match mode {
+        CaptureMode::Always => ResolvedCapture::Pipe,
+        CaptureMode::Never => ResolvedCapture::Inherit,
+        CaptureMode::Auto => {
+            if std::io::stdout().is_terminal() {
+                ResolvedCapture::Inherit
+            } else {
+                ResolvedCapture::Pipe
+            }
+        }
+    }
 }
 
 fn shell_command(command_parts: &[String]) -> TokioCommand {

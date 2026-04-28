@@ -1,0 +1,11 @@
+# cargo-deny configuration. See https://embarkstudios.github.io/cargo-deny/.
+
+[advisories]
+version = 2
+ignore = [
+    # `paste` is unmaintained but still functional; pulled in transitively via
+    # netstat2 -> netlink-packet-utils. There is no safe upgrade path today.
+    # Remove this ignore when netlink-packet-utils stops depending on `paste`,
+    # or when netstat2 publishes a release that drops the netlink stack.
+    { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained; transitive via netstat2" },
+]

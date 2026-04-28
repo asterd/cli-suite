@@ -54,6 +54,9 @@ jsonschema = "0.18"
 globset = "0.4"
 libc = "0.2"
 windows-sys = "0.59"
+sysinfo = { version = "0.32", default-features = false, features = ["system", "user"] }
+netstat2 = "0.11"
+nix = { version = "0.29", default-features = false, features = ["signal"] }
 tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "time"] }
 
 # tests
