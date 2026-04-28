@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fs};
+use std::collections::BTreeSet;
 
 use axt_fs::{EntryMetadata, HashAlgorithm, WalkOptions};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -51,7 +51,7 @@ fn normalize_roots(paths: &[Utf8PathBuf], cwd: &Utf8Path) -> Result<Vec<Utf8Path
                 return Err(PeekError::PathNotFound(path.clone()));
             }
             let canonical =
-                fs::canonicalize(&joined).map_err(|source| PeekError::Canonicalize {
+                dunce::canonicalize(&joined).map_err(|source| PeekError::Canonicalize {
                     path: joined.clone(),
                     source,
                 })?;

@@ -264,6 +264,7 @@ dependencies = [
  "axt-output",
  "camino",
  "clap",
+ "dunce",
  "insta",
  "jsonschema",
  "schemars",
