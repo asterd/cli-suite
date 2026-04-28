@@ -1,0 +1,8 @@
+---
+source: crates/axt-port/tests/modes.rs
+expression: "&normalize_jsonl_fixture_output(&jsonl_stdout)?"
+---
+{"schema":"axt.port.summary.v1","type":"summary","ok":true,"action":"free","ports":["<port>"],"sockets":1,"holders":1,"held":true,"freed":false,"timed_out":false,"duration_ms":"<duration_ms>","truncated":false}
+{"schema":"axt.port.socket.v1","type":"socket","port":"<port>","proto":"tcp","pid":"<pid>","process":"<process>","bound":"<bound>","state":"LISTEN"}
+{"schema":"axt.port.holder.v1","type":"holder","port":"<port>","proto":"tcp","pid":"<pid>","name":"<name>","cmd":"<cmd>","cwd":"<cwd>","bound":["<bound>"],"owner":"<owner>","mem":"<mem>","started":null}
+{"schema":"axt.port.action.v1","type":"action","port":"<port>","pid":"<pid>","name":"<name>","signal":"term","action":"simulated","result":"skipped","ok":true,"escalated":false,"ms":"<ms>"}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt-port JSONL socket record",
+  "type": "object",
+  "required": ["schema", "type", "port", "proto", "pid", "process", "bound", "state"],
+  "properties": {
+    "schema": { "const": "axt.port.socket.v1" },
+    "type": { "const": "socket" },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "proto": { "enum": ["tcp", "udp"] },
+    "pid": { "type": ["integer", "null"], "minimum": 0 },
+    "process": { "type": ["string", "null"] },
+    "bound": { "type": "string" },
+    "state": { "type": "string" }
+  },
+  "additionalProperties": false
+}

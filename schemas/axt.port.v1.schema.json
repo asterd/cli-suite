@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt-port JSON envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.port.v1" },
+    "ok": { "type": "boolean" },
+    "data": { "$ref": "#/$defs/PortData" },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PortData": {
+      "type": "object",
+      "required": [
+        "action",
+        "ports",
+        "sockets",
+        "holders",
+        "attempts",
+        "held",
+        "freed",
+        "timed_out",
+        "duration_ms",
+        "truncated"
+      ],
+      "properties": {
+        "action": { "enum": ["list", "who", "free", "watch"] },
+        "ports": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 65535 } },
+        "sockets": { "type": "array", "items": { "$ref": "#/$defs/SocketEntry" } },
+        "holders": { "type": "array", "items": { "$ref": "#/$defs/PortHolder" } },
+        "attempts": { "type": "array", "items": { "$ref": "#/$defs/FreeAttempt" } },
+        "held": { "type": "boolean" },
+        "freed": { "type": "boolean" },
+        "timed_out": { "type": "boolean" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "SocketEntry": {
+      "type": "object",
+      "required": ["port", "proto", "pid", "process", "bound", "state"],
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "proto": { "enum": ["tcp", "udp"] },
+        "pid": { "type": ["integer", "null"], "minimum": 0 },
+        "process": { "type": ["string", "null"] },
+        "bound": { "type": "string" },
+        "state": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "PortHolder": {
+      "type": "object",
+      "required": [
+        "port",
+        "proto",
+        "pid",
+        "parent_pid",
+        "name",
+        "command",
+        "cwd",
+        "bound",
+        "owner",
+        "memory_bytes",
+        "started"
+      ],
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "proto": { "enum": ["tcp", "udp"] },
+        "pid": { "type": "integer", "minimum": 0 },
+        "parent_pid": { "type": ["integer", "null"], "minimum": 0 },
+        "name": { "type": "string" },
+        "command": { "type": ["string", "null"] },
+        "cwd": { "type": ["string", "null"] },
+        "bound": { "type": "array", "items": { "type": "string" } },
+        "owner": { "type": ["string", "null"] },
+        "memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "started": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "FreeAttempt": {
+      "type": "object",
+      "required": [
+        "port",
+        "pid",
+        "name",
+        "signal",
+        "action",
+        "result",
+        "ok",
+        "escalated",
+        "ms",
+        "error_code",
+        "message"
+      ],
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "pid": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "signal": { "enum": ["term", "kill", "int"] },
+        "action": { "enum": ["signaled", "simulated", "refused"] },
+        "result": { "enum": ["freed", "held", "skipped", "permission_denied", "refused", "failed"] },
+        "ok": { "type": "boolean" },
+        "escalated": { "type": "boolean" },
+        "ms": { "type": "integer", "minimum": 0 },
+        "error_code": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

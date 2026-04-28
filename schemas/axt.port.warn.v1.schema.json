@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt-port JSONL warning record",
+  "type": "object",
+  "required": ["schema", "type", "code", "reason", "truncated"],
+  "properties": {
+    "schema": { "const": "axt.port.warn.v1" },
+    "type": { "const": "warn" },
+    "code": { "const": "truncated" },
+    "reason": { "enum": ["max_records", "max_bytes"] },
+    "truncated": { "const": true }
+  },
+  "additionalProperties": false
+}
