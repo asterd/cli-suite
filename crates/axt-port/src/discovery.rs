@@ -172,12 +172,18 @@ fn lookup_user(users: &Users, uid: &Uid) -> Option<String> {
     users.get_user_by_id(uid).map(|user| user.name().to_owned())
 }
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn lookup_user_by_raw(users: &Users, uid: u32) -> Option<String> {
     users
         .list()
         .iter()
         .find(|user| **user.id() == uid)
         .map(|user| user.name().to_owned())
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn lookup_user_by_raw(_users: &Users, _uid: u32) -> Option<String> {
+    None
 }
 
 fn format_unix_seconds(seconds: u64) -> Option<String> {
