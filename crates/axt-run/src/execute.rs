@@ -468,22 +468,17 @@ fn suggest_gitignore(cwd: &Utf8Path) {
 
 #[cfg(windows)]
 mod windows_job {
-    use std::os::windows::io::AsRawHandle;
-
     use tokio::process::Child;
     use windows_sys::Win32::{
         Foundation::{CloseHandle, HANDLE},
-        System::{
-            JobObjects::{
-                AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-                SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            },
-            Threading::PROCESS_TERMINATE,
+        System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         },
     };
 
-    use crate::{error::RunError, Result};
+    use crate::error::{Result, RunError};
 
     pub struct Job(HANDLE);
 
@@ -504,31 +499,41 @@ mod windows_job {
     }
 
     pub fn assign(child: &Child) -> Result<Option<Job>> {
+        // SAFETY: null security attributes and an unnamed job object are valid
+        // CreateJobObjectW inputs. The returned handle is checked for null.
         let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
-        if job == 0 {
+        if job.is_null() {
             return Err(RunError::Execute(std::io::Error::last_os_error()));
         }
         let job = Job(job);
-        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        // SAFETY: JOBOBJECT_EXTENDED_LIMIT_INFORMATION is a repr(C), Copy Win32
+        // data structure. Zero-initialization matches the documented C pattern
+        // before setting the specific limit flags we need.
+        let mut info = unsafe { std::mem::zeroed::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() };
         info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         let info_size = u32::try_from(std::mem::size_of_val(&info)).unwrap_or(u32::MAX);
+        // SAFETY: `info` points to a valid structure of `info_size` bytes for
+        // the JobObjectExtendedLimitInformation class.
         let configured = unsafe {
             SetInformationJobObject(
                 job.0,
                 JobObjectExtendedLimitInformation,
-                std::ptr::addr_of_mut!(info).cast(),
+                std::ptr::addr_of!(info).cast(),
                 info_size,
             )
         };
         if configured == 0 {
             return Err(RunError::Execute(std::io::Error::last_os_error()));
         }
-        let handle = child.raw_handle().cast::<std::ffi::c_void>();
-        let assigned = unsafe { AssignProcessToJobObject(job.0, handle as HANDLE) };
+        let handle = child.raw_handle().ok_or_else(|| {
+            RunError::Execute(std::io::Error::other("child process handle is unavailable"))
+        })?;
+        // SAFETY: both handles are live OS handles owned by the job wrapper and
+        // Tokio child process. The call only associates the process with the job.
+        let assigned = unsafe { AssignProcessToJobObject(job.0, handle) };
         if assigned == 0 {
             return Err(RunError::Execute(std::io::Error::last_os_error()));
         }
-        let _ = PROCESS_TERMINATE;
         Ok(Some(job))
     }
 }
