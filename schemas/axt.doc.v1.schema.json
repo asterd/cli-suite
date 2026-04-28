@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axt.dev/schemas/axt.doc.v1.schema.json",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "axt.doc.v1" },
+    "ok": { "type": "boolean" },
+    "data": { "$ref": "#/$defs/docData" },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "$defs": {
+    "docData": {
+      "type": "object",
+      "required": ["which", "path", "env"],
+      "additionalProperties": false,
+      "properties": {
+        "which": { "oneOf": [{ "$ref": "#/$defs/whichReport" }, { "type": "null" }] },
+        "path": { "oneOf": [{ "$ref": "#/$defs/pathReport" }, { "type": "null" }] },
+        "env": { "oneOf": [{ "$ref": "#/$defs/envReport" }, { "type": "null" }] }
+      }
+    },
+    "whichReport": {
+      "type": "object",
+      "required": ["cmd", "found", "primary", "matches", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "cmd": { "type": "string" },
+        "found": { "type": "boolean" },
+        "primary": { "type": ["string", "null"] },
+        "matches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandMatch" }
+        },
+        "version": { "$ref": "#/$defs/versionProbe" }
+      }
+    },
+    "commandMatch": {
+      "type": "object",
+      "required": ["path", "manager", "source", "executable"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "manager": { "type": ["string", "null"] },
+        "source": { "type": "string" },
+        "executable": { "type": "boolean" }
+      }
+    },
+    "versionProbe": {
+      "type": "object",
+      "required": ["attempted", "ok", "timed_out", "command", "output", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "attempted": { "type": "boolean" },
+        "ok": { "type": "boolean" },
+        "timed_out": { "type": "boolean" },
+        "command": { "type": ["string", "null"] },
+        "output": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "pathReport": {
+      "type": "object",
+      "required": ["entries", "duplicates", "missing", "broken_symlinks", "ordering_issues"],
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pathEntry" }
+        },
+        "duplicates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pathDuplicate" }
+        },
+        "missing": { "type": "array", "items": { "type": "string" } },
+        "broken_symlinks": { "type": "array", "items": { "type": "string" } },
+        "ordering_issues": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/orderingIssue" }
+        }
+      }
+    },
+    "pathEntry": {
+      "type": "object",
+      "required": ["index", "path", "exists", "is_dir", "is_symlink", "canonical", "manager"],
+      "additionalProperties": false,
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "is_dir": { "type": "boolean" },
+        "is_symlink": { "type": "boolean" },
+        "canonical": { "type": ["string", "null"] },
+        "manager": { "type": ["string", "null"] }
+      }
+    },
+    "pathDuplicate": {
+      "type": "object",
+      "required": ["path", "first_index", "duplicate_index"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "first_index": { "type": "integer", "minimum": 0 },
+        "duplicate_index": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "orderingIssue": {
+      "type": "object",
+      "required": ["kind", "path", "index", "earlier_index", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "path": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "earlier_index": { "type": "integer", "minimum": 0 },
+        "message": { "type": "string" }
+      }
+    },
+    "envReport": {
+      "type": "object",
+      "required": ["total", "vars", "secret_like", "suspicious", "show_secrets"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "vars": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/envVar" }
+        },
+        "secret_like": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/envVar" }
+        },
+        "suspicious": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/envSuspicion" }
+        },
+        "show_secrets": { "type": "boolean" }
+      }
+    },
+    "envVar": {
+      "type": "object",
+      "required": ["name", "value", "secret_like", "empty"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "string" },
+        "secret_like": { "type": "boolean" },
+        "empty": { "type": "boolean" }
+      }
+    },
+    "envSuspicion": {
+      "type": "object",
+      "required": ["name", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

@@ -816,7 +816,7 @@ A single command that diagnoses the local dev environment.
 - `axt-doc which <CMD>` — what does this command resolve to, all matches in PATH, version-manager attribution, version probe with timeout.
 - `axt-doc path` — PATH analysis: duplicates, missing dirs, broken symlinks, ordering issues.
 - `axt-doc env` — environment summary: var count, secret-like vars (redacted), suspicious or empty vars.
-- `axt-doc all` — runs all three and emits a single combined response in the selected mode; `--jsonl` is the streaming JSONL form.
+- `axt-doc all <CMD>` — runs all three and emits a single combined response in the selected mode; `--jsonl` is the streaming JSONL form.
 
 Manager detection (best-effort, by path patterns + by querying the manager when present): Homebrew, mise, asdf, rustup, cargo bin, pyenv, rbenv, volta, nvm-shim, Scoop, Chocolatey, winget.
 

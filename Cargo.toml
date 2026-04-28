@@ -7,8 +7,8 @@ members = [
   "crates/axt-git",
   "crates/axt-peek",
   "crates/axt-run",
+  "crates/axt-doc",
   # phases 3-4 added later:
-  # "crates/axt-doc",
   # "crates/axt-drift",
   "xtask",
 ]
