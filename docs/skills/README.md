@@ -1,11 +1,46 @@
 # Agent Skills
 
-`docs/skills/axt-suite/SKILL.md` is an installable agent skill for Codex, Claude Code, and similar tools.
+The `docs/skills/` tree contains installable Agent Skills for Codex, Claude Code,
+and compatible tools.
 
-The skill keeps the command surface compact and points agents toward the lowest-token output modes:
+| Skill | Scope |
+|---|---|
+| `axt-suite` | Whole six-command suite. |
+| `axt-peek` | Repository and filesystem snapshots. |
+| `axt-run` | Structured command execution. |
+| `axt-doc` | PATH, command, and environment diagnostics. |
+| `axt-drift` | Filesystem drift marks and diffs. |
+| `axt-port` | Local port inspection and cleanup. |
+| `axt-test` | Normalized test runner output. |
 
-- `--agent` for ACF.
-- `--json` for stable envelopes.
-- `--jsonl` for streaming records.
+## Install
 
-Copy `docs/skills/axt-suite/` into the target agent's skill directory when packaging the suite for agent environments.
+Install the suite skill into the current project for both Codex and Claude Code:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope project --skill axt-suite
+```
+
+Install every skill globally:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope user --skill all
+```
+
+Install one command skill for Codex only:
+
+```bash
+python3 scripts/agent/install-skills.py --agent codex --scope project --skill axt-run
+```
+
+Use `--dry-run` to inspect the target paths and `--force` to replace an existing
+copy.
+
+## Target Paths
+
+| Agent | Project scope | User scope |
+|---|---|---|
+| Codex | `.codex/skills/<skill>` | `~/.codex/skills/<skill>` |
+| Claude Code | `.claude/skills/<skill>` | `~/.claude/skills/<skill>` |
+
+Restart the agent after installation so the new skill metadata is loaded.

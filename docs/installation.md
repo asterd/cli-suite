@@ -22,7 +22,24 @@
 
 ## Local Checkout
 
-Install one command:
+Install the complete suite:
+
+```bash
+python3 scripts/install-local.py --command all
+```
+
+Install one command with the helper:
+
+```bash
+python3 scripts/install-local.py --command peek
+python3 scripts/install-local.py --command run
+python3 scripts/install-local.py --command doc
+python3 scripts/install-local.py --command drift
+python3 scripts/install-local.py --command port
+python3 scripts/install-local.py --command test
+```
+
+Install one command directly with Cargo:
 
 ```bash
 cargo install --path crates/axt-peek --locked
@@ -35,6 +52,17 @@ cargo install --path crates/axt-peek --locked --features aliases
 ```
 
 Repeat for the command crate you need.
+
+## Per-Command Local Install Matrix
+
+| Command | Direct Cargo install | Helper install | With aliases |
+|---|---|---|---|
+| `axt-peek` | `cargo install --path crates/axt-peek --locked` | `python3 scripts/install-local.py --command peek` | `python3 scripts/install-local.py --command peek --aliases` |
+| `axt-run` | `cargo install --path crates/axt-run --locked` | `python3 scripts/install-local.py --command run` | `python3 scripts/install-local.py --command run --aliases` |
+| `axt-doc` | `cargo install --path crates/axt-doc --locked` | `python3 scripts/install-local.py --command doc` | `python3 scripts/install-local.py --command doc --aliases` |
+| `axt-drift` | `cargo install --path crates/axt-drift --locked` | `python3 scripts/install-local.py --command drift` | `python3 scripts/install-local.py --command drift --aliases` |
+| `axt-port` | `cargo install --path crates/axt-port --locked` | `python3 scripts/install-local.py --command port` | `python3 scripts/install-local.py --command port --aliases` |
+| `axt-test` | `cargo install --path crates/axt-test --locked` | `python3 scripts/install-local.py --command test` | `python3 scripts/install-local.py --command test --aliases` |
 
 ## Aliases
 
@@ -81,3 +109,20 @@ For alias installs:
 ax-peek --version
 peek --version
 ```
+
+## Agent Skill Install
+
+Install the suite skill into the current project for Codex and Claude Code:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope project --skill axt-suite
+```
+
+Install every command-specific skill globally:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope user --skill all
+```
+
+Codex project skills are copied to `.codex/skills/`. Claude Code project skills
+are copied to `.claude/skills/`. Restart the agent after installation.

@@ -47,11 +47,13 @@ Releases are prepared for GitHub Releases, shell and PowerShell installers, Home
 
 | System | Local install | Release channel |
 |---|---|---|
-| Linux | `cargo install --path crates/axt-peek --locked` | Shell installer, Cargo, GitHub archive |
-| macOS | `cargo install --path crates/axt-peek --locked` | Homebrew, shell installer, Cargo, GitHub archive |
-| Windows | `cargo install --path crates/axt-peek --locked` | Scoop, PowerShell installer, Cargo, GitHub archive |
+| Linux | `python3 scripts/install-local.py --command all` | Shell installer, Cargo, GitHub archive |
+| macOS | `python3 scripts/install-local.py --command all` | Homebrew, shell installer, Cargo, GitHub archive |
+| Windows | `py scripts/install-local.py --command all` | Scoop, PowerShell installer, Cargo, GitHub archive |
 
-Repeat the local install command for each command crate, or use `cargo install --path crates/<crate> --locked`.
+Install a single command with `python3 scripts/install-local.py --command peek`
+or use Cargo directly, for example `cargo install --path crates/axt-peek
+--locked`. See `docs/installation.md` for the full per-command matrix.
 
 ### Optional Aliases
 
@@ -165,7 +167,16 @@ Normalized values include framework, suite, case name, status, duration, file, l
 
 ## Manpages and Agent Skills
 
-Manual pages are maintained in `docs/man/*.1`. Agent skill instructions are maintained in `docs/skills/axt-suite/SKILL.md` and can be copied into Codex, Claude Code, or other agent skill directories.
+Manual pages are maintained in `docs/man/*.1`. Agent skills live under
+`docs/skills/` and can be installed into Codex or Claude Code:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope project --skill axt-suite
+python3 scripts/agent/install-skills.py --agent both --scope project --skill all
+```
+
+The first command installs the suite-level skill. The second installs the
+suite-level skill plus one focused skill per command.
 
 ## Contributing
 

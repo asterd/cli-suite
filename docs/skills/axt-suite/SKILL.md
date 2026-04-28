@@ -8,6 +8,22 @@ license: MIT OR Apache-2.0
 
 Use this skill when you need local, offline, structured command output for agent workflows. Prefer canonical `axt-*` names in scripts and CI. `ax-*` and short aliases may exist only when installed with the `aliases` feature.
 
+## Agent Integration Pattern
+
+This suite follows an RTK-inspired initialization model: install a lightweight skill into the agent's skill directory, then restart the agent. Unlike RTK, `axt` does not install shell rewrite hooks. Agents should call `axt-*` commands explicitly so command execution remains transparent and auditable.
+
+Install this skill from a local checkout:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope project --skill axt-suite
+```
+
+Install every command-specific skill:
+
+```bash
+python3 scripts/agent/install-skills.py --agent both --scope project --skill all
+```
+
 ## Global Rules
 
 - Use `--agent` for low-token agent context.
@@ -96,7 +112,13 @@ Supported frameworks: Jest, Vitest, Pytest, Cargo test, Go test, Bun test, and D
 
 ## Installation Reference
 
-Install one command from a local checkout:
+Install all commands from a local checkout:
+
+```bash
+python3 scripts/install-local.py --command all
+```
+
+Install one command:
 
 ```bash
 cargo install --path crates/axt-peek --locked

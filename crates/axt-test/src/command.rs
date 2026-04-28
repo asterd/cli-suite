@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
     io::{BufRead, BufReader, Read, Write},
+    path::Path,
     process::{ExitStatus, Stdio},
     thread,
     time::Instant,
@@ -66,9 +67,9 @@ fn run_tests(args: &Args, ctx: &CommandContext) -> Result<TestData> {
         }
         frameworks.insert(project.framework.as_str().to_owned());
         let frontend = Frontend::new(project.framework);
-        ensure_tool(frontend.command_name())?;
+        let executable = resolve_tool(frontend.command_name())?;
         let opts = TestOptions::from_run(project.root.clone(), &args.run, files);
-        let (status, events) = invoke_frontend(frontend, &opts)?;
+        let (status, events) = invoke_frontend(frontend, &executable, &opts)?;
         for event in events {
             match event {
                 NormalizedEvent::Suite(suite) => suites.push(prefix_suite(&ctx.cwd, suite)),
@@ -156,10 +157,11 @@ pub fn run_jsonl_streaming(
         }
         frameworks.insert(project.framework.as_str().to_owned());
         let frontend = Frontend::new(project.framework);
-        ensure_tool(frontend.command_name())?;
+        let executable = resolve_tool(frontend.command_name())?;
         let opts = TestOptions::from_run(project.root.clone(), &args.run, files);
         let status = invoke_frontend_streaming(
             frontend,
+            &executable,
             &opts,
             ctx,
             &mut writer,
@@ -232,10 +234,11 @@ pub fn run_jsonl_streaming(
 
 fn invoke_frontend(
     frontend: Frontend,
+    executable: &Path,
     opts: &TestOptions,
 ) -> Result<(ExitStatus, Vec<NormalizedEvent>)> {
     let mut child = frontend
-        .build_command(opts)
+        .build_command(executable, opts)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -264,6 +267,7 @@ fn invoke_frontend(
 #[allow(clippy::too_many_arguments)]
 fn invoke_frontend_streaming<W: Write + ?Sized>(
     frontend: Frontend,
+    executable: &Path,
     opts: &TestOptions,
     ctx: &CommandContext,
     writer: &mut JsonlWriter<'_, W>,
@@ -273,7 +277,7 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
     cases: &mut Vec<TestCase>,
 ) -> Result<ExitStatus> {
     let mut child = frontend
-        .build_command(opts)
+        .build_command(executable, opts)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -386,9 +390,8 @@ fn write_case<W: Write + ?Sized>(
     Ok(())
 }
 
-fn ensure_tool(command: &str) -> Result<()> {
+fn resolve_tool(command: &str) -> Result<std::path::PathBuf> {
     which::which(command)
-        .map(|_path| ())
         .map_err(|_err| TestError::MissingTool {
             command: command.to_owned(),
         })
