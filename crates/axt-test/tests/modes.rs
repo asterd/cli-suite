@@ -396,7 +396,7 @@ fn windows_script(script: &str) -> String {
             .strip_prefix("printf '")
             .and_then(|line| line.strip_suffix("\\n'"))
         {
-            lines.push(format!("echo {}", payload.replace('"', "\\\"")));
+            lines.push(format!("echo {payload}"));
         }
     }
     lines.push("exit /b 1".to_owned());
