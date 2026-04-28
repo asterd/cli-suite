@@ -249,14 +249,12 @@ where
         return Ok(true);
     }
 
-    let mut records = 1;
     let mut bytes = summary_len;
-    for detail_len in detail_lens {
+    for (records, detail_len) in (1..).zip(detail_lens.into_iter()) {
         let detail_len = detail_len?;
         if records >= limits.max_records || bytes + detail_len > limits.max_bytes {
             return Ok(true);
         }
-        records += 1;
         bytes += detail_len;
     }
     Ok(false)

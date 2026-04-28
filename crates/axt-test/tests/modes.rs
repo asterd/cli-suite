@@ -1,7 +1,11 @@
 use std::{
     env, fs, io,
-    io::{BufRead, BufReader},
     path::{Path, PathBuf},
+};
+
+#[cfg(unix)]
+use std::{
+    io::{BufRead, BufReader},
     process::{Command as ProcessCommand, Stdio},
 };
 
@@ -346,6 +350,7 @@ exit 1
 "#
 }
 
+#[cfg(unix)]
 fn npm_slow_after_first_failure() -> &'static str {
     r#"#!/bin/sh
 printf '{"schema":"axt.test.fixture.v1","type":"case","status":"failed","name":"fails early","suite":"checkout flow","file":"tests/checkout.test.ts","line":20,"duration_ms":12,"message":"expected 200, got 500"}\n'
