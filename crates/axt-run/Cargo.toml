@@ -13,6 +13,20 @@ authors.workspace = true
 name = "axt-run"
 path = "src/main.rs"
 
+[[bin]]
+name = "ax-run"
+path = "src/bin/ax-run.rs"
+required-features = ["aliases"]
+
+[[bin]]
+name = "run"
+path = "src/bin/run.rs"
+required-features = ["aliases"]
+
+[features]
+default = []
+aliases = []
+
 [package.metadata.dist]
 dist = true
 

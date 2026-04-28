@@ -88,9 +88,10 @@ git push origin v0.1.0-rc1
 
 The GitHub release workflow builds archives, shell and PowerShell installers, the Homebrew formula, and checksums. The release candidate must remain a prerelease.
 
-The workflow also attests release artifacts and uploads a CycloneDX SBOM to the
-GitHub Release. The normal CI workflow runs `cargo-audit` and `cargo-deny` before
-release tags should be pushed.
+The workflow also packages `README.md`, `docs/installation.md`, manpages, and
+agent skills as `axt-docs.tar.gz`, attests release artifacts, and uploads a
+CycloneDX SBOM to the GitHub Release. The normal CI workflow runs `cargo-audit`
+and `cargo-deny` before release tags should be pushed.
 
 ## Scoop Manifest
 

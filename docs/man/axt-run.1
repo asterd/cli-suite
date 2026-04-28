@@ -1,0 +1,69 @@
+.TH AXT-RUN 1
+.SH NAME
+axt-run \- run commands with structured execution envelopes
+.SH SYNOPSIS
+.B axt-run
+[\fIOPTIONS\fR] -- \fICOMMAND\fR [\fIARG\fR...]
+.br
+.B axt-run
+show [\fINAME\fR|last] [--stdout|--stderr]
+.br
+.B axt-run
+list
+.br
+.B axt-run
+clean [--older-than \fIDURATION\fR]
+.SH DESCRIPTION
+.B axt-run
+runs a child command and emits structured data containing exit code, duration,
+stdout/stderr summaries, saved stream logs, timeout state, and changed files.
+.SH OPTIONS
+.TP
+.B --save \fINAME\fR
+Name the saved run artifact.
+.TP
+.B --no-save
+Disable .axt/runs artifacts.
+.TP
+.B --cwd \fIDIR\fR
+Run the child command from another directory.
+.TP
+.B --env \fIKEY=VALUE\fR
+Add an environment value for the child.
+.TP
+.B --env-file \fIFILE\fR
+Read additional child environment values from a file.
+.TP
+.B --timeout \fIDURATION\fR
+Terminate the child on timeout.
+.TP
+.B --capture always|never|auto
+Control stdout/stderr capture.
+.TP
+.B --watch-files, --no-watch-files
+Enable or disable changed-file snapshots.
+.TP
+.B --include \fIGLOB\fR, --exclude \fIGLOB\fR
+Filter file watching.
+.TP
+.B --hash
+Use BLAKE3 hashes for changed-file detection.
+.TP
+.B --shell
+Run through the platform shell.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.run.v1. Agent mode emits ACF schema axt.run.agent.v1.
+.SH FILES
+.I .axt/runs/<name>/
+contains meta.json, stdout.log, stderr.log, changed.json, and summary.agent.acf.
+.SH EXAMPLES
+.EX
+axt-run -- cargo test
+axt-run --timeout 30s --json -- npm test
+axt-run show last --stderr
+.EE
+.SH SEE ALSO
+.BR axt-peek (1),
+.BR axt-drift (1),
+.BR axt-test (1)

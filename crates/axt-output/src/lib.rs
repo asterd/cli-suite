@@ -533,14 +533,14 @@ mod tests {
     #[test]
     fn json_envelope_serializes_in_standard_shape() -> Result<()> {
         let envelope =
-            JsonEnvelope::new("axt.peek.v1", json!({ "status": "stub" }), vec![], vec![]);
+            JsonEnvelope::new("axt.peek.v1", json!({ "status": "ready" }), vec![], vec![]);
         let value = serde_json::to_value(envelope)?;
         assert_eq!(
             value,
             json!({
                 "schema": "axt.peek.v1",
                 "ok": true,
-                "data": { "status": "stub" },
+                "data": { "status": "ready" },
                 "warnings": [],
                 "errors": []
             })
@@ -632,6 +632,19 @@ mod tests {
         assert_eq!(
             line,
             "schema=axt.run.agent.v1 ok=false cmd=\"npm test\" ms=42 exit=-1"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn acf_fields_escape_control_characters_and_quotes() -> Result<()> {
+        let line = format_agent_fields(&[
+            AgentField::str("path", "src/main.rs"),
+            AgentField::str("text", "line 1\n\"quoted\"\tfield"),
+        ])?;
+        assert_eq!(
+            line,
+            "path=src/main.rs text=\"line 1\\n\\\"quoted\\\"\\tfield\""
         );
         Ok(())
     }

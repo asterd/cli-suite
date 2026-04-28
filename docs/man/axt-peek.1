@@ -1,0 +1,69 @@
+.TH AXT-PEEK 1
+.SH NAME
+axt-peek \- snapshot directories, metadata, languages, and Git state
+.SH SYNOPSIS
+.B axt-peek
+[\fIOPTIONS\fR] [\fIPATH\fR...]
+.SH DESCRIPTION
+.B axt-peek
+returns a compact snapshot of one or more directory roots. It reports entry
+kind, byte size, language guess, Git status, modified time, and optional
+BLAKE3 hashes. When no path is provided, it scans the current directory.
+.SH OPTIONS
+.TP
+.B --depth \fIN\fR
+Maximum traversal depth below each root.
+.TP
+.B --files-only
+Include only regular files.
+.TP
+.B --dirs-only
+Include only directories.
+.TP
+.B --include-hidden
+Include dotfiles and hidden paths.
+.TP
+.B --no-ignore
+Disable ignore-file handling.
+.TP
+.B --git, --no-git
+Enable or disable Git discovery and status lookup.
+.TP
+.B --changed
+Include only entries with non-clean Git status.
+.TP
+.B --changed-since \fIREF\fR
+Include files changed between a Git reference and HEAD.
+.TP
+.B --type \fIKIND\fR
+Filter by text, binary, image, archive, code, config, or data.
+.TP
+.B --lang \fILANG\fR
+Filter by lowercase language name.
+.TP
+.B --hash none|blake3
+Select hash mode.
+.TP
+.B --summary-only
+Emit only summary data.
+.TP
+.B --sort name|size|mtime|git|type
+Sort output entries.
+.TP
+.B --reverse
+Reverse selected sort.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.peek.v1. Agent mode emits ACF schema axt.peek.agent.v1.
+.SH EXAMPLES
+.EX
+axt-peek .
+axt-peek crates/axt-peek --depth 3 --agent
+axt-peek . --changed --json
+.EE
+.SH SEE ALSO
+.BR axt-run (1),
+.BR axt-doc (1),
+.BR axt-drift (1),
+.BR axt-port (1),
+.BR axt-test (1)

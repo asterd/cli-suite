@@ -29,8 +29,41 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      - name: Check alias targets
+        run: cargo check --workspace --all-features
+
+      - name: Smoke test aliases
+        shell: bash
+        run: |
+          cargo build --workspace --all-features
+          suffix=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            suffix=".exe"
+          fi
+          for bin in \
+            ax-peek peek \
+            ax-run run \
+            ax-doc doc \
+            ax-drift drift \
+            ax-port port \
+            ax-test test
+          do
+            "target/debug/$bin$suffix" --version
+          done
+
       - name: Run tests
         run: cargo test --workspace
+
+      - name: Check docs artifacts
+        shell: bash
+        run: |
+          test -f docs/man/axt-peek.1
+          test -f docs/man/axt-run.1
+          test -f docs/man/axt-doc.1
+          test -f docs/man/axt-drift.1
+          test -f docs/man/axt-port.1
+          test -f docs/man/axt-test.1
+          test -f docs/skills/axt-suite/SKILL.md
 
   security:
     name: Security checks

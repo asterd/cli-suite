@@ -600,7 +600,7 @@ impl Clock for FixedClock {
     }
 }
 
-/// Resolved user configuration placeholder for shared command contexts.
+/// Resolved user configuration for shared command contexts.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResolvedConfig {
     /// Path to the loaded config file, if any.

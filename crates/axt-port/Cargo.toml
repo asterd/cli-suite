@@ -13,6 +13,20 @@ authors.workspace = true
 name = "axt-port"
 path = "src/main.rs"
 
+[[bin]]
+name = "ax-port"
+path = "src/bin/ax-port.rs"
+required-features = ["aliases"]
+
+[[bin]]
+name = "port"
+path = "src/bin/port.rs"
+required-features = ["aliases"]
+
+[features]
+default = []
+aliases = []
+
 [package.metadata.dist]
 dist = true
 

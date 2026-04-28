@@ -1,0 +1,63 @@
+.TH AXT-TEST 1
+.SH NAME
+axt-test \- run and normalize project test suites
+.SH SYNOPSIS
+.B axt-test
+[\fIOPTIONS\fR]
+.br
+.B axt-test
+list-frameworks
+.SH DESCRIPTION
+.B axt-test
+detects supported test frameworks, runs the local test command, parses available
+machine or stable text output, and emits normalized suite and case records.
+.SH OPTIONS
+.TP
+.B --framework jest|vitest|pytest|cargo|go|bun|deno
+Force a framework.
+.TP
+.B --filter \fIPATTERN\fR
+Map a test name filter to the selected framework.
+.TP
+.B --files \fIPATH\fR...
+Run tests for selected files.
+.TP
+.B --changed
+Run changed test files from Git status.
+.TP
+.B --changed-since \fIREF\fR
+Run test files changed between a Git reference and HEAD.
+.TP
+.B --single
+Refuse multiple detected frameworks.
+.TP
+.B --bail
+Stop after the first failure where supported.
+.TP
+.B --workers \fIN\fR
+Set worker count where supported.
+.TP
+.B --top-failures \fIN\fR
+Limit expanded failure detail.
+.TP
+.B --include-output
+Include captured stdout/stderr when available.
+.TP
+.B --pass-through -- \fIARGS\fR...
+Pass framework-specific arguments.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.test.v1. Agent mode emits ACF schema axt.test.agent.v1.
+.SH FRAMEWORKS
+Supported frameworks are Jest, Vitest, Pytest, Cargo test, Go test, Bun test,
+and Deno test. Missing local toolchains return feature_unsupported.
+.SH EXAMPLES
+.EX
+axt-test
+axt-test --framework cargo --json
+axt-test --changed --agent
+axt-test list-frameworks
+.EE
+.SH SEE ALSO
+.BR axt-run (1),
+.BR axt-doc (1)

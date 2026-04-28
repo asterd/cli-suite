@@ -1,0 +1,47 @@
+.TH AXT-DRIFT 1
+.SH NAME
+axt-drift \- mark filesystem state and report changes
+.SH SYNOPSIS
+.B axt-drift
+[\fIFLAGS\fR] mark [--name \fINAME\fR] [--hash]
+.br
+.B axt-drift
+[\fIFLAGS\fR] diff [--since \fINAME\fR] [--hash]
+.br
+.B axt-drift
+[\fIFLAGS\fR] run [--name \fINAME\fR] [--hash] -- \fICOMMAND\fR [\fIARG\fR...]
+.br
+.B axt-drift
+[\fIFLAGS\fR] list
+.br
+.B axt-drift
+[\fIFLAGS\fR] reset
+.SH DESCRIPTION
+.B axt-drift
+stores filesystem marks and later reports created, modified, and deleted files.
+It is intended for build, generator, CI, and test workflows.
+.SH OPTIONS
+.TP
+.B --name \fINAME\fR
+Use a named mark. The default name is default.
+.TP
+.B --since \fINAME\fR
+Diff against a named mark.
+.TP
+.B --hash
+Use BLAKE3 content hashes in addition to metadata.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.drift.v1. Agent mode emits ACF schema axt.drift.agent.v1.
+.SH FILES
+.I .axt/drift/<name>.jsonl
+stores snapshot records. The .axt directory is excluded from snapshots.
+.SH EXAMPLES
+.EX
+axt-drift mark --name before
+axt-drift diff --since before --json
+axt-drift run -- cargo build
+.EE
+.SH SEE ALSO
+.BR axt-run (1),
+.BR axt-peek (1)

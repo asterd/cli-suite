@@ -1,0 +1,41 @@
+.TH AXT-DOC 1
+.SH NAME
+axt-doc \- diagnose local development environment issues
+.SH SYNOPSIS
+.B axt-doc
+[\fIFLAGS\fR] which \fICMD\fR [--timeout \fIDURATION\fR]
+.br
+.B axt-doc
+[\fIFLAGS\fR] path
+.br
+.B axt-doc
+[\fIFLAGS\fR] env
+.br
+.B axt-doc
+[\fIFLAGS\fR] all \fICMD\fR [--timeout \fIDURATION\fR]
+.SH DESCRIPTION
+.B axt-doc
+checks command resolution, PATH health, suspicious environment variables, and
+secret-like environment variables without making network calls.
+.SH OPTIONS
+.TP
+.B --show-secrets
+Print secret-like environment variable values. Values are redacted by default.
+.TP
+.B --timeout \fIDURATION\fR
+Limit version probing for subcommands that execute a local command.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.doc.v1. Agent mode emits ACF schema axt.doc.agent.v1.
+.SH SECURITY
+Secret-like names such as TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, PRIVATE, and
+AUTH variants are redacted unless --show-secrets is explicitly passed.
+.SH EXAMPLES
+.EX
+axt-doc which cargo --json
+axt-doc path --agent
+axt-doc all rustc
+.EE
+.SH SEE ALSO
+.BR axt-peek (1),
+.BR axt-run (1)

@@ -13,6 +13,20 @@ authors.workspace = true
 name = "axt-test"
 path = "src/main.rs"
 
+[[bin]]
+name = "ax-test"
+path = "src/bin/ax-test.rs"
+required-features = ["aliases"]
+
+[[bin]]
+name = "test"
+path = "src/bin/test.rs"
+required-features = ["aliases"]
+
+[features]
+default = []
+aliases = []
+
 [package.metadata.dist]
 dist = true
 

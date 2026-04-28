@@ -1,0 +1,64 @@
+.TH AXT-PORT 1
+.SH NAME
+axt-port \- inspect and free local TCP/UDP ports
+.SH SYNOPSIS
+.B axt-port
+[\fIFLAGS\fR] list
+.br
+.B axt-port
+[\fIFLAGS\fR] who \fIPORT\fR [\fIPORT\fR...]
+.br
+.B axt-port
+[\fIFLAGS\fR] free \fIPORT\fR [\fIPORT\fR...] [--dry-run]
+.br
+.B axt-port
+[\fIFLAGS\fR] watch \fIPORT\fR [--timeout \fIDURATION\fR]
+.SH DESCRIPTION
+.B axt-port
+maps local listening TCP/UDP sockets to process metadata and can signal holder
+processes through the free subcommand.
+.SH OPTIONS
+.TP
+.B --proto tcp|udp|both
+Filter protocol.
+.TP
+.B --include-loopback true|false
+Include or exclude loopback binds.
+.TP
+.B --listening-only true|false
+Restrict socket listing to listening sockets.
+.TP
+.B --host \fIADDR\fR
+Filter by bind address.
+.TP
+.B --owner \fIUSER\fR
+Filter by owner where supported.
+.TP
+.B --pid \fIPID\fR
+Filter by process ID.
+.TP
+.B --dry-run
+For free, report planned actions without signaling.
+.TP
+.B --signal term|kill|int
+Select signal for free.
+.TP
+.B --grace \fIDURATION\fR
+Wait before escalation.
+.TP
+.B --confirm
+Prompt before signaling when interactive.
+.SH OUTPUT
+Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
+schema axt.port.v1. Agent mode emits ACF schema axt.port.agent.v1.
+.SH SAFETY
+Only free mutates external state. The command refuses PID 1, itself, and its
+parent unless explicitly forced for the parent case.
+.SH EXAMPLES
+.EX
+axt-port who 3000
+axt-port --agent free 3000 --dry-run
+axt-port watch 3000 --timeout 5s
+.EE
+.SH SEE ALSO
+.BR axt-run (1)

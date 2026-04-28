@@ -9,4 +9,4 @@
     clippy::struct_excessive_bools
 )]
 
-include!("app.rs");
+include!("../app.rs");

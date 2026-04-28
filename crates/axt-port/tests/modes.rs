@@ -157,7 +157,16 @@ fn dry_run_reports_simulated_attempt_without_killing() -> Result<(), Box<dyn std
     assert_eq!(value["data"]["freed"], false);
     assert_eq!(value["data"]["attempts"][0]["action"], "simulated");
     assert_eq!(value["data"]["attempts"][0]["result"], "skipped");
-    assert!(listener.child_id() > 0);
+
+    let who = Command::cargo_bin("axt-port")?
+        .args(["--json", "who", &port])
+        .assert()
+        .success();
+    let who_stdout = String::from_utf8(who.get_output().stdout.clone())?;
+    validate_json_schema(&who_stdout)?;
+    let who_value: Value = serde_json::from_str(&who_stdout)?;
+    assert_eq!(who_value["data"]["held"], true);
+    assert_eq!(who_value["data"]["holders"][0]["pid"], listener.child_id());
     Ok(())
 }
 

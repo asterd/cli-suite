@@ -27,6 +27,15 @@ jobs:
       - name: Download release artifacts
         run: gh release download "$RELEASE_TAG" --dir artifacts --pattern "*"
 
+      - name: Package manual pages and agent skills
+        run: |
+          mkdir -p target/release-docs/axt-docs
+          cp README.md docs/installation.md target/release-docs/axt-docs/
+          cp -R docs/man target/release-docs/axt-docs/man
+          cp -R docs/skills target/release-docs/axt-docs/skills
+          tar -C target/release-docs -czf artifacts/axt-docs.tar.gz axt-docs
+          test -f artifacts/axt-docs.tar.gz
+
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@v3
         with:
@@ -38,12 +47,18 @@ jobs:
       - name: Generate release SBOM
         run: |
           mkdir -p target/sbom
-          cargo cyclonedx --manifest-path crates/axt-peek/Cargo.toml --format json --override-filename axt-peek
-          cp crates/axt-peek/axt-peek.json target/sbom/axt-peek.cdx.json
-          test -f target/sbom/axt-peek.cdx.json
+          for crate in axt-peek axt-run axt-doc axt-drift axt-port axt-test
+          do
+            cargo cyclonedx --manifest-path "crates/$crate/Cargo.toml" --format json --override-filename "$crate"
+            cp "crates/$crate/$crate.json" "target/sbom/$crate.cdx.json"
+            test -f "target/sbom/$crate.cdx.json"
+          done
 
       - name: Upload release SBOM
-        run: gh release upload "$RELEASE_TAG" target/sbom/axt-peek.cdx.json --clobber
+        run: gh release upload "$RELEASE_TAG" target/sbom/*.cdx.json --clobber
+
+      - name: Upload manual pages and agent skills
+        run: gh release upload "$RELEASE_TAG" artifacts/axt-docs.tar.gz --clobber
 
   scoop-manifest:
     name: Open Scoop bucket PR
