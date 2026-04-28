@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt-drift JSON envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.drift.v1" },
+    "ok": { "type": "boolean" },
+    "data": { "$ref": "#/$defs/DriftData" },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "DriftData": {
+      "type": "object",
+      "required": [
+        "operation",
+        "name",
+        "mark_path",
+        "hash",
+        "files",
+        "changes",
+        "marks",
+        "removed",
+        "command",
+        "exit",
+        "duration_ms"
+      ],
+      "properties": {
+        "operation": { "enum": ["mark", "diff", "run", "list", "reset"] },
+        "name": { "type": ["string", "null"] },
+        "mark_path": { "type": ["string", "null"] },
+        "hash": { "type": "boolean" },
+        "files": { "type": "integer", "minimum": 0 },
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FileChange" }
+        },
+        "marks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MarkEntry" }
+        },
+        "removed": { "type": "integer", "minimum": 0 },
+        "command": {
+          "anyOf": [{ "$ref": "#/$defs/RunCommand" }, { "type": "null" }]
+        },
+        "exit": { "type": ["integer", "null"] },
+        "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "FileChange": {
+      "type": "object",
+      "required": ["path", "action", "size_before", "size_after", "size_delta", "hash"],
+      "properties": {
+        "path": { "type": "string" },
+        "action": { "enum": ["created", "modified", "deleted"] },
+        "size_before": { "type": ["integer", "null"], "minimum": 0 },
+        "size_after": { "type": ["integer", "null"], "minimum": 0 },
+        "size_delta": { "type": "integer" },
+        "hash": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "MarkEntry": {
+      "type": "object",
+      "required": ["name", "path", "files"],
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "files": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "RunCommand": {
+      "type": "object",
+      "required": ["program", "args"],
+      "properties": {
+        "program": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}
