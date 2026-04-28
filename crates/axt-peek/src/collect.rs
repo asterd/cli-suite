@@ -377,15 +377,19 @@ fn root_label(roots: &[Utf8PathBuf], cwd: &Utf8Path) -> String {
         .first()
         .and_then(|root| root.strip_prefix(cwd).ok())
         .map_or_else(
-            || roots[0].to_string(),
+            || normalized_display_path(&roots[0]),
             |relative| {
                 if relative.as_str().is_empty() {
                     ".".to_owned()
                 } else {
-                    relative.to_string()
+                    normalized_display_path(relative)
                 }
             },
         )
+}
+
+fn normalized_display_path(path: &Utf8Path) -> String {
+    path.as_str().replace('\\', "/")
 }
 
 struct GitContext {
