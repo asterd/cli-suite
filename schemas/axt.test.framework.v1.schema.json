@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "type", "name", "marker", "detection"],
+  "properties": {
+    "schema": { "const": "axt.test.framework.v1" },
+    "type": { "const": "framework" },
+    "name": { "type": "string" },
+    "marker": { "type": "string" },
+    "detection": { "type": "string" }
+  },
+  "additionalProperties": false
+}

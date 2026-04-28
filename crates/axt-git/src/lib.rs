@@ -162,6 +162,12 @@ impl StatusCache {
                 count
             })
     }
+
+    /// Return repository-relative paths with non-clean status.
+    #[must_use]
+    pub fn changed_paths(&self) -> Vec<Utf8PathBuf> {
+        self.statuses.keys().cloned().collect()
+    }
 }
 
 /// Discover the git repository containing `path`.

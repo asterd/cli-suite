@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "type", "framework", "name", "file", "passed", "failed", "skipped", "todo", "duration_ms"],
+  "properties": {
+    "schema": { "const": "axt.test.suite.v1" },
+    "type": { "const": "suite" },
+    "framework": { "type": "string" },
+    "name": { "type": "string" },
+    "file": { "type": ["string", "null"] },
+    "passed": { "type": "integer", "minimum": 0 },
+    "failed": { "type": "integer", "minimum": 0 },
+    "skipped": { "type": "integer", "minimum": 0 },
+    "todo": { "type": "integer", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

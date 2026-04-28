@@ -1,0 +1,33 @@
+use thiserror::Error;
+
+pub type Result<T> = std::result::Result<T, TestError>;
+
+#[derive(Debug, Error)]
+pub enum TestError {
+    #[error("multiple frameworks detected; pass --single to refuse or --framework to force one")]
+    MultipleFrameworks,
+
+    #[error("no supported test framework detected")]
+    NoFramework,
+
+    #[error("framework command `{command}` is unavailable")]
+    MissingTool { command: String },
+
+    #[error("failed to run framework command `{command}`: {source}")]
+    Command {
+        command: String,
+        source: std::io::Error,
+    },
+
+    #[error("failed to read test output: {0}")]
+    Io(String),
+
+    #[error(transparent)]
+    Output(#[from] axt_output::OutputError),
+
+    #[error("git repository is required for changed-file filtering")]
+    GitUnavailable,
+
+    #[error("failed to read git changes: {0}")]
+    Git(String),
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "type", "reason"],
+  "properties": {
+    "schema": { "const": "axt.test.warn.v1" },
+    "type": { "const": "warning" },
+    "reason": { "type": "string" }
+  },
+  "additionalProperties": true
+}

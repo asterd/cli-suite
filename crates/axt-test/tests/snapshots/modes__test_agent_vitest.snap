@@ -1,0 +1,5 @@
+---
+source: crates/axt-test/tests/modes.rs
+expression: normalize_agent(&stdout)
+---
+schema=axt.test.agent.v1 ok=false mode=records frameworks=vitest total=3 passed=1 failed=1 skipped=1 todo=0 ms=<ms> started=<started> truncated=false U name="checkout flow" framework=vitest file=checkout.test.ts passed=1 failed=1 skipped=1 ms=<ms> C status=failed name=fails framework=vitest file=checkout.test.ts line=<line> ms=<ms> suite="checkout flow" message="expected 200, got 500" C status=skipped name=skips framework=vitest file=checkout.test.ts line=<line> ms=<ms> suite="checkout flow" S run="axt-test"

@@ -239,6 +239,12 @@ impl<'a, W: Write + ?Sized> JsonlWriter<'a, W> {
         Ok(true)
     }
 
+    /// Flush the underlying writer.
+    pub fn flush(&mut self) -> Result<()> {
+        self.inner.flush()?;
+        Ok(())
+    }
+
     /// Finish the stream and emit a truncation warning when required.
     pub fn finish(self, warn_schema: &str) -> Result<LineWriteSummary> {
         let summary = LineWriteSummary {

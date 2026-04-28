@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt-test JSON envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.test.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "oneOf": [
+        { "$ref": "#/$defs/RunOutput" },
+        { "$ref": "#/$defs/FrameworksOutput" }
+      ]
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "RunOutput": {
+      "type": "object",
+      "required": ["kind", "data", "top_failures", "include_output"],
+      "properties": {
+        "kind": { "const": "run" },
+        "data": { "$ref": "#/$defs/TestData" },
+        "top_failures": { "type": "integer", "minimum": 0 },
+        "include_output": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "FrameworksOutput": {
+      "type": "object",
+      "required": ["kind", "frameworks"],
+      "properties": {
+        "kind": { "const": "frameworks" },
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "marker", "detection"],
+            "properties": {
+              "name": { "type": "string" },
+              "marker": { "type": "string" },
+              "detection": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "TestData": {
+      "type": "object",
+      "required": ["frameworks", "suites", "cases", "total", "passed", "failed", "skipped", "todo", "duration_ms", "started", "truncated"],
+      "properties": {
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "suites": { "type": "array", "items": { "$ref": "#/$defs/TestSuite" } },
+        "cases": { "type": "array", "items": { "$ref": "#/$defs/TestCase" } },
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "todo": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "started": { "type": "string" },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "TestSuite": {
+      "type": "object",
+      "required": ["framework", "name", "file", "passed", "failed", "skipped", "todo", "duration_ms"],
+      "properties": {
+        "framework": { "type": "string" },
+        "name": { "type": "string" },
+        "file": { "type": ["string", "null"] },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "todo": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "TestCase": {
+      "type": "object",
+      "required": ["framework", "status", "name", "suite", "file", "line", "duration_ms", "failure", "stdout", "stderr"],
+      "properties": {
+        "framework": { "type": "string" },
+        "status": { "enum": ["passed", "failed", "skipped", "todo"] },
+        "name": { "type": "string" },
+        "suite": { "type": ["string", "null"] },
+        "file": { "type": ["string", "null"] },
+        "line": { "type": ["integer", "null"], "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "failure": { "oneOf": [{ "$ref": "#/$defs/TestFailure" }, { "type": "null" }] },
+        "stdout": { "type": ["string", "null"] },
+        "stderr": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "TestFailure": {
+      "type": "object",
+      "required": ["message", "stack", "actual", "expected", "diff"],
+      "properties": {
+        "message": { "type": "string" },
+        "stack": { "type": ["string", "null"] },
+        "actual": { "type": ["string", "null"] },
+        "expected": { "type": ["string", "null"] },
+        "diff": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

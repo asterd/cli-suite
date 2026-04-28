@@ -10,6 +10,7 @@ members = [
   "crates/axt-doc",
   "crates/axt-drift",
   "crates/axt-port",
+  "crates/axt-test",
   "xtask",
 ]
 

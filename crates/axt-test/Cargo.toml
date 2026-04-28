@@ -1,0 +1,38 @@
+[package]
+name = "axt-test"
+description = "Test runner normalizer for the axt Foundation CLI Suite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "axt-test"
+path = "src/main.rs"
+
+[package.metadata.dist]
+dist = true
+
+[dependencies]
+axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
+axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
+anyhow.workspace = true
+camino.workspace = true
+clap.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+which.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+insta.workspace = true
+jsonschema.workspace = true
+tempfile.workspace = true

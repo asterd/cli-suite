@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "type", "framework", "status", "name", "suite", "file", "line", "duration_ms", "failure", "stdout", "stderr"],
+  "properties": {
+    "schema": { "const": "axt.test.case.v1" },
+    "type": { "const": "case" },
+    "framework": { "type": "string" },
+    "status": { "enum": ["passed", "failed", "skipped", "todo"] },
+    "name": { "type": "string" },
+    "suite": { "type": ["string", "null"] },
+    "file": { "type": ["string", "null"] },
+    "line": { "type": ["integer", "null"], "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "failure": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["message", "stack", "actual", "expected", "diff"],
+          "properties": {
+            "message": { "type": "string" },
+            "stack": { "type": ["string", "null"] },
+            "actual": { "type": ["string", "null"] },
+            "expected": { "type": ["string", "null"] },
+            "diff": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    },
+    "stdout": { "type": ["string", "null"] },
+    "stderr": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
+}

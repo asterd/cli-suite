@@ -1,0 +1,9 @@
+---
+source: crates/axt-test/tests/modes.rs
+expression: normalize_jsonl(&jsonl_stdout)?
+---
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"passed","name":"passes","suite":"checkout flow","file":"checkout.test.ts","line":"<line>","duration_ms":"<duration_ms>","failure":null,"stdout":null,"stderr":null}
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"failed","name":"fails","suite":"checkout flow","file":"checkout.test.ts","line":"<line>","duration_ms":"<duration_ms>","failure":{"message":"expected 200, got 500","stack":null,"actual":"500","expected":"200","diff":null},"stdout":null,"stderr":null}
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"skipped","name":"skips","suite":"checkout flow","file":"checkout.test.ts","line":"<line>","duration_ms":"<duration_ms>","failure":null,"stdout":null,"stderr":null}
+{"schema":"axt.test.suite.v1","type":"suite","framework":"jest","name":"checkout flow","file":"checkout.test.ts","passed":1,"failed":1,"skipped":1,"todo":0,"duration_ms":"<duration_ms>"}
+{"schema":"axt.test.summary.v1","type":"summary","frameworks":["jest"],"total":3,"passed":1,"failed":1,"skipped":1,"todo":0,"duration_ms":"<duration_ms>","started":"<started>","truncated":false}
