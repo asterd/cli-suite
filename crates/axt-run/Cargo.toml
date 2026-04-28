@@ -1,7 +1,7 @@
 [package]
-name = "axt-peek"
-description = "Directory and repository snapshot command for the axt Foundation CLI Suite."
-version.workspace = true
+name = "axt-run"
+description = "Observable command execution for the axt Foundation CLI Suite."
+version = "0.2.0-rc1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,7 @@ homepage.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "axt-peek"
+name = "axt-run"
 path = "src/main.rs"
 
 [package.metadata.dist]
@@ -18,17 +18,21 @@ dist = true
 
 [dependencies]
 axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
-axt-fs = { package = "axt-fs", path = "../axt-fs", version = "0.1.0-rc1" }
-axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
 axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
 anyhow.workspace = true
+blake3.workspace = true
 camino.workspace = true
 clap.workspace = true
+globset.workspace = true
+libc.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 time.workspace = true
+tokio.workspace = true
+walkdir.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading"] }
 
 [dev-dependencies]
 assert_cmd.workspace = true

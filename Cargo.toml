@@ -6,8 +6,8 @@ members = [
   "crates/axt-fs",
   "crates/axt-git",
   "crates/axt-peek",
-  # phases 2-4 added later:
-  # "crates/axt-run",
+  "crates/axt-run",
+  # phases 3-4 added later:
   # "crates/axt-doc",
   # "crates/axt-drift",
   "xtask",
@@ -50,6 +50,10 @@ rayon = "1"
 tempfile = "3"
 schemars = "0.8"
 jsonschema = "0.18"
+globset = "0.4"
+libc = "0.2"
+windows-sys = "0.59"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "time"] }
 
 # tests
 assert_cmd = "2"

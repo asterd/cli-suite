@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axt.dev/schemas/axt.run.v1.schema.json",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "axt.run.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "oneOf": [
+        { "$ref": "#/$defs/runData" },
+        { "$ref": "#/$defs/streamData" },
+        { "$ref": "#/$defs/listData" },
+        { "$ref": "#/$defs/cleanData" }
+      ]
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "$defs": {
+    "runData": {
+      "type": "object",
+      "required": ["command", "cwd", "exit", "timed_out", "duration_ms", "stdout", "stderr", "changed_count", "changed", "saved", "truncated"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "object",
+          "required": ["program", "args", "shell"],
+          "additionalProperties": false,
+          "properties": {
+            "program": { "type": "string" },
+            "args": { "type": "array", "items": { "type": "string" } },
+            "shell": { "type": "boolean" }
+          }
+        },
+        "cwd": { "type": "string" },
+        "exit": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "stdout": { "$ref": "#/$defs/stream" },
+        "stderr": { "$ref": "#/$defs/stream" },
+        "changed_count": { "type": "integer", "minimum": 0 },
+        "changed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "action", "bytes", "hash"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "action": { "enum": ["created", "modified", "deleted"] },
+              "bytes": { "type": ["integer", "null"], "minimum": 0 },
+              "hash": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "saved": {
+          "type": ["object", "null"],
+          "required": ["name", "path"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "path": { "type": "string" }
+          }
+        },
+        "truncated": { "type": "boolean" }
+      }
+    },
+    "stream": {
+      "type": "object",
+      "required": ["bytes", "lines", "truncated", "log"],
+      "additionalProperties": false,
+      "properties": {
+        "bytes": { "type": "integer", "minimum": 0 },
+        "lines": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" },
+        "log": { "type": ["string", "null"] }
+      }
+    },
+    "streamData": {
+      "type": "object",
+      "required": ["kind", "name", "stream", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "stream" },
+        "name": { "type": "string" },
+        "stream": { "enum": ["stdout", "stderr"] },
+        "text": { "type": "string" }
+      }
+    },
+    "listData": {
+      "type": "object",
+      "required": ["kind", "runs"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "list" },
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "path", "created_at", "ok", "exit", "duration_ms", "command"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "created_at": { "type": "string" },
+              "ok": { "type": "boolean" },
+              "exit": { "type": ["integer", "null"] },
+              "duration_ms": { "type": "integer", "minimum": 0 },
+              "command": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "cleanData": {
+      "type": "object",
+      "required": ["kind", "removed"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "clean" },
+        "removed": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

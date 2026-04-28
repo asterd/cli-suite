@@ -1,0 +1,7 @@
+---
+source: crates/axt-run/tests/modes.rs
+expression: "normalize_run_text(&String::from_utf8(human.get_output().stdout.clone())?,\n&helper)"
+---
+<helper> echo hello exit=0 <ms>ms
+stdout: 6 bytes, 1 lines
+stderr: 0 bytes, 0 lines
