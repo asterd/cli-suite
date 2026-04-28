@@ -345,7 +345,7 @@ axt/
 ├── docs/
 │   ├── architecture.md
 │   ├── agent-mode.md           # the ACF contract + key dictionary
-│   ├── error-catalog.md        # auto-generated, source of truth in code
+│   ├── error-catalog.md        # standard error catalog reference
 │   ├── installation.md         # full per-platform install matrix
 │   ├── design-principles.md
 │   ├── release.md              # the release runbook
@@ -374,8 +374,6 @@ axt/
 │   ├── fs-with-git/            # tree + .git
 │   ├── fs-monorepo/            # tree + multi-package
 │   └── runs/                   # captured command outputs for axt-run tests
-├── xtask/
-│   └── src/main.rs             # bench, schema-gen, error-doc-gen
 └── .github/
     └── workflows/
         ├── ci.yml
@@ -403,7 +401,6 @@ members = [
   # "crates/axt-run",
   # "crates/axt-doc",
   # "crates/axt-drift",
-  "xtask",
 ]
 
 [workspace.package]
@@ -452,7 +449,7 @@ insta = { version = "1", features = ["json", "yaml"] }
 Notes:
 - `gix` is configured with `default-features = false` and `max-performance-safe`. We never shell out to `git`. If a feature is missing in `gix`, document it as missing rather than fall back to subprocess.
 - `serde_json` with `preserve_order` ensures stable JSON key ordering — useful for snapshot tests.
-- The `xtask` pattern keeps CI-only tools (schema generation, benchmark scaffolding, error-doc generation) out of the published binary builds.
+- Development-only tooling should stay outside the published binaries. Prefer ordinary Rust tests and explicit release scripts over a separate internal CLI unless the workflow becomes large enough to justify one.
 
 ---
 
@@ -702,7 +699,7 @@ Baseline hardware: a mid-2020s laptop (M-class Apple Silicon or comparable x86_6
 - **Medium tree** (10 000 files, depth 3): p50 < 300 ms warm, hashing off.
 - **Large tree** (100 000 files): completes within `--max-bytes` or returns a `truncated` warn record; never OOMs.
 
-Numbers are reproducible via `cargo xtask bench` against a generated fixture. CI includes a coarse perf regression check (10× slowdown is a fail; we do not gate on tighter bounds because CI runners vary).
+Numbers should be reproducible with committed or generated fixtures and documented benchmark commands. CI may include a coarse perf regression check (10× slowdown is a fail; we do not gate on tighter bounds because CI runners vary).
 
 ### 9.10 Edge cases the implementation must handle
 
@@ -939,8 +936,8 @@ Workspace-level:
 
 ### 13.3 Performance
 
-- `cargo xtask bench` produces a JSON report.
-- CI runs a single coarse perf check: 10× regression vs. the committed baseline fails the build. Tighter budgets are not enforced because runners vary.
+- Benchmark commands should produce a JSON report when performance checks are added.
+- CI may run a single coarse perf check: 10× regression vs. the committed baseline fails the build. Tighter budgets are not enforced because runners vary.
 - Fixtures for benches are generated, not committed (committing 100k-file trees bloats the repo).
 
 ### 13.4 Documentation
@@ -948,7 +945,7 @@ Workspace-level:
 - Every flag in `--help` has a one-liner. Long help (`--help`) gives examples.
 - Every command has a `docs/commands/<cmd>.md` file with: purpose, examples, human/JSON/JSONL/agent output samples, full flag list, error codes, performance, cross-platform notes, agent-usage guide.
 - `docs/agent-mode.md` is the canonical reference for ACF and the shared agent key/prefix dictionary.
-- `docs/error-catalog.md` is auto-generated from the code at release time (xtask).
+- `docs/error-catalog.md` documents the standard error catalog exported by `axt-core`.
 
 ---
 
@@ -960,7 +957,7 @@ This is the only section the implementing agent needs to follow strictly. Each m
 
 1. Create the monorepo skeleton from section 6.
 2. Workspace `Cargo.toml` from section 7.
-3. Empty crate stubs for `axt-core`, `axt-output`, `axt-fs`, `axt-git`, `axt-peek` (and `xtask`).
+3. Empty crate stubs for `axt-core`, `axt-output`, `axt-fs`, `axt-git`, and `axt-peek`.
 4. CI workflow: matrix Linux/macOS/Windows; runs fmt, clippy, test on stable Rust.
 5. License files, README, CONTRIBUTING.
 6. `cargo dist init --ci=github --installer shell --installer powershell --installer homebrew` and commit the generated files. Configure tier-1 targets only at this stage.

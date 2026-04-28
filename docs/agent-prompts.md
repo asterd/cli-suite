@@ -122,7 +122,7 @@ Wait for me to confirm before proceeding.
 When I confirm, implement Milestone 0:
 - Create the repository structure from spec.md section 6.
 - Workspace `Cargo.toml` from section 7.
-- Empty crate stubs for `axt-core`, `axt-output`, `axt-fs`, `axt-git`, `axt-peek`, plus `xtask`.
+- Empty crate stubs for `axt-core`, `axt-output`, `axt-fs`, `axt-git`, and `axt-peek`.
 - License files, README, CONTRIBUTING, SECURITY.
 - A green CI workflow on Linux/macOS/Windows running fmt, clippy, test on stable Rust.
 - `cargo dist init --ci=github --installer shell --installer powershell --installer homebrew`, configured for tier-1 targets only.

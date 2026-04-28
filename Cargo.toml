@@ -11,7 +11,6 @@ members = [
   "crates/axt-drift",
   "crates/axt-port",
   "crates/axt-test",
-  "xtask",
 ]
 
 [workspace.package]
