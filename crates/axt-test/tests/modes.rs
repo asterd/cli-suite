@@ -1,12 +1,13 @@
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
+    process::Command as ProcessCommand,
 };
 
 #[cfg(unix)]
 use std::{
     io::{BufRead, BufReader},
-    process::{Command as ProcessCommand, Stdio},
+    process::Stdio,
 };
 
 use assert_cmd::Command;

@@ -250,7 +250,7 @@ where
     }
 
     let mut bytes = summary_len;
-    for (records, detail_len) in (1..).zip(detail_lens.into_iter()) {
+    for (records, detail_len) in (1..).zip(detail_lens) {
         let detail_len = detail_len?;
         if records >= limits.max_records || bytes + detail_len > limits.max_bytes {
             return Ok(true);
