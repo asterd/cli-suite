@@ -244,12 +244,21 @@ fn no_hits_is_successful() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn hidden_and_ignored_files_are_skipped_by_default() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.path();
+    fs::write(root.join(".ignore"), "ignored.txt\n")?;
+    fs::write(root.join("visible.txt"), "TODO visible\n")?;
+    fs::write(root.join(".hidden.txt"), "TODO hidden\n")?;
+    fs::write(root.join("ignored.txt"), "TODO ignored\n")?;
+    let root = root.to_string_lossy();
+
     let assert = Command::cargo_bin("axt-ctxpack")?
         .env("AXT_OUTPUT", "human")
-        .args(["--json", "--pattern", "todo=TODO", &fixture("")])
+        .args(["--json", "--pattern", "todo=TODO", root.as_ref()])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
+    assert!(stdout.contains("visible.txt"));
     assert!(!stdout.contains(".hidden.txt"));
     assert!(!stdout.contains("ignored.txt"));
 
@@ -261,7 +270,7 @@ fn hidden_and_ignored_files_are_skipped_by_default() -> Result<(), Box<dyn std::
             "--no-ignore",
             "--pattern",
             "todo=TODO",
-            &fixture(""),
+            root.as_ref(),
         ])
         .assert()
         .success();
