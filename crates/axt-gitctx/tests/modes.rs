@@ -364,7 +364,22 @@ fn normalize_line(line: &str) -> String {
     normalized = normalize_hashes(&normalized);
     normalized = normalize_timestamps(&normalized);
     normalized = normalize_ages(&normalized);
+    normalized = normalize_json_root(&normalized);
     normalized
+}
+
+fn normalize_json_root(line: &str) -> String {
+    let Some(start) = line.find("\"root\":\"") else {
+        return line.to_owned();
+    };
+    let value_start = start + "\"root\":\"".len();
+    let Some(value_end) = line[value_start..]
+        .find('"')
+        .map(|offset| value_start + offset)
+    else {
+        return line.to_owned();
+    };
+    format!("{}<root>{}", &line[..value_start], &line[value_end..])
 }
 
 fn normalize_hashes(line: &str) -> String {
