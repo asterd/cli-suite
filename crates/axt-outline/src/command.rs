@@ -172,7 +172,10 @@ pub fn read_to_string(path: &Utf8Path) -> Result<String> {
 }
 
 pub fn relative_path(path: &Utf8Path, cwd: &Utf8Path) -> Utf8PathBuf {
-    path.strip_prefix(cwd).map_or_else(|_| path.to_owned(), Utf8Path::to_owned)
+    let relative = path
+        .strip_prefix(cwd)
+        .map_or_else(|_| path.to_owned(), Utf8Path::to_owned);
+    Utf8PathBuf::from(relative.as_str().replace('\\', "/"))
 }
 
 fn sort_symbols(symbols: &mut [crate::model::Symbol], sort: SortArg) {
