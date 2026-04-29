@@ -1,0 +1,40 @@
+---
+source: crates/axt-outline/tests/modes.rs
+assertion_line: 227
+expression: "String::from_utf8(agent.get_output().stdout.clone())?"
+---
+schema=axt.outline.agent.v1 ok=true mode=records files=6 symbols=33 warnings=0 source_bytes=1871 signature_bytes=914 truncated=false
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=package visibility=pub name=example.service line=1 end_line=1 parent=- signature="package example.service" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=class visibility=pub name=Service line=4 end_line=13 parent=- signature="public class Service" docs="User service."
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=method visibility=pub name=load line=6 end_line=8 parent=Service signature="public User load(String id)" docs="Load one user."
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=method visibility=private name=cacheKey line=10 end_line=12 parent=Service signature="private String cacheKey(String id)" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=interface visibility=package name=UserPort line=15 end_line=17 parent=- signature="interface UserPort" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.java lang=java kind=method visibility=package name=find line=16 end_line=16 parent=UserPort signature="User find(String id)" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=namespace visibility=pub name="Example\\Service" line=3 end_line=3 parent=- signature="namespace Example\\Service" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=class visibility=pub name=Service line=6 end_line=18 parent=- signature="class Service" docs="User service."
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=method visibility=pub name=load line=9 end_line=12 parent=Service signature="public function load(string $id): User" docs="Load one user."
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=method visibility=private name=cacheKey line=14 end_line=17 parent=Service signature="private function cacheKey(string $id): string" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=interface visibility=pub name=UserPort line=20 end_line=23 parent=- signature="interface UserPort" docs=-
+Y path=../../fixtures/axt-outline/langs/Service.php lang=php kind=method visibility=pub name=find line=22 end_line=22 parent=UserPort signature="public function find(string $id): User" docs=-
+Y path=../../fixtures/axt-outline/langs/module.py lang=python kind=class visibility=pub name=UserRepository line=2 end_line=8 parent=- signature="class UserRepository:" docs="User repository."
+Y path=../../fixtures/axt-outline/langs/module.py lang=python kind=method visibility=pub name=find line=4 end_line=5 parent=UserRepository signature="def find(self, user_id: str) -> dict:" docs="Find one user."
+Y path=../../fixtures/axt-outline/langs/module.py lang=python kind=method visibility=private name=_cache_key line=7 end_line=8 parent=UserRepository signature="def _cache_key(self, user_id: str) -> str:" docs=-
+Y path=../../fixtures/axt-outline/langs/module.py lang=python kind=fn visibility=pub name=create_repository line=12 end_line=13 parent=- signature="def create_repository() -> UserRepository:" docs="Create a repository."
+Y path=../../fixtures/axt-outline/langs/script.js lang=javascript kind=fn visibility=pub name=start line=2 end_line=4 parent=- signature="function start()" docs="Start the app."
+Y path=../../fixtures/axt-outline/langs/script.js lang=javascript kind=class visibility=pub name=Runner line=6 end_line=10 parent=- signature="class Runner" docs=-
+Y path=../../fixtures/axt-outline/langs/script.js lang=javascript kind=method visibility=pub name=run line=7 end_line=9 parent=Runner signature="run()" docs=-
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=package visibility=pub name=service line=1 end_line=1 parent=- signature="package service" docs=-
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=struct visibility=pub name=User line=4 end_line=6 parent=- signature="type User struct { ID string }" docs="User is a domain user."
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=interface visibility=pub name=Store line=9 end_line=11 parent=- signature="type Store interface { Load(id string) User }" docs="Store loads users."
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=fn visibility=pub name=NewStore line=14 end_line=16 parent=- signature="func NewStore() Store" docs="NewStore creates a store."
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=fn visibility=private name=helper line=18 end_line=18 parent=- signature="func helper()" docs=-
+Y path=../../fixtures/axt-outline/langs/service.go lang=go kind=method visibility=pub name=Load line=21 end_line=23 parent=- signature="func (u User) Load(id string) User" docs="Load attaches to User."
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=interface visibility=pub name=UserService line=4 end_line=7 parent=- signature="interface UserService" docs="User service contract."
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=method visibility=pub name=load line=6 end_line=6 parent=UserService signature="load(id: string): Promise<User>" docs="Load one user."
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=class visibility=pub name=ApiUserService line=10 end_line=18 parent=- signature="class ApiUserService implements UserService" docs="Concrete user service."
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=method visibility=pub name=load line=11 end_line=13 parent=ApiUserService signature="public async load(id: string): Promise<User>" docs=-
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=method visibility=private name=cacheKey line=15 end_line=17 parent=ApiUserService signature="private cacheKey(id: string): string" docs=-
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=fn visibility=pub name=createService line=21 end_line=23 parent=- signature="function createService(): UserService" docs="Build a service."
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=type visibility=pub name=UserId line=25 end_line=25 parent=- signature="type UserId = string" docs=-
+Y path=../../fixtures/axt-outline/langs/service.ts lang=typescript kind=const visibility=pub name=DEFAULT_USER_ID line=27 end_line=27 parent=- signature="const DEFAULT_USER_ID = \"root\"" docs=-
+S run="axt-slice ../../fixtures/axt-outline/langs/Service.java --symbol example.service --agent"

@@ -59,5 +59,6 @@ S  suggested next command
 ```
 
 Command-specific keys and prefixes are documented in `docs/commands/<cmd>.md`.
+`axt-outline` uses `Y` for symbol records.
 
 `--jsonl` is the NDJSON/JSONL mode for streaming and pipelines. It is separate from agent mode.

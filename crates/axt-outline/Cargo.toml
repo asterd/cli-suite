@@ -1,6 +1,6 @@
 [package]
-name = "axt-doc"
-description = "Environment and toolchain doctor for the axt Foundation CLI Suite."
+name = "axt-outline"
+description = "Source outline emitter for the axt Foundation CLI Suite."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,12 +10,12 @@ homepage.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "axt-doc"
+name = "axt-outline"
 path = "src/main.rs"
 
 [[bin]]
-name = "doc"
-path = "src/bin/doc.rs"
+name = "outline"
+path = "src/bin/outline.rs"
 required-features = ["aliases"]
 
 [features]
@@ -31,14 +31,21 @@ axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-
 anyhow.workspace = true
 camino.workspace = true
 clap.workspace = true
-schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
-which.workspace = true
+tree-sitter.workspace = true
+tree-sitter-go.workspace = true
+tree-sitter-java.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-php.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-rust.workspace = true
+tree-sitter-typescript.workspace = true
+walkdir.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+insta.workspace = true
 jsonschema.workspace = true
 tempfile.workspace = true

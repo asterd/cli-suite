@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axt.dev/schemas/axt.outline.v1.schema.json",
+  "title": "axt-outline JSON envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.outline.v1" },
+    "ok": { "type": "boolean" },
+    "data": { "$ref": "#/$defs/OutlineData" },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "OutlineData": {
+      "type": "object",
+      "required": ["root", "summary", "symbols", "warnings", "next"],
+      "properties": {
+        "root": { "type": "string" },
+        "summary": { "$ref": "#/$defs/Summary" },
+        "symbols": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Symbol" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Warning" }
+        },
+        "next": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Summary": {
+      "type": "object",
+      "required": ["files", "symbols", "warnings", "source_bytes", "signature_bytes", "truncated"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "symbols": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "source_bytes": { "type": "integer", "minimum": 0 },
+        "signature_bytes": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "Symbol": {
+      "type": "object",
+      "required": ["path", "language", "kind", "visibility", "name", "signature", "docs", "range", "parent"],
+      "properties": {
+        "path": { "type": "string" },
+        "language": { "enum": ["go", "java", "javascript", "php", "python", "rust", "typescript"] },
+        "kind": {
+          "enum": ["class", "const", "enum", "fn", "impl", "interface", "macro", "method", "mod", "namespace", "package", "property", "static", "struct", "trait", "type", "use", "var"]
+        },
+        "visibility": {
+          "enum": ["package", "private", "protected", "pub", "crate", "restricted"]
+        },
+        "name": { "type": "string" },
+        "signature": { "type": "string" },
+        "docs": { "type": ["string", "null"] },
+        "range": { "$ref": "#/$defs/Range" },
+        "parent": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "Range": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "Warning": {
+      "type": "object",
+      "required": ["code", "path", "message"],
+      "properties": {
+        "code": { "enum": ["parse_error", "unsupported_language"] },
+        "path": { "type": ["string", "null"] },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

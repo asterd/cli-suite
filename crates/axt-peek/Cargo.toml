@@ -14,11 +14,6 @@ name = "axt-peek"
 path = "src/main.rs"
 
 [[bin]]
-name = "ax-peek"
-path = "src/bin/ax-peek.rs"
-required-features = ["aliases"]
-
-[[bin]]
 name = "peek"
 path = "src/bin/peek.rs"
 required-features = ["aliases"]

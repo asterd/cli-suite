@@ -15,6 +15,7 @@ COMMANDS = {
     "drift": "crates/axt-drift",
     "port": "crates/axt-port",
     "test": "crates/axt-test",
+    "outline": "crates/axt-outline",
 }
 
 

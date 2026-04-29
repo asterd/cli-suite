@@ -11,6 +11,7 @@ members = [
   "crates/axt-drift",
   "crates/axt-port",
   "crates/axt-test",
+  "crates/axt-outline",
 ]
 
 [workspace.package]
@@ -28,6 +29,14 @@ thiserror = "1"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+tree-sitter = "0.26"
+tree-sitter-go = "0.25"
+tree-sitter-java = "0.23"
+tree-sitter-javascript = "0.25"
+tree-sitter-php = "0.24"
+tree-sitter-python = "0.25"
+tree-sitter-rust = "0.24"
+tree-sitter-typescript = "0.23"
 time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

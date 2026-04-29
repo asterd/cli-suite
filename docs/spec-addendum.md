@@ -1,7 +1,7 @@
-# `axt` Foundation CLI Suite — Spec Addendum: Two New Commands
+# `axt` Foundation CLI Suite — Spec Addendum: Additional Commands
 
 **Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6).
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -37,7 +37,10 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 - `axt-port` — port-occupancy inspection and reclaim, cross-platform.
 - `axt-test` — test runner normalizer for jest, pytest, cargo, go, vitest, etc.
 
-**Total surface**: 6 binaries. After Phase 6 the suite is feature-complete for v1.0; no further commands are planned.
+**Phase 7 (evolutive command):**
+- `axt-outline` — compact local source outlines for declarations, signatures, docs, visibility, paths, and ranges.
+
+**Total surface**: 7 binaries after Phase 7.
 
 ---
 
@@ -51,6 +54,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-drift` | 4 | Mark filesystem state, then later report what changed since the mark. |
 | `axt-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
 | `axt-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
+| `axt-outline` | 7 | Emit compact local source outlines without function bodies. |
 
 ---
 
@@ -330,6 +334,90 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 
 ---
 
+## 11.5 — `axt-outline` (Phase 7)
+
+### 11.5.1 Purpose
+
+`axt-outline` emits compact source outlines: declarations, signatures, doc comments, symbol kinds, visibility, file paths, and source ranges without function bodies. It gives agents a low-token map of supported local source files or directories before they decide which full bodies to read.
+
+### 11.5.2 CLI surface
+
+```
+axt-outline [PATHS]...
+axt-outline crates/axt-test/src --agent
+axt-outline src/lib.rs --public-only --json
+axt-outline . --jsonl --limit 100 --max-bytes 32768
+
+  --lang rust|typescript|javascript|python|go|java|php
+  --public-only
+  --private
+  --tests
+  --max-depth <N>
+  --sort path|name|kind|source
+```
+
+Standard shared flags apply: `--plain`, `--json`, `--json-data`, `--jsonl`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+
+### 11.5.3 Scope
+
+- Rust (`*.rs`), TypeScript (`*.ts`, `*.tsx`, `*.mts`, `*.cts`), JavaScript (`*.js`, `*.jsx`, `*.mjs`, `*.cjs`), Python (`*.py`), Go (`*.go`), Java (`*.java`), and PHP (`*.php`) files and directories containing those files.
+- Supported languages use embedded tree-sitter grammars and do not require external parser binaries, LSP servers, or network access.
+- Top-level declarations plus common nested class/interface/module/trait/impl/member declarations.
+- Symbol fields: `path`, `language`, `kind`, `visibility`, `name`, `signature`, `docs`, `range`, and `parent`.
+- Optional alias binary `outline` behind the `aliases` feature.
+- Schema prefix `axt.outline.v1`.
+
+Unsupported extensions in mixed input produce `unsupported_language` warnings. If no supported source files are present, the command exits with `feature_unsupported` (exit 9).
+
+### 11.5.4 Output contract
+
+JSON uses the `axt.outline.v1` envelope. JSON data includes:
+
+```json
+{
+  "root": ".",
+  "summary": {"files": 1, "symbols": 3, "warnings": 0, "source_bytes": 8192, "signature_bytes": 240, "truncated": false},
+  "symbols": [],
+  "warnings": [],
+  "next": []
+}
+```
+
+JSONL records:
+
+- `axt.outline.summary.v1`
+- `axt.outline.symbol.v1`
+- `axt.outline.warn.v1`
+
+Agent mode:
+
+```text
+schema=axt.outline.agent.v1 ok=true mode=records files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240 truncated=false
+Y path=src/lib.rs lang=rust kind=fn visibility=pub name=parse_config line=42 end_line=57 parent=- signature="pub fn parse_config(input: &str) -> Result<Config, Error>" docs="Parse the configuration text."
+S run="axt-slice src/lib.rs --symbol parse_config --agent"
+```
+
+`Y` is the command-specific symbol record prefix.
+
+### 11.5.5 Definition of done for v0.7
+
+1. New crate `crates/axt-outline` and binary `axt-outline`.
+2. Optional alias `outline` behind the `aliases` feature.
+3. Rust, TypeScript, JavaScript, Python, Go, Java, and PHP support files and directories.
+4. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+5. Truncation through `--limit`, `--max-bytes`, and `--strict`.
+6. Unsupported non-Rust files handled gracefully.
+7. `docs/commands/outline.md`, `docs/man/axt-outline.1`, and `docs/skills/axt-outline/SKILL.md`.
+8. Fixture and snapshot tests for output modes plus focused tests for supported-language symbols, visibility, docs, ranges, parse errors, unsupported files, language filtering, and truncation.
+
+### 11.5.6 Deferred scope
+
+- LSP-backed symbol ranking or cross-file semantic ranking.
+- Full repository graph computation.
+- LSP-backed symbol resolution and cross-file graph ranking. The tree-sitter layer is intentionally declaration-focused.
+
+---
+
 ## Updated cross-platform matrix (additions to section 4)
 
 | Capability | Linux | macOS | Windows | Notes |
@@ -345,6 +433,14 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 | `axt-test`: go test | ✅ | ✅ | ✅ | |
 | `axt-test`: bun, deno | ✅ | ✅ | ✅ | requires the toolchain installed |
 | `axt-test`: streaming output | ✅ | ✅ | ✅ | |
+| `axt-outline`: directory traversal | ✅ | ✅ | ✅ | symlinks are not followed |
+| `axt-outline`: Rust outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
+| `axt-outline`: TypeScript/JavaScript outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammars |
+| `axt-outline`: Python outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
+| `axt-outline`: Go outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
+| `axt-outline`: Java outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
+| `axt-outline`: PHP outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
+| `axt-outline`: LSP ranking | ❌ | ❌ | ❌ | deferred; no external server dependency |
 
 ---
 
@@ -381,6 +477,21 @@ Steps:
 9. Documentation including the mapping table.
 
 Done criteria: see 11.4.9.
+
+### Milestone 7 — `axt-outline` (target: 3–5 days)
+
+Build `axt-outline`. Do not add other new commands. Do not add LSP or semantic ranking in this milestone.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-outline`.
+3. Implement Rust, TypeScript, JavaScript, Python, Go, Java, and PHP file and directory outlining.
+4. Implement renderers for every standard output mode.
+5. Add schema, docs, man page, and skill.
+6. Add fixtures, snapshots, and focused tests.
+7. Run all standard quality gates.
+
+Done criteria: see 11.5.5.
 
 ---
 

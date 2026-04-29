@@ -14,11 +14,6 @@ name = "axt-drift"
 path = "src/main.rs"
 
 [[bin]]
-name = "ax-drift"
-path = "src/bin/ax-drift.rs"
-required-features = ["aliases"]
-
-[[bin]]
 name = "drift"
 path = "src/bin/drift.rs"
 required-features = ["aliases"]

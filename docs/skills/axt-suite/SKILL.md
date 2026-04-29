@@ -1,12 +1,12 @@
 ---
 name: axt-suite
-description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository, command execution, environment, filesystem drift, port, and test inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
+description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository, command execution, environment, filesystem drift, port, test, and source-outline inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
 license: MIT OR Apache-2.0
 ---
 
 # axt Suite Skill
 
-Use this skill when you need local, offline, structured command output for agent workflows. Prefer canonical `axt-*` names in scripts and CI. `ax-*` and short aliases may exist only when installed with the `aliases` feature.
+Use this skill when you need local, offline, structured command output for agent workflows. Prefer canonical `axt-*` names in scripts and CI. Short aliases may exist only when installed with the `aliases` feature. There are no `ax-*` aliases.
 
 ## Agent Integration Pattern
 
@@ -110,6 +110,18 @@ axt-test list-frameworks --json
 
 Supported frameworks: Jest, Vitest, Pytest, Cargo test, Go test, Bun test, and Deno test.
 
+### `axt-outline`
+
+Use to inspect source declarations, signatures, doc comments, visibility, and ranges without reading full function bodies.
+
+```bash
+axt-outline src/lib.rs --agent
+axt-outline crates/axt-outline/src --public-only --json
+axt-outline app --lang typescript --jsonl
+```
+
+Use it before opening large supported source files when symbol-level context is enough.
+
 ## Installation Reference
 
 Install all commands from a local checkout:
@@ -130,4 +142,4 @@ Install optional aliases:
 cargo install --path crates/axt-peek --locked --features aliases
 ```
 
-Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, and `axt-test`.
+Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, and `axt-outline`.

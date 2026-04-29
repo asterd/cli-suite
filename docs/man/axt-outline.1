@@ -1,0 +1,72 @@
+.TH AXT-OUTLINE 1 "2026-04-28" "axt 0.1.0-rc1" "User Commands"
+.SH NAME
+axt-outline \- emit compact source outlines without function bodies
+.SH SYNOPSIS
+.B axt-outline
+[\fIOPTIONS\fR] [\fIPATH\fR...]
+.SH DESCRIPTION
+.B axt-outline
+prints declarations, signatures, doc comments, symbol kinds, visibility,
+file paths, and source ranges. Function bodies are not emitted.
+.SH OPTIONS
+.TP
+.B --json
+Emit an axt.outline.v1 JSON envelope.
+.TP
+.B --json-data
+Emit only the JSON data payload.
+.TP
+.B --jsonl
+Emit newline-delimited JSON records.
+.TP
+.B --agent
+Emit Agent Compact Format.
+.TP
+.B --plain
+Emit plain human output.
+.TP
+.B --public-only
+Emit only public, crate-visible, and restricted symbols.
+.TP
+.B --lang rust|typescript|javascript|python|go|java|php
+Select one supported language.
+.TP
+.B --max-depth N
+Maximum directory traversal depth.
+.TP
+.B --sort path|name|kind|source
+Select output ordering.
+.TP
+.B --limit N
+Maximum line-oriented output records.
+.TP
+.B --max-bytes BYTES
+Maximum line-oriented output bytes.
+.TP
+.B --strict
+Exit non-zero if truncation is required.
+.TP
+.B --print-schema [FORMAT]
+Print schema information and exit.
+.TP
+.B --list-errors
+Print the standard error catalog and exit.
+.SH EXIT STATUS
+.TP
+0
+Success.
+.TP
+3
+Input path not found.
+.TP
+6
+Output truncated under --strict.
+.TP
+8
+Filesystem or output error.
+.TP
+9
+No supported source files were found.
+.SH SEE ALSO
+.BR axt-peek (1),
+.BR axt-test (1)

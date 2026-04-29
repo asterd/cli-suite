@@ -16,6 +16,7 @@ SKILLS = (
     "axt-drift",
     "axt-port",
     "axt-test",
+    "axt-outline",
 )
 
 

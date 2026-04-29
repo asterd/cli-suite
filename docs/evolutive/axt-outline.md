@@ -36,8 +36,8 @@ Verify package-name availability again before publish.
 ## MVP Scope
 
 - Accept files and directories.
-- Emit symbols for Rust, TypeScript/JavaScript, Python, Go, and Java where
-  parsers are available.
+- Emit symbols for Rust, TypeScript/JavaScript, Python, Go, Java, and PHP
+  through embedded tree-sitter grammars.
 - Include symbol kind, name, visibility, signature, doc comment summary,
   source range, parent symbol, and file path.
 - Support `--public-only`, `--private`, `--tests`, `--lang`, and `--max-depth`.
@@ -98,7 +98,9 @@ S path=src/lib.rs kind=fn visibility=pub name=parse_config line=42 signature="pu
 | TS/JS outlines | yes | yes | yes |
 | Python outlines | yes | yes | yes |
 | Go outlines | yes | yes | yes |
-| Java outlines | parser-dependent | parser-dependent | parser-dependent |
+| Java outlines | yes | yes | yes |
+| PHP outlines | yes | yes | yes |
+| LSP ranking | deferred | deferred | deferred |
 
 ## Tests
 
