@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axt.dev/schemas/axt.slice.v1.schema.json",
+  "title": "axt-slice JSON envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.slice.v1" },
+    "ok": { "type": "boolean" },
+    "data": { "$ref": "#/$defs/SliceData" },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "SliceData": {
+      "type": "object",
+      "required": ["path", "language", "selection", "status", "summary", "symbol", "range", "spans", "source", "candidates", "warnings", "next"],
+      "properties": {
+        "path": { "type": "string" },
+        "language": { "$ref": "#/$defs/Language" },
+        "selection": { "$ref": "#/$defs/Selection" },
+        "status": { "enum": ["selected", "ambiguous", "not_found"] },
+        "summary": { "$ref": "#/$defs/Summary" },
+        "symbol": { "anyOf": [{ "$ref": "#/$defs/Symbol" }, { "type": "null" }] },
+        "range": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "spans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Range" }
+        },
+        "source": { "type": ["string", "null"] },
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Candidate" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Warning" }
+        },
+        "next": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Selection": {
+      "type": "object",
+      "required": ["kind", "query"],
+      "properties": {
+        "kind": { "enum": ["symbol", "line"] },
+        "query": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "Summary": {
+      "type": "object",
+      "required": ["matches", "candidates", "source_bytes", "truncated"],
+      "properties": {
+        "matches": { "type": "integer", "minimum": 0 },
+        "candidates": { "type": "integer", "minimum": 0 },
+        "source_bytes": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "Symbol": {
+      "type": "object",
+      "required": ["name", "qualified_name", "kind", "visibility", "range", "parent"],
+      "properties": {
+        "name": { "type": "string" },
+        "qualified_name": { "type": "string" },
+        "kind": { "$ref": "#/$defs/SymbolKind" },
+        "visibility": { "$ref": "#/$defs/Visibility" },
+        "range": { "$ref": "#/$defs/Range" },
+        "parent": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "Candidate": {
+      "type": "object",
+      "required": ["name", "qualified_name", "kind", "visibility", "range", "parent"],
+      "properties": {
+        "name": { "type": "string" },
+        "qualified_name": { "type": "string" },
+        "kind": { "$ref": "#/$defs/SymbolKind" },
+        "visibility": { "$ref": "#/$defs/Visibility" },
+        "range": { "$ref": "#/$defs/Range" },
+        "parent": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "Range": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "Warning": {
+      "type": "object",
+      "required": ["code", "path", "message"],
+      "properties": {
+        "code": { "enum": ["truncated"] },
+        "path": { "type": ["string", "null"] },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "Language": {
+      "enum": ["go", "java", "javascript", "php", "python", "rust", "typescript"]
+    },
+    "SymbolKind": {
+      "enum": ["class", "constructor", "const", "enum", "fn", "impl", "interface", "macro", "method", "mod", "namespace", "package", "static", "struct", "trait", "type", "use", "var"]
+    },
+    "Visibility": {
+      "enum": ["package", "private", "protected", "pub", "crate", "restricted"]
+    }
+  }
+}

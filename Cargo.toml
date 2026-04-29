@@ -12,6 +12,7 @@ members = [
   "crates/axt-port",
   "crates/axt-test",
   "crates/axt-outline",
+  "crates/axt-slice",
   "crates/axt-ctxpack",
   "crates/axt-bundle",
 ]

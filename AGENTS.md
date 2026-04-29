@@ -7,7 +7,7 @@ You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec
 1. **Stop at milestone boundaries.** Each session has a single target milestone. Do not start the next one without explicit instruction.
 2. **No `unwrap()` or `expect()` in non-test code.** Use typed errors via `thiserror` in libraries; `anyhow` is allowed only at the binary edge (`main.rs`).
 3. **No deviation from the spec without updating the spec first.** If you find an ambiguity or a real reason to change behavior, edit the relevant spec section, explain why in the commit message, then implement. Never silent-drift.
-4. **No new commands or binaries beyond the approved suite surface** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-ctxpack`, `axt-bundle`) unless the relevant spec/addendum is updated first.
+4. **No new commands or binaries beyond the approved suite surface** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-slice`, `axt-ctxpack`, `axt-bundle`) unless the relevant spec/addendum is updated first.
 5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.

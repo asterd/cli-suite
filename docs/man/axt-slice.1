@@ -1,0 +1,61 @@
+.TH AXT-SLICE 1
+.SH NAME
+axt-slice \- extract source by symbol or enclosing line
+.SH SYNOPSIS
+.B axt-slice
+[\fIOPTIONS\fR] \fIFILE\fR \fB--symbol\fR \fINAME\fR
+.br
+.B axt-slice
+[\fIOPTIONS\fR] \fIFILE\fR \fB--line\fR \fIN\fR
+.SH DESCRIPTION
+.B axt-slice
+extracts the exact source block for a local symbol, including contiguous
+doc comments and attributes above the symbol by default. It is designed to
+avoid brittle manual line ranges after source files have been edited.
+.SH OPTIONS
+.TP
+.B --symbol \fINAME\fR
+Extract an exact symbol name, qualified name, or kind-qualified name.
+.TP
+.B --line \fIN\fR
+Extract the smallest supported symbol enclosing line N.
+.TP
+.B --include-imports[=all|matched]
+Prepend file-level imports/package/use declarations before the selected symbol.
+Without a value, uses all. Matched mode uses local syntactic identifier matching.
+.TP
+.B --include-tests
+Include syntactically detected test declarations from the same file.
+.TP
+.B --before-symbol
+Include the immediately preceding symbol block.
+.TP
+.B --after-symbol
+Include the immediately following symbol block.
+.TP
+.B --json
+Emit the axt.slice.v1 JSON envelope.
+.TP
+.B --agent
+Emit minified summary-first JSONL.
+.TP
+.B --print-schema [human|json|agent]
+Print the selected output contract and exit.
+.TP
+.B --list-errors
+Print the standard error catalog as JSONL and exit.
+.TP
+.B --limit \fIN\fR
+Maximum agent records.
+.TP
+.B --max-bytes \fIBYTES\fR
+Maximum agent output bytes.
+.TP
+.B --strict
+Exit non-zero when output truncation is required.
+.SH EXIT STATUS
+0 on success, 3 when the path is missing, 6 for strict truncation, 9 for
+unsupported input, and standard axt exit codes for other failures.
+.SH SEE ALSO
+.BR axt-outline (1),
+.BR axt-ctxpack (1)

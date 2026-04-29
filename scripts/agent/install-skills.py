@@ -17,6 +17,7 @@ SKILLS = (
     "axt-port",
     "axt-test",
     "axt-outline",
+    "axt-slice",
     "axt-ctxpack",
     "axt-bundle",
 )

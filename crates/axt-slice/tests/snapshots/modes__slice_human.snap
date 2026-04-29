@@ -1,0 +1,11 @@
+---
+source: crates/axt-slice/tests/modes.rs
+expression: "String::from_utf8(human.get_output().stdout.clone())?"
+---
+path=../../fixtures/axt-slice/src/lib.rs language=Rust status=Selected matches=1 candidates=0 source_bytes=113 truncated=false
+../../fixtures/axt-slice/src/lib.rs:20-24 fn pub process_request
+/// Process one request.
+#[inline]
+pub fn process_request(req: Request) -> Response {
+    Response::ok(req.id)
+}

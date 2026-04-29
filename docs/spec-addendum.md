@@ -1,7 +1,7 @@
 # `axt` Foundation CLI Suite — Spec Addendum: Additional Commands
 
 **Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-ctxpack` (Phase 8), `axt-bundle` (Phase 9).
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-slice` (Phase 8A), `axt-ctxpack` (Phase 8), `axt-bundle` (Phase 9).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -40,13 +40,16 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 **Phase 7 (evolutive command):**
 - `axt-outline` — compact local source outlines for declarations, signatures, docs, visibility, paths, and ranges.
 
+**Phase 8A (evolutive command):**
+- `axt-slice` — local source extraction by symbol or enclosing line.
+
 **Phase 8 (evolutive command):**
 - `axt-ctxpack` — bounded multi-pattern, multi-file local context search for coding agents.
 
 **Phase 9 (session warmup command):**
 - `axt-bundle` — compact session warmup bundle with shallow files, manifests, Git state, and next hints.
 
-**Total surface**: 9 binaries after Phase 9.
+**Total surface**: 10 binaries after Phase 9.
 
 ---
 
@@ -61,6 +64,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
 | `axt-test` | 6 | Run a project's test suite and emit normalized JSON plus agent JSONL for agents, regardless of framework. |
 | `axt-outline` | 7 | Emit compact local source outlines without function bodies. |
+| `axt-slice` | 8A | Extract local source by symbol or enclosing line with embedded tree-sitter parsers. |
 | `axt-ctxpack` | 8 | Search local files for multiple named regex patterns with compact snippets and tree-sitter hit classification in one bounded call. |
 | `axt-bundle` | 9 | Emit a session warmup bundle with files, manifests, Git state, and next hints. |
 
@@ -422,6 +426,118 @@ Agent mode:
 - Full repository graph computation.
 - LSP-backed symbol resolution and cross-file graph ranking. The tree-sitter layer is intentionally declaration-focused.
 
+## 11.5A — `axt-slice` (Phase 8A)
+
+### 11.5A.1 Purpose
+
+`axt-slice` extracts local source by symbol or enclosing line, avoiding fragile
+manual line-range reads such as `sed -n '253,343p'`. It returns the exact
+declaration or implementation block, including contiguous doc comments and
+attributes above the selected symbol by default. The command is local-only and
+uses embedded tree-sitter parsers; future LSP-backed resolution is deferred.
+
+### 11.5A.2 CLI surface
+
+```
+axt-slice src/lib.rs --symbol parse_config --json
+axt-slice src/lib.rs --line 120 --agent
+axt-slice src/lib.rs --symbol Parser::parse --include-imports=matched
+
+  FILE
+  --symbol <NAME>
+  --line <N>
+  --include-imports[=all|matched]
+  --include-tests
+  --before-symbol
+  --after-symbol
+```
+
+Exactly one selector is required: `--symbol` or `--line`. Standard shared flags
+apply: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`,
+`--max-bytes`, and `--strict`.
+
+### 11.5A.3 Scope
+
+- One local source file per invocation.
+- Rust (`*.rs`), TypeScript (`*.ts`, `*.tsx`, `*.mts`, `*.cts`), JavaScript
+  (`*.js`, `*.jsx`, `*.mjs`, `*.cjs`), Python (`*.py`), Go (`*.go`), Java
+  (`*.java`), and PHP (`*.php`) using embedded tree-sitter grammars.
+- Symbol extraction by exact symbol name, parent-qualified name, or
+  `Parent::symbol`.
+- Line fallback expands to the smallest enclosing supported symbol.
+- Contiguous doc comments, ordinary comments used as docs, and attributes
+  immediately above a symbol are included by default.
+- `--include-imports=all` prepends all file-level import/package/use
+  declarations that appear before the selected symbol. Passing
+  `--include-imports` without a value is equivalent to `all`.
+- `--include-imports=matched` prepends only file-level import/package/use
+  declarations whose local identifiers appear in the selected symbol source.
+  Matching is syntactic and file-local in v1, not semantic.
+- `--before-symbol` and `--after-symbol` include the immediately adjacent
+  preceding/following symbol in source order when present.
+- `--include-tests` includes detected test declarations or test modules in the
+  same file when the implemented language exposes them syntactically.
+- Ambiguous symbol queries do not guess. They return candidate records with no
+  selected source and a next-step hint.
+- Optional alias binary `slice` behind the `aliases` feature.
+- Schema prefix `axt.slice.v1`.
+
+Unsupported extensions and binary/non-UTF-8 files exit with `feature_unsupported`
+(exit 9). Missing files exit with `path_not_found`.
+
+### 11.5A.4 Output contract
+
+JSON uses the `axt.slice.v1` envelope. JSON data includes:
+
+```json
+{
+  "path": "src/lib.rs",
+  "language": "rust",
+  "selection": {"kind": "symbol", "query": "parse_config"},
+  "status": "selected",
+  "summary": {"matches": 1, "candidates": 0, "source_bytes": 128, "truncated": false},
+  "symbol": {"name": "parse_config", "qualified_name": "parse_config", "kind": "fn", "range": {"start_line": 42, "end_line": 57}},
+  "range": {"start_line": 40, "end_line": 57},
+  "spans": [{"start_line": 40, "end_line": 57}],
+  "source": "/// Parse config.\npub fn parse_config(...) { ... }",
+  "candidates": [],
+  "warnings": [],
+  "next": []
+}
+```
+
+Agent JSONL records:
+
+- `axt.slice.summary.v1`
+- `axt.slice.source.v1`
+- `axt.slice.candidate.v1`
+- `axt.slice.warn.v1`
+
+Agent mode:
+
+```jsonl
+{"schema":"axt.slice.summary.v1","type":"summary","ok":true,"p":"src/lib.rs","l":"rust","status":"selected","matches":1,"candidates":0,"source_bytes":128,"truncated":false,"next":[]}
+{"schema":"axt.slice.source.v1","type":"source","p":"src/lib.rs","l":"rust","k":"fn","n":"parse_config","qn":"parse_config","range":{"start_line":40,"end_line":57},"spans":[{"start_line":40,"end_line":57}],"symbol_range":{"start_line":42,"end_line":57},"source":"/// Parse config.\npub fn parse_config(...) { ... }"}
+```
+
+Ambiguous results set `status` to `ambiguous`, omit the source record, and emit
+one `axt.slice.candidate.v1` record per candidate until output limits apply.
+
+### 11.5A.5 Definition of done for v0.8
+
+1. New crate `crates/axt-slice` and binary `axt-slice`.
+2. Optional alias `slice` behind the `aliases` feature.
+3. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+4. Truncation through `--limit`, `--max-bytes`, and `--strict`, with agent
+   summaries accurately marking `truncated`.
+5. Symbol extraction, line fallback, ambiguity candidates, CRLF preservation,
+   and binary/non-UTF-8 refusal.
+6. `docs/commands/slice.md`, `docs/man/axt-slice.1`, and
+   `docs/skills/axt-slice/SKILL.md`.
+7. Fixture and snapshot tests for human, JSON, and agent output plus focused
+   tests for exact extraction, ambiguity, line fallback, CRLF, truncation, and
+   unsupported input.
+
 ## 11.6 — `axt-ctxpack` (Phase 8)
 
 ### 11.6.1 Purpose
@@ -671,6 +787,25 @@ Steps:
 7. Run all standard quality gates.
 
 Done criteria: see 11.5.5.
+
+### Milestone 8A — `axt-slice` (target: 3–5 days)
+
+Build `axt-slice`. Do not add LSP, semantic indexing, workspace symbol
+resolution, or edit application in this milestone.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-slice`.
+3. Implement symbol and enclosing-line extraction for Rust, TypeScript,
+   JavaScript, Python, Go, Java, and PHP through embedded tree-sitter parsers.
+4. Implement `--include-imports=all|matched`, adjacent-symbol inclusion, test
+   inclusion, ambiguity candidates, and CRLF preservation.
+5. Implement renderers for every standard output mode.
+6. Add schema, docs, man page, and skill.
+7. Add fixtures, snapshots, and focused tests for each supported grammar.
+8. Run all standard quality gates.
+
+Done criteria: see 11.5A.5.
 
 ### Milestone 8 — `axt-ctxpack` (target: 3–5 days)
 

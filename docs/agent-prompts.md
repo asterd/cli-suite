@@ -36,7 +36,7 @@ You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec
 1. **Stop at milestone boundaries.** Each session has a single target milestone. Do not start the next one without explicit instruction.
 2. **No `unwrap()` or `expect()` in non-test code.** Use typed errors via `thiserror` in libraries; `anyhow` is allowed only at the binary edge (`main.rs`).
 3. **No deviation from the spec without updating the spec first.** If you find an ambiguity or a real reason to change behavior, edit the relevant spec section, explain why in the commit message, then implement. Never silent-drift.
-4. **No new commands or binaries beyond the approved suite surface** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-ctxpack`, `axt-bundle`) unless the relevant spec/addendum is updated first.
+4. **No new commands or binaries beyond the approved suite surface** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-slice`, `axt-ctxpack`, `axt-bundle`) unless the relevant spec/addendum is updated first.
 5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
@@ -180,10 +180,11 @@ Spec sections to read for this milestone:
 | 8 | `axt-port` | `spec-addendum.md` §11.3 (full) | 5–7 days |
 | 9 | `axt-test` | `spec-addendum.md` §11.4 (full) | 10–14 days |
 | 10 | `axt-outline` | `spec-addendum.md` §11.5 (full) | 3–5 days |
-| 11 | `axt-ctxpack` | `spec-addendum.md` §11.6 (full) | 3–5 days |
-| 12 | `axt-bundle` | `spec-addendum.md` §11.7 (full) | 1–2 days |
+| 11 | `axt-slice` | `spec-addendum.md` §11.5A (full) | 3–5 days |
+| 12 | `axt-ctxpack` | `spec-addendum.md` §11.6 (full) | 3–5 days |
+| 13 | `axt-bundle` | `spec-addendum.md` §11.7 (full) | 1–2 days |
 
-(Milestones 0 + 1–9 = 10 sessions total. Some milestones split into sub-sessions for the bigger ones; see section 7.)
+(Milestones 0 + 1–13 = 14 sessions total. Some milestones split into sub-sessions for the bigger ones; see section 7.)
 
 ---
 
