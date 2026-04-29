@@ -133,16 +133,18 @@ fn ahead_and_behind_use_local_bare_remote() -> Result<(), Box<dyn std::error::Er
     let temp = tempfile::tempdir()?;
     let temp_root = utf8_path_io(temp.path())?;
     let bare = temp_root.join("remote.git");
-    run_git_at(&temp_root, &["init", "--bare", bare.as_str()])?;
+    run_git_at(
+        &temp_root,
+        &["init", "--bare", "--initial-branch", "main", bare.as_str()],
+    )?;
 
     let local = temp_root.join("local");
     fs::create_dir(&local)?;
-    run_git(&local, &["init"])?;
+    run_git(&local, &["init", "--initial-branch", "main"])?;
     configure_git(&local)?;
     fs::write(local.join("file.txt"), "base\n")?;
     run_git(&local, &["add", "."])?;
     commit(&local, "base")?;
-    run_git(&local, &["branch", "-M", "main"])?;
     run_git(&local, &["remote", "add", "origin", bare.as_str()])?;
     run_git(&local, &["push", "-u", "origin", "main"])?;
 
@@ -293,14 +295,13 @@ fn print_schema_and_list_errors_work() -> Result<(), Box<dyn std::error::Error>>
 fn initialized_repo() -> Result<(tempfile::TempDir, Utf8PathBuf), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let root = utf8_path_io(temp.path())?;
-    run_git(&root, &["init"])?;
+    run_git(&root, &["init", "--initial-branch", "main"])?;
     configure_git(&root)?;
     fs::write(root.join("tracked.txt"), "one\ntwo\n")?;
     fs::write(root.join("renamed.txt"), "rename me\n")?;
     fs::write(root.join("deleted.txt"), "delete me\n")?;
     run_git(&root, &["add", "."])?;
     commit(&root, "initial")?;
-    run_git(&root, &["branch", "-M", "main"])?;
     Ok((temp, root))
 }
 
