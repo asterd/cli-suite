@@ -16,6 +16,8 @@ COMMANDS = {
     "port": "crates/axt-port",
     "test": "crates/axt-test",
     "outline": "crates/axt-outline",
+    "ctxpack": "crates/axt-ctxpack",
+    "bundle": "crates/axt-bundle",
 }
 
 

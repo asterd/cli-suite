@@ -6,14 +6,16 @@
 
 ```bash
 axt-doc [FLAGS] which <CMD> [--timeout <DURATION>]
+axt-doc [FLAGS] <CMD>
 axt-doc [FLAGS] path
 axt-doc [FLAGS] env
 axt-doc [FLAGS] all <CMD> [--timeout <DURATION>]
 ```
 
-Shared flags are available before the subcommand: `--json`, `--json-data`, `--jsonl`, `--agent`, `--plain`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, `--strict`, and `--show-secrets`.
+Shared flags are available before the subcommand: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, `--strict`, and `--show-secrets`.
 
-`axt-doc all <CMD>` combines `which`, `path`, and `env` in one response.
+`axt-doc all <CMD>` combines `which`, `path`, and `env` in one response. Passing
+`axt-doc <CMD>` without a subcommand is shorthand for `axt-doc all <CMD>`.
 
 ## Output
 
@@ -33,14 +35,9 @@ JSON mode emits the `axt.doc.v1` envelope:
 }
 ```
 
-JSONL mode starts with `axt.doc.summary.v1`, then emits detail records for command matches, PATH entries, secret-like variables, and suspicious variables.
-
-Agent mode emits ACF records:
-
-```text
-schema=axt.doc.agent.v1 ok=true mode=records which=none path_entries=0 env_vars=42 truncated=false
-W code=secret_like_env name=GITHUB_TOKEN
-```
+Agent mode emits summary-first JSONL records beginning with
+`axt.doc.summary.v1`, then detail records for command matches, PATH entries,
+secret-like variables, and suspicious variables.
 
 ## Secret Handling
 

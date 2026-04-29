@@ -47,7 +47,7 @@ Update `CHANGELOG.md` in Keep-a-Changelog style before tagging. Group user-visib
 
 ### Schema versioning
 
-Public JSON / JSONL / ACF schemas are versioned per binary (`axt.<cmd>.v1`,
+Public JSON and agent JSONL schemas are versioned per binary (`axt.<cmd>.v1`,
 `axt.<cmd>.v2`, ...). The contract starts at the first published release
 (`v0.1.0`). Pre-release stub payloads — anything shipped before that tag,
 including the M0/M1 placeholders — do not establish the contract; we may evolve

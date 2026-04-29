@@ -58,18 +58,6 @@ pub enum TestStatus {
     Todo,
 }
 
-impl TestStatus {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Passed => "passed",
-            Self::Failed => "failed",
-            Self::Skipped => "skipped",
-            Self::Todo => "todo",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TestFailure {
     pub message: String,

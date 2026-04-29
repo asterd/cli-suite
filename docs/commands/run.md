@@ -8,6 +8,7 @@ inside the working directory.
 
 ```bash
 axt-run [OPTIONS] -- <COMMAND> [ARGS]...
+axt-run --rerun-last
 axt-run show [<NAME>|last] [--stdout|--stderr]
 axt-run list
 axt-run clean [--older-than <DURATION>]
@@ -34,7 +35,7 @@ Run options:
 - `--tail-bytes <N>` controls captured stderr/stdout tail buffers.
 
 Shared output flags are supported before the subcommand or run command:
-`--json`, `--jsonl`, `--agent`, `--plain`, `--json-data`, `--print-schema`,
+`--json`, `--agent`, `--print-schema`,
 `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 ## Output
@@ -42,18 +43,12 @@ Shared output flags are supported before the subcommand or run command:
 `--json` emits an `axt.run.v1` envelope and validates against
 `schemas/axt.run.v1.schema.json`.
 
-`--agent` emits ACF records. The first line includes the schema, command, exit
-status, duration, stream line counts, changed-file count, saved run name, and
-truncation state. Detail records use:
+`--agent` emits summary-first JSONL records. The first line includes the schema,
+command, exit status, duration, stream line counts, changed-file count, saved run
+name, truncation state, and dynamic next hints. Changed-file detail records use
+short keys: `p` for path, `a` for action, and `b` for bytes.
 
-- `X` for command failure or timeout.
-- `E` for stderr tail lines.
-- `F` for changed files.
-- `S` for the saved-run retrieval hint.
-- `D` for stream data from `show --stdout` or `show --stderr`.
-- `R` for saved-run rows from `list`.
-
-Command-specific ACF keys:
+Command-specific agent JSONL keys:
 
 - `cmd`: command string.
 - `exit`: command exit code, or `timeout`.
@@ -85,7 +80,7 @@ Saved runs are written under:
 ├── stdout.log
 ├── stderr.log
 ├── changed.json
-└── summary.agent.acf
+└── summary.agent.jsonl
 ```
 
 `.axt/` is never added to `.gitignore` automatically. When a saved run is

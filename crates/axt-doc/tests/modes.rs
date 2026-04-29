@@ -20,13 +20,18 @@ fn validate_json_schema(stdout: &str) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 fn bin_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    Ok(PathBuf::from(Command::cargo_bin("axt-doc")?.get_program()))
+    Ok(PathBuf::from(
+        Command::cargo_bin("axt-doc")?
+            .env("AXT_OUTPUT", "human")
+            .get_program(),
+    ))
 }
 
 #[test]
 fn which_json_validates_schema() -> Result<(), Box<dyn std::error::Error>> {
     let bin = bin_path()?;
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "which"])
         .arg(bin)
         .assert()
@@ -50,6 +55,7 @@ fn path_reports_duplicates_and_missing_entries() -> Result<(), Box<dyn std::erro
     let path = std::env::join_paths([bin.as_path(), bin.as_path(), missing.as_path()])?;
 
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .env("PATH", path)
         .args(["--json", "path"])
         .assert()
@@ -71,6 +77,7 @@ fn path_reports_duplicates_and_missing_entries() -> Result<(), Box<dyn std::erro
 #[test]
 fn env_redacts_secret_like_values() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .env("AXT_DOC_TOKEN", "super-secret")
         .args(["--json", "env"])
         .assert()
@@ -92,6 +99,7 @@ fn env_redacts_secret_like_values() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn show_secrets_warns_on_stderr() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .env("AXT_DOC_TOKEN", "super-secret")
         .args(["--show-secrets", "--json", "env"])
         .assert()
@@ -108,7 +116,8 @@ fn show_secrets_warns_on_stderr() -> Result<(), Box<dyn std::error::Error>> {
 fn all_jsonl_starts_with_summary() -> Result<(), Box<dyn std::error::Error>> {
     let bin = bin_path()?;
     let assert = Command::cargo_bin("axt-doc")?
-        .args(["--jsonl", "all"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--agent", "all"])
         .arg(bin)
         .assert()
         .success();
@@ -127,7 +136,26 @@ fn all_jsonl_starts_with_summary() -> Result<(), Box<dyn std::error::Error>> {
 fn all_json_runs_which_path_and_env() -> Result<(), Box<dyn std::error::Error>> {
     let bin = bin_path()?;
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "all"])
+        .arg(bin)
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
+    validate_json_schema(&stdout)?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    assert_eq!(value["data"]["which"]["found"], true);
+    assert!(value["data"]["path"].is_object());
+    assert!(value["data"]["env"].is_object());
+    Ok(())
+}
+
+#[test]
+fn bare_command_is_all_shortcut() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = bin_path()?;
+    let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
+        .arg("--json")
         .arg(bin)
         .assert()
         .success();
@@ -143,22 +171,25 @@ fn all_json_runs_which_path_and_env() -> Result<(), Box<dyn std::error::Error>> 
 #[test]
 fn agent_mode_has_schema_first() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .args(["--agent", "env"])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let first = stdout
+    let first_line = stdout
         .lines()
         .next()
         .ok_or_else(|| io::Error::other("agent output was empty"))?;
-    assert!(first.starts_with("schema=axt.doc.agent.v1 "));
-    assert!(first.contains(" mode=records "));
+    let first: Value = serde_json::from_str(first_line)?;
+    assert_eq!(first["schema"], "axt.doc.summary.v1");
+    assert_eq!(first["type"], "summary");
     Ok(())
 }
 
 #[test]
 fn print_schema_outputs_json_schema() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-doc")?
+        .env("AXT_OUTPUT", "human")
         .args(["--print-schema"])
         .assert()
         .success();

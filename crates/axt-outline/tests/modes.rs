@@ -35,10 +35,20 @@ fn validate_against_schema(
     Ok(())
 }
 
+fn json_data(stdout: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let value: Value = serde_json::from_str(stdout)?;
+    Ok(value["data"].clone())
+}
+
+fn json_data_string(stdout: &str) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(format!("{}\n", serde_json::to_string(&json_data(stdout)?)?))
+}
+
 #[test]
 fn all_output_modes_work() -> Result<(), Box<dyn std::error::Error>> {
-    for mode in ["--plain", "--json", "--json-data", "--jsonl", "--agent"] {
+    for mode in ["--json", "--agent"] {
         let assert = Command::cargo_bin("axt-outline")?
+            .env("AXT_OUTPUT", "human")
             .args([mode, &fixture("src/lib.rs"), "--sort", "source"])
             .assert()
             .success();
@@ -54,6 +64,7 @@ fn all_output_modes_work() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     let human = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([&fixture("src/lib.rs"), "--sort", "source"])
         .assert()
         .success();
@@ -62,16 +73,8 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
         String::from_utf8(human.get_output().stdout.clone())?
     );
 
-    let plain = Command::cargo_bin("axt-outline")?
-        .args(["--plain", &fixture("src/lib.rs"), "--sort", "source"])
-        .assert()
-        .success();
-    assert_snapshot!(
-        "outline_plain",
-        String::from_utf8(plain.get_output().stdout.clone())?
-    );
-
     let envelope = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", &fixture("src/lib.rs"), "--sort", "source"])
         .assert()
         .success();
@@ -81,24 +84,17 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let json = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("src/lib.rs"), "--sort", "source"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("src/lib.rs"), "--sort", "source"])
         .assert()
         .success();
     assert_snapshot!(
         "outline_json_data",
-        String::from_utf8(json.get_output().stdout.clone())?
-    );
-
-    let jsonl = Command::cargo_bin("axt-outline")?
-        .args(["--jsonl", &fixture("src/lib.rs"), "--sort", "source"])
-        .assert()
-        .success();
-    assert_snapshot!(
-        "outline_jsonl",
-        String::from_utf8(jsonl.get_output().stdout.clone())?
+        json_data_string(&String::from_utf8(json.get_output().stdout.clone())?)?
     );
 
     let agent = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args(["--agent", &fixture("src/lib.rs"), "--sort", "source"])
         .assert()
         .success();
@@ -106,17 +102,35 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
         "outline_agent",
         String::from_utf8(agent.get_output().stdout.clone())?
     );
+
+    let symbols_only = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
+        .args([
+            "--agent",
+            "--symbols-only",
+            &fixture("src/lib.rs"),
+            "--sort",
+            "source",
+        ])
+        .assert()
+        .success();
+    let symbols_only_stdout = String::from_utf8(symbols_only.get_output().stdout.clone())?;
+    assert!(symbols_only_stdout.contains("\"name\":\"Widget\""));
+    assert!(symbols_only_stdout.contains("\"kind\":\"struct\""));
+    assert!(symbols_only_stdout.contains("\"line\":6"));
+    assert!(!symbols_only_stdout.contains("\"signature\""));
     Ok(())
 }
 
 #[test]
 fn extracts_rust_visibility_docs_ranges_and_parents() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("src/lib.rs"), "--sort", "source"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("src/lib.rs"), "--sort", "source"])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     let source_bytes = value["summary"]["source_bytes"].as_u64().unwrap_or(0);
     let signature_bytes = value["summary"]["signature_bytes"].as_u64().unwrap_or(0);
     assert!(source_bytes > 0);
@@ -144,11 +158,12 @@ fn extracts_rust_visibility_docs_ranges_and_parents() -> Result<(), Box<dyn std:
 #[test]
 fn extracts_supported_language_outlines() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("langs"), "--sort", "path"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("langs"), "--sort", "path"])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["files"], 6);
     let symbols = value["symbols"]
         .as_array()
@@ -199,7 +214,8 @@ pub struct Exposed;
 "#,
     )?;
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", file.to_string_lossy().as_ref()])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", file.to_string_lossy().as_ref()])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
@@ -212,15 +228,17 @@ pub struct Exposed;
 #[test]
 fn supported_language_outputs_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     let json = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("langs"), "--sort", "path"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("langs"), "--sort", "path"])
         .assert()
         .success();
     assert_snapshot!(
         "outline_languages_json_data",
-        String::from_utf8(json.get_output().stdout.clone())?
+        json_data_string(&String::from_utf8(json.get_output().stdout.clone())?)?
     );
 
     let agent = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args(["--agent", &fixture("langs"), "--sort", "path"])
         .assert()
         .success();
@@ -234,11 +252,12 @@ fn supported_language_outputs_match_snapshots() -> Result<(), Box<dyn std::error
 #[test]
 fn language_filter_selects_only_requested_language() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", "--lang", "python", &fixture("langs")])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", "--lang", "python", &fixture("langs")])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["files"], 1);
     assert!(stdout.contains("\"language\":\"python\""));
     assert!(!stdout.contains("\"language\":\"typescript\""));
@@ -248,11 +267,12 @@ fn language_filter_selects_only_requested_language() -> Result<(), Box<dyn std::
 #[test]
 fn unsupported_files_are_warnings_in_mixed_input() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("")])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("")])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert!(value["warnings"].as_array().is_some_and(|warnings| warnings
         .iter()
         .any(|warning| warning["code"] == "unsupported_language")));
@@ -262,6 +282,7 @@ fn unsupported_files_are_warnings_in_mixed_input() -> Result<(), Box<dyn std::er
 #[test]
 fn unsupported_only_exits_feature_unsupported() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([&fixture("README.md")])
         .assert()
         .code(9);
@@ -271,11 +292,12 @@ fn unsupported_only_exits_feature_unsupported() -> Result<(), Box<dyn std::error
 #[test]
 fn parse_errors_are_reported_as_warnings() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", &fixture("src/lib.rs"), &fixture("broken.rs")])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", &fixture("src/lib.rs"), &fixture("broken.rs")])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert!(value["warnings"].as_array().is_some_and(|warnings| warnings
         .iter()
         .any(|warning| warning["code"] == "parse_error")));
@@ -285,6 +307,7 @@ fn parse_errors_are_reported_as_warnings() -> Result<(), Box<dyn std::error::Err
 #[test]
 fn truncation_and_strict_are_enforced() -> Result<(), Box<dyn std::error::Error>> {
     let truncated = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([
             "--agent",
             "--limit",
@@ -296,9 +319,10 @@ fn truncation_and_strict_are_enforced() -> Result<(), Box<dyn std::error::Error>
         .assert()
         .success();
     let stdout = String::from_utf8(truncated.get_output().stdout.clone())?;
-    assert!(stdout.contains("W code=truncated"));
+    assert!(stdout.contains("\"code\":\"truncated\""));
 
     Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([
             "--agent",
             "--limit",
@@ -316,8 +340,9 @@ fn truncation_and_strict_are_enforced() -> Result<(), Box<dyn std::error::Error>
 #[test]
 fn max_bytes_truncation_is_enforced() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--jsonl",
+            "--agent",
             "--max-bytes",
             "80",
             &fixture("src/lib.rs"),
@@ -334,10 +359,12 @@ fn max_bytes_truncation_is_enforced() -> Result<(), Box<dyn std::error::Error>> 
 #[test]
 fn print_schema_and_list_errors_work() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args(["--print-schema", "json"])
         .assert()
         .success();
     Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .arg("--list-errors")
         .assert()
         .success();
@@ -347,8 +374,9 @@ fn print_schema_and_list_errors_work() -> Result<(), Box<dyn std::error::Error>>
 #[test]
 fn public_only_filters_private_symbols() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-outline")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--public-only",
             &fixture("src/lib.rs"),
             "--sort",
@@ -369,11 +397,12 @@ fn walks_directories_deterministically() -> Result<(), Box<dyn std::error::Error
     fs::write(temp.path().join("src/a.rs"), "pub fn a() {}\n")?;
     fs::write(temp.path().join("src/nested/b.rs"), "pub fn b() {}\n")?;
     let assert = Command::cargo_bin("axt-outline")?
-        .args(["--json-data", temp.path().to_string_lossy().as_ref()])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", temp.path().to_string_lossy().as_ref()])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["files"], 2);
     assert_eq!(value["summary"]["symbols"], 2);
     Ok(())

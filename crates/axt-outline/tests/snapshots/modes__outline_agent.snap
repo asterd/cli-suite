@@ -1,20 +1,18 @@
 ---
 source: crates/axt-outline/tests/modes.rs
-assertion_line: 105
 expression: "String::from_utf8(agent.get_output().stdout.clone())?"
 ---
-schema=axt.outline.agent.v1 ok=true mode=records files=1 symbols=13 warnings=0 source_bytes=727 signature_bytes=324 truncated=false
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=use visibility=private name=std::fmt::Display line=3 end_line=3 parent=- signature="use std::fmt::Display" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=struct visibility=pub name=Widget line=6 end_line=8 parent=- signature="pub struct Widget" docs="Public widget data."
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=impl visibility=private name=Widget line=10 end_line=19 parent=- signature="impl Widget" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=fn visibility=pub name=new line=12 end_line=14 parent=Widget signature="pub fn new(id: u64) -> Self" docs="Create a widget."
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=fn visibility=private name=id line=16 end_line=18 parent=Widget signature="fn id(&self) -> u64" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=trait visibility=pub name=Render line=22 end_line=25 parent=- signature="pub trait Render" docs="Render values."
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=enum visibility=crate name=Mode line=27 end_line=30 parent=- signature="pub(crate) enum Mode" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=type visibility=private name=WidgetId line=32 end_line=32 parent=- signature="type WidgetId = u64" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=const visibility=private name=DEFAULT_ID line=34 end_line=34 parent=- signature="const DEFAULT_ID: u64 = 1" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=mod visibility=pub name=nested line=36 end_line=41 parent=- signature="pub mod nested" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=fn visibility=pub name=nested_fn line=38 end_line=40 parent=nested signature="pub fn nested_fn<T: ToString>(value: T) -> String" docs="Nested public function."
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=macro visibility=private name=fixture_macro line=43 end_line=45 parent=- signature="macro_rules! fixture_macro { () => {}; }" docs=-
-Y path=../../fixtures/axt-outline/src/lib.rs lang=rust kind=fn visibility=pub name=display line=47 end_line=49 parent=- signature="pub fn display<T: Display>(value: T) -> String" docs=-
-S run="axt-slice ../../fixtures/axt-outline/src/lib.rs --symbol std::fmt::Display --agent"
+{"schema":"axt.outline.summary.v1","type":"summary","ok":true,"root":".","files":1,"symbols":13,"warnings":0,"source_bytes":727,"signature_bytes":324,"truncated":false,"next":["axt-slice ../../fixtures/axt-outline/src/lib.rs --symbol std::fmt::Display --agent"]}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"use","vis":"private","n":"std::fmt::Display","sig":"use std::fmt::Display","docs":null,"range":{"start_line":3,"end_line":3},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"struct","vis":"pub","n":"Widget","sig":"pub struct Widget","docs":"Public widget data.","range":{"start_line":6,"end_line":8},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"impl","vis":"private","n":"Widget","sig":"impl Widget","docs":null,"range":{"start_line":10,"end_line":19},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"new","sig":"pub fn new(id: u64) -> Self","docs":"Create a widget.","range":{"start_line":12,"end_line":14},"parent":"Widget"}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"fn","vis":"private","n":"id","sig":"fn id(&self) -> u64","docs":null,"range":{"start_line":16,"end_line":18},"parent":"Widget"}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"trait","vis":"pub","n":"Render","sig":"pub trait Render","docs":"Render values.","range":{"start_line":22,"end_line":25},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"enum","vis":"crate","n":"Mode","sig":"pub(crate) enum Mode","docs":null,"range":{"start_line":27,"end_line":30},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"type","vis":"private","n":"WidgetId","sig":"type WidgetId = u64","docs":null,"range":{"start_line":32,"end_line":32},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"const","vis":"private","n":"DEFAULT_ID","sig":"const DEFAULT_ID: u64 = 1","docs":null,"range":{"start_line":34,"end_line":34},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"mod","vis":"pub","n":"nested","sig":"pub mod nested","docs":null,"range":{"start_line":36,"end_line":41},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"nested_fn","sig":"pub fn nested_fn<T: ToString>(value: T) -> String","docs":"Nested public function.","range":{"start_line":38,"end_line":40},"parent":"nested"}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"macro","vis":"private","n":"fixture_macro","sig":"macro_rules! fixture_macro { () => {}; }","docs":null,"range":{"start_line":43,"end_line":45},"parent":null}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"../../fixtures/axt-outline/src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"display","sig":"pub fn display<T: Display>(value: T) -> String","docs":null,"range":{"start_line":47,"end_line":49},"parent":null}

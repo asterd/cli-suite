@@ -12,7 +12,7 @@ Use `axt-peek` when you need a local repository or directory snapshot with stabl
 
 - Prefer `axt-peek . --agent` for compact agent context.
 - Use `--json` when code must parse a stable envelope.
-- Use `--jsonl` for record streams.
+- Use `--agent` for record streams.
 - Add `--changed` when only dirty or untracked files matter.
 - Add `--no-git` when scanning huge trees where Git state is not needed.
 - Use `--hash blake3` only when content identity matters; metadata mode is faster.
@@ -23,7 +23,7 @@ Use `axt-peek` when you need a local repository or directory snapshot with stabl
 axt-peek . --agent
 axt-peek . --changed --json
 axt-peek crates/axt-peek --depth 3 --lang rust --agent
-axt-peek . --files-only --type code --jsonl
+axt-peek . --kind file --type code --agent
 ```
 
 Inspect contracts with `axt-peek --print-schema agent` or `axt-peek --print-schema json`.

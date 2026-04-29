@@ -11,10 +11,7 @@
     clippy::option_if_let_else
 )]
 
-use std::{
-    fmt::Write as FmtWrite,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use anstyle::{AnsiColor, Style};
 use axt_core::{Clock, ColorChoice, ErrorCode, OutputLimits, OutputMode};
@@ -73,17 +70,22 @@ impl<'a> RenderContext<'a> {
 }
 
 /// Command output rendering contract.
+///
+/// Three primary modes are required:
+/// - `render_human` for terminals,
+/// - `render_json` for the canonical envelope,
+/// - `render_agent` for JSONL agent output.
+///
+/// `render_agent` is the schema-versioned, summary-first JSONL stream that
+/// AI agents consume.
 pub trait Renderable {
-    /// Render human or plain output.
+    /// Render human-readable output.
     fn render_human(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;
 
-    /// Render JSON output.
+    /// Render the canonical JSON envelope.
     fn render_json(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;
 
-    /// Render JSONL output.
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;
-
-    /// Render agent ACF output.
+    /// Render JSONL agent output (summary-first, schema-versioned).
     fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;
 }
 
@@ -182,7 +184,7 @@ pub struct LineWriteSummary {
 
 /// Writes minified JSONL records and enforces output limits.
 #[derive(Debug)]
-pub struct JsonlWriter<'a, W: Write + ?Sized> {
+pub struct AgentJsonlWriter<'a, W: Write + ?Sized> {
     inner: &'a mut W,
     limits: OutputLimits,
     records: usize,
@@ -190,7 +192,7 @@ pub struct JsonlWriter<'a, W: Write + ?Sized> {
     truncated: Option<TruncationReason>,
 }
 
-impl<'a, W: Write + ?Sized> JsonlWriter<'a, W> {
+impl<'a, W: Write + ?Sized> AgentJsonlWriter<'a, W> {
     /// Create a JSONL writer.
     #[must_use]
     pub fn new(inner: &'a mut W, limits: OutputLimits) -> Self {
@@ -291,207 +293,6 @@ fn write_truncation_warning<W: Write + ?Sized>(
     Ok(())
 }
 
-/// Value for one ACF `key=value` field.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AgentValue<'a> {
-    /// String value.
-    Str(&'a str),
-    /// Boolean value.
-    Bool(bool),
-    /// Unsigned integer value.
-    Usize(usize),
-    /// Unsigned 64-bit integer value.
-    U64(u64),
-    /// Signed integer value.
-    I64(i64),
-}
-
-/// One ACF `key=value` field.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AgentField<'a> {
-    key: &'a str,
-    value: AgentValue<'a>,
-}
-
-impl<'a> AgentField<'a> {
-    /// Create a string field.
-    #[must_use]
-    pub const fn str(key: &'a str, value: &'a str) -> Self {
-        Self {
-            key,
-            value: AgentValue::Str(value),
-        }
-    }
-
-    /// Create a boolean field.
-    #[must_use]
-    pub const fn bool(key: &'a str, value: bool) -> Self {
-        Self {
-            key,
-            value: AgentValue::Bool(value),
-        }
-    }
-
-    /// Create a `usize` field.
-    #[must_use]
-    pub const fn usize(key: &'a str, value: usize) -> Self {
-        Self {
-            key,
-            value: AgentValue::Usize(value),
-        }
-    }
-
-    /// Create a `u64` field.
-    #[must_use]
-    pub const fn u64(key: &'a str, value: u64) -> Self {
-        Self {
-            key,
-            value: AgentValue::U64(value),
-        }
-    }
-
-    /// Create an `i64` field.
-    #[must_use]
-    pub const fn i64(key: &'a str, value: i64) -> Self {
-        Self {
-            key,
-            value: AgentValue::I64(value),
-        }
-    }
-}
-
-/// Format ACF fields into one line.
-pub fn format_agent_fields(fields: &[AgentField<'_>]) -> Result<String> {
-    let mut line = String::new();
-    for (index, field) in fields.iter().enumerate() {
-        if index > 0 {
-            line.push(' ');
-        }
-        line.push_str(field.key);
-        line.push('=');
-        write_agent_value(&mut line, field.value)?;
-    }
-    Ok(line)
-}
-
-fn write_agent_value(line: &mut String, value: AgentValue<'_>) -> Result<()> {
-    match value {
-        AgentValue::Str(value) => {
-            if is_raw_agent_value(value) {
-                line.push_str(value);
-            } else {
-                line.push_str(&serde_json::to_string(value)?);
-            }
-        }
-        AgentValue::Bool(value) => line.push_str(if value { "true" } else { "false" }),
-        AgentValue::Usize(value) => {
-            write!(line, "{value}").map_err(|err| io::Error::other(err.to_string()))?;
-        }
-        AgentValue::U64(value) => {
-            write!(line, "{value}").map_err(|err| io::Error::other(err.to_string()))?;
-        }
-        AgentValue::I64(value) => {
-            write!(line, "{value}").map_err(|err| io::Error::other(err.to_string()))?;
-        }
-    }
-    Ok(())
-}
-
-fn is_raw_agent_value(value: &str) -> bool {
-    !value.is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'.' | b'_' | b'-' | b'/' | b':' | b'+' | b'@')
-        })
-}
-
-/// Writes ACF lines and enforces output limits.
-#[derive(Debug)]
-pub struct AgentCompactWriter<'a, W: Write + ?Sized> {
-    inner: &'a mut W,
-    limits: OutputLimits,
-    records: usize,
-    bytes: usize,
-    truncated: Option<TruncationReason>,
-}
-
-impl<'a, W: Write + ?Sized> AgentCompactWriter<'a, W> {
-    /// Create an ACF writer.
-    #[must_use]
-    pub fn new(inner: &'a mut W, limits: OutputLimits) -> Self {
-        Self {
-            inner,
-            limits,
-            records: 0,
-            bytes: 0,
-            truncated: None,
-        }
-    }
-
-    /// Write one already-formatted ACF line.
-    ///
-    /// The first line is written even when limits are already exceeded so ACF
-    /// output can preserve the required summary/schema-first contract.
-    pub fn write_line(&mut self, line: &str) -> Result<bool> {
-        if self.truncated.is_some() {
-            return Ok(false);
-        }
-
-        let line_len = line.len() + 1;
-        let is_first_record = self.records == 0;
-        if !is_first_record && self.records >= self.limits.max_records {
-            self.truncated = Some(TruncationReason::MaxRecords);
-            return Ok(false);
-        }
-
-        if !is_first_record && self.bytes + line_len > self.limits.max_bytes {
-            self.truncated = Some(TruncationReason::MaxBytes);
-            return Ok(false);
-        }
-
-        self.inner.write_all(line.as_bytes())?;
-        writeln!(self.inner)?;
-        self.records += 1;
-        self.bytes += line_len;
-
-        if is_first_record && self.limits.max_records == 0 {
-            self.truncated = Some(TruncationReason::MaxRecords);
-        } else if is_first_record && self.bytes > self.limits.max_bytes {
-            self.truncated = Some(TruncationReason::MaxBytes);
-        }
-
-        Ok(true)
-    }
-
-    /// Format and write one ACF field line.
-    pub fn write_fields(&mut self, fields: &[AgentField<'_>]) -> Result<bool> {
-        let line = format_agent_fields(fields)?;
-        self.write_line(&line)
-    }
-
-    /// Finish the stream and emit a truncation warning when required.
-    pub fn finish(self) -> Result<LineWriteSummary> {
-        let summary = LineWriteSummary {
-            records: self.records,
-            bytes: self.bytes,
-            truncated: self.truncated,
-        };
-
-        if let Some(reason) = self.truncated {
-            writeln!(
-                self.inner,
-                "W code=truncated reason={} truncated=true",
-                reason.as_str()
-            )?;
-            if self.limits.strict {
-                return Err(OutputError::TruncatedStrict);
-            }
-        }
-
-        Ok(summary)
-    }
-}
-
 /// Create an auto-coloring stdout stream.
 #[must_use]
 pub fn stdout_stream(choice: ColorChoice) -> anstream::AutoStream<io::Stdout> {
@@ -551,7 +352,7 @@ mod tests {
     #[test]
     fn jsonl_writer_minifies_records() -> Result<()> {
         let mut output = Vec::new();
-        let mut writer = JsonlWriter::new(&mut output, OutputLimits::default());
+        let mut writer = AgentJsonlWriter::new(&mut output, OutputLimits::default());
         assert!(writer.write_record(&json!({ "schema": "test.v1", "type": "summary" }))?);
         let summary = writer.finish("test.warn.v1")?;
         assert_eq!(summary.truncated, None);
@@ -570,7 +371,7 @@ mod tests {
             max_bytes: 1_000,
             strict: false,
         };
-        let mut writer = JsonlWriter::new(&mut output, limits);
+        let mut writer = AgentJsonlWriter::new(&mut output, limits);
         assert!(writer.write_record(&json!({ "schema": "test.v1", "type": "summary" }))?);
         assert!(!writer.write_record(&json!({ "schema": "test.v1", "type": "detail" }))?);
         let summary = writer.finish("test.warn.v1")?;
@@ -590,7 +391,7 @@ mod tests {
             max_bytes: 3,
             strict: false,
         };
-        let mut writer = JsonlWriter::new(&mut output, limits);
+        let mut writer = AgentJsonlWriter::new(&mut output, limits);
         assert!(writer.write_record(&json!({ "schema": "test.v1", "type": "summary" }))?);
         let summary = writer.finish("test.warn.v1")?;
         assert_eq!(summary.truncated, Some(TruncationReason::MaxBytes));
@@ -609,62 +410,13 @@ mod tests {
             max_bytes: 1_000,
             strict: true,
         };
-        let mut writer = JsonlWriter::new(&mut output, limits);
+        let mut writer = AgentJsonlWriter::new(&mut output, limits);
         assert!(writer.write_record(&json!({ "schema": "test.v1", "type": "summary" }))?);
         let result = writer.finish("test.warn.v1");
         assert!(matches!(result, Err(OutputError::TruncatedStrict)));
         assert_eq!(
             String::from_utf8_lossy(&output),
             "{\"schema\":\"test.v1\",\"type\":\"summary\"}\n{\"schema\":\"test.warn.v1\",\"type\":\"warn\",\"code\":\"truncated\",\"reason\":\"max_records\",\"truncated\":true}\n"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn acf_fields_quote_only_when_needed() -> Result<()> {
-        let line = format_agent_fields(&[
-            AgentField::str("schema", "axt.run.agent.v1"),
-            AgentField::bool("ok", false),
-            AgentField::str("cmd", "npm test"),
-            AgentField::usize("ms", 42),
-            AgentField::i64("exit", -1),
-        ])?;
-        assert_eq!(
-            line,
-            "schema=axt.run.agent.v1 ok=false cmd=\"npm test\" ms=42 exit=-1"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn acf_fields_escape_control_characters_and_quotes() -> Result<()> {
-        let line = format_agent_fields(&[
-            AgentField::str("path", "src/main.rs"),
-            AgentField::str("text", "line 1\n\"quoted\"\tfield"),
-        ])?;
-        assert_eq!(
-            line,
-            "path=src/main.rs text=\"line 1\\n\\\"quoted\\\"\\tfield\""
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn agent_compact_writer_truncates_by_record_limit() -> Result<()> {
-        let mut output = Vec::new();
-        let limits = OutputLimits {
-            max_records: 1,
-            max_bytes: 1_000,
-            strict: false,
-        };
-        let mut writer = AgentCompactWriter::new(&mut output, limits);
-        assert!(writer.write_line("schema=test.agent.v1 ok=true mode=records truncated=false")?);
-        assert!(!writer.write_line("F path=src/main.rs bytes=12")?);
-        let summary = writer.finish()?;
-        assert_eq!(summary.truncated, Some(TruncationReason::MaxRecords));
-        assert_eq!(
-            String::from_utf8_lossy(&output),
-            "schema=test.agent.v1 ok=true mode=records truncated=false\nW code=truncated reason=max_records truncated=true\n"
         );
         Ok(())
     }

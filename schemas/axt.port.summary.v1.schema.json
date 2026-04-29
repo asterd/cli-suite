@@ -31,7 +31,11 @@
     "freed": { "type": "boolean" },
     "timed_out": { "type": "boolean" },
     "duration_ms": { "type": "integer", "minimum": 0 },
-    "truncated": { "type": "boolean" }
+    "truncated": { "type": "boolean" },
+    "next": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
   },
   "additionalProperties": false
 }

@@ -19,10 +19,7 @@ pub struct Args {
     pub public_only: bool,
 
     #[arg(long)]
-    pub private: bool,
-
-    #[arg(long)]
-    pub tests: bool,
+    pub symbols_only: bool,
 
     #[arg(long, default_value_t = 16, value_name = "N")]
     pub max_depth: usize,

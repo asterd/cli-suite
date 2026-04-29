@@ -45,32 +45,29 @@ pub enum CoreError {
 }
 
 /// Output modes shared by all binaries.
+///
+/// The suite collapses to three primary modes:
+/// `Human` for terminals, `Agent` for non-TTY pipelines and AI agents
+/// (JSONL minified with a summary-first record), and `Json` for the canonical
+/// envelope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
     /// Human-readable, TTY-aware output.
     Human,
     /// Standard JSON envelope.
     Json,
-    /// The JSON envelope's `data` payload only.
-    JsonData,
-    /// Newline-delimited JSON for streaming and pipelines.
-    Jsonl,
-    /// Agent Compact Format.
+    /// Agent JSONL: summary record first, detail records after, schema-versioned.
     Agent,
-    /// Human-readable output without color or decorations.
-    Plain,
 }
 
 /// Output schema formats shared by commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum SchemaFormat {
-    /// Human output schema or description.
+    /// Human output description.
     Human,
     /// JSON envelope schema.
     Json,
-    /// JSONL record schema or description.
-    Jsonl,
-    /// Agent Compact Format schema or description.
+    /// Agent JSONL schema or description.
     Agent,
 }
 
@@ -79,44 +76,47 @@ impl fmt::Display for SchemaFormat {
         f.write_str(match self {
             Self::Human => "human",
             Self::Json => "json",
-            Self::Jsonl => "jsonl",
             Self::Agent => "agent",
         })
     }
 }
 
 impl OutputMode {
-    /// Resolve an output mode from raw boolean flags.
-    #[allow(clippy::fn_params_excessive_bools)]
-    pub fn from_flags(
-        json: bool,
-        json_data: bool,
-        jsonl: bool,
-        agent: bool,
-        plain: bool,
-    ) -> Result<Self, CoreError> {
-        let selected = usize::from(json)
-            + usize::from(json_data)
-            + usize::from(jsonl)
-            + usize::from(agent)
-            + usize::from(plain);
-
+    /// Resolve an output mode from explicit CLI flags.
+    pub fn from_flags(json: bool, agent: bool) -> Result<Self, CoreError> {
+        let selected = usize::from(json) + usize::from(agent);
         if selected > 1 {
             return Err(CoreError::ConflictingOutputModes);
         }
-
         if json {
             Ok(Self::Json)
-        } else if json_data {
-            Ok(Self::JsonData)
-        } else if jsonl {
-            Ok(Self::Jsonl)
         } else if agent {
             Ok(Self::Agent)
-        } else if plain {
-            Ok(Self::Plain)
         } else {
             Ok(Self::Human)
+        }
+    }
+
+    /// Resolve the effective mode after explicit flags, environment, and TTY.
+    ///
+    /// Precedence:
+    /// 1. An explicit `--json` or `--agent` flag.
+    /// 2. The `AXT_OUTPUT` environment variable (`human|agent|json`).
+    /// 3. Auto: `Agent` when stdout is not a terminal, otherwise `Human`.
+    #[must_use]
+    pub fn resolve(explicit: Self, env_value: Option<&str>, stdout_tty: bool) -> Self {
+        if explicit != Self::Human {
+            return explicit;
+        }
+        if let Some(raw) = env_value {
+            if let Ok(parsed) = raw.parse::<Self>() {
+                return parsed;
+            }
+        }
+        if stdout_tty {
+            Self::Human
+        } else {
+            Self::Agent
         }
     }
 }
@@ -126,10 +126,7 @@ impl fmt::Display for OutputMode {
         f.write_str(match self {
             Self::Human => "human",
             Self::Json => "json",
-            Self::JsonData => "json-data",
-            Self::Jsonl => "jsonl",
             Self::Agent => "agent",
-            Self::Plain => "plain",
         })
     }
 }
@@ -141,10 +138,7 @@ impl FromStr for OutputMode {
         match value {
             "human" => Ok(Self::Human),
             "json" => Ok(Self::Json),
-            "json-data" => Ok(Self::JsonData),
-            "jsonl" => Ok(Self::Jsonl),
             "agent" => Ok(Self::Agent),
-            "plain" => Ok(Self::Plain),
             other => Err(CoreError::UnknownOutputMode(other.to_owned())),
         }
     }
@@ -152,39 +146,21 @@ impl FromStr for OutputMode {
 
 /// Clap flags for shared output mode selection.
 #[derive(Debug, Clone, Default, Args)]
-#[command(group(ArgGroup::new("output_mode").args(["json", "json_data", "jsonl", "agent", "plain"]).multiple(false)))]
+#[command(group(ArgGroup::new("output_mode").args(["json", "agent"]).multiple(false)))]
 pub struct OutputModeFlags {
-    /// Emit a JSON envelope.
+    /// Emit the canonical JSON envelope.
     #[arg(long)]
     pub json: bool,
 
-    /// Emit only the JSON data payload.
-    #[arg(long)]
-    pub json_data: bool,
-
-    /// Emit newline-delimited JSON.
-    #[arg(long)]
-    pub jsonl: bool,
-
-    /// Emit Agent Compact Format.
+    /// Emit JSONL agent output (summary record first, detail records after).
     #[arg(long)]
     pub agent: bool,
-
-    /// Emit plain human-readable output.
-    #[arg(long)]
-    pub plain: bool,
 }
 
 impl OutputModeFlags {
-    /// Resolve the selected output mode.
-    pub fn mode(&self) -> Result<OutputMode, CoreError> {
-        OutputMode::from_flags(
-            self.json,
-            self.json_data,
-            self.jsonl,
-            self.agent,
-            self.plain,
-        )
+    /// Resolve the explicit mode requested via flags.
+    pub fn explicit_mode(&self) -> Result<OutputMode, CoreError> {
+        OutputMode::from_flags(self.json, self.agent)
     }
 }
 
@@ -283,9 +259,20 @@ pub struct CommonArgs {
 }
 
 impl CommonArgs {
-    /// Resolve the selected output mode.
+    /// Resolve the explicit output mode requested by CLI flags only.
+    pub fn explicit_mode(&self) -> Result<OutputMode, CoreError> {
+        self.output.explicit_mode()
+    }
+
+    /// Resolve the effective output mode, factoring in `AXT_OUTPUT` and TTY.
     pub fn mode(&self) -> Result<OutputMode, CoreError> {
-        self.output.mode()
+        let explicit = self.output.explicit_mode()?;
+        let env_value = env::var("AXT_OUTPUT").ok();
+        Ok(OutputMode::resolve(
+            explicit,
+            env_value.as_deref(),
+            stdout_is_terminal(),
+        ))
     }
 
     /// Resolve the selected output limits.
@@ -766,22 +753,13 @@ mod tests {
     #[test]
     fn output_modes_parse_from_clap_flags() -> Result<(), Box<dyn std::error::Error>> {
         let envelope_args = TestCli::try_parse_from(["test", "--json"])?;
-        assert_eq!(envelope_args.common.mode()?, OutputMode::Json);
+        assert_eq!(envelope_args.common.explicit_mode()?, OutputMode::Json);
 
-        let data_args = TestCli::try_parse_from(["test", "--json-data"])?;
-        assert_eq!(data_args.common.mode()?, OutputMode::JsonData);
-
-        let stream_args = TestCli::try_parse_from(["test", "--jsonl"])?;
-        assert_eq!(stream_args.common.mode()?, OutputMode::Jsonl);
-
-        let acf_args = TestCli::try_parse_from(["test", "--agent"])?;
-        assert_eq!(acf_args.common.mode()?, OutputMode::Agent);
-
-        let plain_args = TestCli::try_parse_from(["test", "--plain"])?;
-        assert_eq!(plain_args.common.mode()?, OutputMode::Plain);
+        let agent_args = TestCli::try_parse_from(["test", "--agent"])?;
+        assert_eq!(agent_args.common.explicit_mode()?, OutputMode::Agent);
 
         let default_args = TestCli::try_parse_from(["test"])?;
-        assert_eq!(default_args.common.mode()?, OutputMode::Human);
+        assert_eq!(default_args.common.explicit_mode()?, OutputMode::Human);
 
         Ok(())
     }
@@ -790,6 +768,38 @@ mod tests {
     fn clap_rejects_conflicting_output_modes() {
         let error = TestCli::try_parse_from(["test", "--json", "--agent"]);
         assert!(error.is_err());
+    }
+
+    #[test]
+    fn resolve_uses_explicit_flag_when_present() {
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Json, Some("agent"), false),
+            OutputMode::Json
+        );
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Agent, None, true),
+            OutputMode::Agent
+        );
+    }
+
+    #[test]
+    fn resolve_falls_back_to_env_then_tty() {
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Human, Some("json"), true),
+            OutputMode::Json
+        );
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Human, Some("garbage"), false),
+            OutputMode::Agent
+        );
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Human, None, false),
+            OutputMode::Agent
+        );
+        assert_eq!(
+            OutputMode::resolve(OutputMode::Human, None, true),
+            OutputMode::Human
+        );
     }
 
     #[test]

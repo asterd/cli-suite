@@ -71,6 +71,7 @@ fn who_reports_known_listener() -> Result<(), Box<dyn std::error::Error>> {
     let port = listener.port.to_string();
 
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "who", &port])
         .assert()
         .success();
@@ -88,7 +89,8 @@ fn who_reports_known_listener() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn list_jsonl_and_agent_have_schema_first() -> Result<(), Box<dyn std::error::Error>> {
     let jsonl = Command::cargo_bin("axt-port")?
-        .args(["--jsonl", "list"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--agent", "list"])
         .assert()
         .success();
     let stdout = String::from_utf8(jsonl.get_output().stdout.clone())?;
@@ -100,16 +102,6 @@ fn list_jsonl_and_agent_have_schema_first() -> Result<(), Box<dyn std::error::Er
     let value: Value = serde_json::from_str(first)?;
     assert_eq!(value["schema"], "axt.port.summary.v1");
 
-    let agent = Command::cargo_bin("axt-port")?
-        .args(["--agent", "list"])
-        .assert()
-        .success();
-    let stdout = String::from_utf8(agent.get_output().stdout.clone())?;
-    let first = stdout
-        .lines()
-        .next()
-        .ok_or_else(|| io::Error::other("agent output was empty"))?;
-    assert!(first.starts_with("schema=axt.port.agent.v1 "));
     Ok(())
 }
 
@@ -119,7 +111,8 @@ fn fixture_jsonl_and_agent_match_snapshots() -> Result<(), Box<dyn std::error::E
     let port = listener.port.to_string();
 
     let jsonl = Command::cargo_bin("axt-port")?
-        .args(["--jsonl", "free", &port, "--dry-run"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--agent", "free", &port, "--dry-run"])
         .assert()
         .success();
     let jsonl_stdout = String::from_utf8(jsonl.get_output().stdout.clone())?;
@@ -129,15 +122,6 @@ fn fixture_jsonl_and_agent_match_snapshots() -> Result<(), Box<dyn std::error::E
         &normalize_jsonl_fixture_output(&jsonl_stdout)?,
     );
 
-    let agent = Command::cargo_bin("axt-port")?
-        .args(["--agent", "free", &port, "--dry-run"])
-        .assert()
-        .success();
-    let agent_stdout = String::from_utf8(agent.get_output().stdout.clone())?;
-    assert_snapshot!(
-        "port_agent_free_dry_run",
-        &normalize_agent_fixture_output(&agent_stdout)
-    );
     Ok(())
 }
 
@@ -147,6 +131,7 @@ fn dry_run_reports_simulated_attempt_without_killing() -> Result<(), Box<dyn std
     let port = listener.port.to_string();
 
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "free", &port, "--dry-run"])
         .assert()
         .success();
@@ -159,6 +144,7 @@ fn dry_run_reports_simulated_attempt_without_killing() -> Result<(), Box<dyn std
     assert_eq!(value["data"]["attempts"][0]["result"], "skipped");
 
     let who = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "who", &port])
         .assert()
         .success();
@@ -176,6 +162,7 @@ fn free_kills_known_listener() -> Result<(), Box<dyn std::error::Error>> {
     let port = listener.port.to_string();
 
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "free", &port, "--signal", "kill"])
         .assert()
         .success();
@@ -193,6 +180,7 @@ fn free_kills_known_listener() -> Result<(), Box<dyn std::error::Error>> {
 fn watch_reports_free_port_without_timeout() -> Result<(), Box<dyn std::error::Error>> {
     let port = free_port()?.to_string();
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "watch", &port, "--timeout", "100ms"])
         .assert()
         .success();
@@ -212,6 +200,7 @@ fn watch_times_out_while_port_stays_held() -> Result<(), Box<dyn std::error::Err
     let listener = ListenerChild::spawn()?;
     let port = listener.port.to_string();
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--json", "watch", &port, "--timeout", "100ms"])
         .assert()
         .failure();
@@ -229,6 +218,7 @@ fn watch_times_out_while_port_stays_held() -> Result<(), Box<dyn std::error::Err
 #[test]
 fn refuses_remote_host_port_syntax() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["who", "example.com:443"])
         .assert()
         .failure();
@@ -238,6 +228,7 @@ fn refuses_remote_host_port_syntax() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn print_schema_outputs_json_schema() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-port")?
+        .env("AXT_OUTPUT", "human")
         .args(["--print-schema"])
         .assert()
         .success();
@@ -253,7 +244,10 @@ struct ListenerChild {
 
 impl ListenerChild {
     fn spawn() -> Result<Self, Box<dyn std::error::Error>> {
-        let exe = Command::cargo_bin("axt-port")?.get_program().to_owned();
+        let exe = Command::cargo_bin("axt-port")?
+            .env("AXT_OUTPUT", "human")
+            .get_program()
+            .to_owned();
         let mut child = StdCommand::new(exe)
             .env("AXT_PORT_LISTENER_FIXTURE", "1")
             .stdout(Stdio::piped())
@@ -304,6 +298,24 @@ fn normalize_json_value(value: &mut Value) {
                     *port = Value::String("<port>".to_owned());
                 }
             }
+            if let Some(Value::Array(next)) = map.get_mut("next") {
+                for item in next {
+                    if let Some(text) = item.as_str() {
+                        let normalized = text
+                            .split_whitespace()
+                            .map(|part| {
+                                if part.parse::<u16>().is_ok() {
+                                    "<port>"
+                                } else {
+                                    part
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        *item = Value::String(normalized);
+                    }
+                }
+            }
             for key in ["port", "pid", "duration_ms", "ms", "mem"] {
                 if map.contains_key(key) {
                     map.insert(key.to_owned(), Value::String(format!("<{key}>")));
@@ -337,36 +349,4 @@ fn normalize_json_value(value: &mut Value) {
         }
         _ => {}
     }
-}
-
-fn normalize_agent_fixture_output(stdout: &str) -> String {
-    stdout
-        .split_whitespace()
-        .map(|field| {
-            if field.starts_with("port=") {
-                "port=<port>".to_owned()
-            } else if field.starts_with("pid=") {
-                "pid=<pid>".to_owned()
-            } else if field.starts_with("name=") {
-                "name=<name>".to_owned()
-            } else if field.starts_with("cmd=") {
-                "cmd=<cmd>".to_owned()
-            } else if field.starts_with("cwd=") {
-                "cwd=<cwd>".to_owned()
-            } else if field.starts_with("bound=") {
-                "bound=<bound>".to_owned()
-            } else if field.starts_with("owner=") {
-                "owner=<owner>".to_owned()
-            } else if field.starts_with("mem=") {
-                "mem=<mem>".to_owned()
-            } else if field.starts_with("ms=") {
-                "ms=<ms>".to_owned()
-            } else if field.starts_with("started=") {
-                "started=<started>".to_owned()
-            } else {
-                field.to_owned()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }

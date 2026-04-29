@@ -56,7 +56,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-doc` | 3 | Diagnose the dev environment: PATH, version managers, env vars. |
 | `axt-drift` | 4 | Mark filesystem state, then later report what changed since the mark. |
 | `axt-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
-| `axt-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
+| `axt-test` | 6 | Run a project's test suite and emit normalized JSON plus agent JSONL for agents, regardless of framework. |
 | `axt-outline` | 7 | Emit compact local source outlines without function bodies. |
 | `axt-ctxpack` | 8 | Search local files for multiple named regex patterns with compact snippets and tree-sitter hit classification in one bounded call. |
 
@@ -98,7 +98,7 @@ axt-port watch <PORT>                  # poll until the port is free or held
   --dry-run                       # for `free`: print what would be killed, do nothing
   --confirm                       # for `free`: require manual confirmation if interactive
 
-  + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
+  + standard --json/--agent/--agent//--limit/--max-bytes/--strict
   + --print-schema, --list-errors
 ```
 
@@ -129,25 +129,25 @@ Sent SIGTERM. Waiting up to 3s...
 Port 3000 freed.
 ```
 
-### 11.3.5 Output: agent mode (ACF)
+### 11.3.5 Output: agent mode (agent JSONL)
 
-```text
-schema=axt.port.agent.v1 ok=true mode=records action=who port=3000 proto=tcp held=true holders=1 truncated=false
-H port=3000 proto=tcp pid=47281 name=node cmd="node server.js" cwd=/Users/dario/projects/api bound=0.0.0.0:3000 owner=dario mem=190840832 started=2026-04-27T08:14:22Z
+```jsonl
+{"schema":"axt.port.summary.v1","type":"summary","action":"who","port":3000,"proto":"tcp","held":true,"holders":1,"truncated":false,"next":[]}
+{"schema":"axt.port.holder.v1","type":"holder","port":3000,"proto":"tcp","pid":47281,"name":"node","command":"node server.js","cwd":"/Users/dario/projects/api","bound":"0.0.0.0:3000","owner":"dario","memory_bytes":190840832,"started":"2026-04-27T08:14:22Z"}
 ```
 
 For `free`:
 
-```text
-schema=axt.port.agent.v1 ok=true mode=records action=free port=3000 freed=true signal_sent=term escalated=false ms=1240 truncated=false
-A port=3000 pid=47281 name=node signal=term result=freed ms=1240
+```jsonl
+{"schema":"axt.port.summary.v1","type":"summary","action":"free","port":3000,"freed":true,"signal_sent":"term","escalated":false,"duration_ms":1240,"truncated":false,"next":[]}
+{"schema":"axt.port.action.v1","type":"action","port":3000,"pid":47281,"name":"node","signal":"term","result":"freed","duration_ms":1240}
 ```
 
 For an unfreeable port (process won't die or insufficient permissions):
 
-```text
-schema=axt.port.agent.v1 ok=false mode=records action=free port=3000 freed=false truncated=false
-X code=permission_denied port=3000 pid=47281 name=system_daemon owner=root hint="sudo axt-port free 3000"
+```jsonl
+{"schema":"axt.port.summary.v1","type":"summary","action":"free","port":3000,"freed":false,"truncated":false,"next":["sudo axt-port free 3000"]}
+{"schema":"axt.port.warn.v1","type":"warn","code":"permission_denied","port":3000,"pid":47281,"name":"system_daemon","owner":"root"}
 ```
 
 ### 11.3.6 Cross-platform implementation
@@ -175,7 +175,7 @@ Crates to use:
 This is the only command in the suite that **mutates external state by default**. We treat that with respect:
 
 - `axt-port free` is the only mutating subcommand. `list`, `who`, `watch` are read-only.
-- `--dry-run` is supported on `free` and produces the same JSON/JSONL schema and ACF keys with `freed: false` and an `action: simulated` flag.
+- `--dry-run` is supported on `free` and produces the same JSON/JSONL schema and agent JSONL keys with `freed: false` and an `action: simulated` flag.
 - `--confirm` requires interactive y/n if stdout is a TTY. Non-interactive (agent) calls bypass this — the agent is responsible for explicit consent in its own loop.
 - We refuse to kill PID 1 always. We refuse to kill the current process. We refuse to kill our own parent unless `--force-self` is passed (which prints a stderr warning).
 - We respect process trees: `--tree` propagates the signal to children (process group on Unix, Job Object on Windows).
@@ -187,7 +187,7 @@ This is the only command in the suite that **mutates external state by default**
 2. `who <port>` returns full holder info with PID, command, owner, bind addresses.
 3. `free <port>` actually frees the port on all three OSes; `--dry-run` works.
 4. `watch <port>` polls until the port is held or freed, with a `--timeout` option.
-5. JSON output validates against `axt.port.v1`; JSONL records validate against their record schemas; agent output follows ACF.
+5. JSON output validates against `axt.port.v1`; JSONL records validate against their record schemas; agent output follows agent JSONL.
 6. Snapshot tests on a fixture that spawns a known-port-listener process.
 7. Cross-platform CI runs the full suite. Where a feature degrades (cwd on Windows), the test asserts graceful degradation, not failure.
 8. `docs/commands/port.md` written, with safety section explicit.
@@ -205,7 +205,7 @@ This is the only command in the suite that **mutates external state by default**
 
 ### 11.4.1 Purpose
 
-Run a project's test suite and emit normalized JSON/JSONL plus compact ACF, regardless of which framework is being used. The agent calls `axt-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
+Run a project's test suite and emit normalized JSON plus agent JSONL, regardless of which framework is being used. The agent calls `axt-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
 
 ### 11.4.2 Why this exists
 
@@ -234,7 +234,7 @@ axt-test --include-output / --no-include-output   # include stdout/stderr per fa
 axt-test --pass-through -- <FRAMEWORK_FLAGS>  # raw flags to the underlying runner
 axt-test list-frameworks                   # what we support and how we detect
 
-  + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
+  + standard --json/--agent/--agent//--limit/--max-bytes/--strict
 ```
 
 ### 11.4.4 Framework auto-detection
@@ -254,17 +254,15 @@ Order of detection:
 
 ### 11.4.5 Normalized output schema
 
-Agent mode (ACF):
+Agent mode (agent JSONL):
 
-```text
-schema=axt.test.agent.v1 ok=false mode=records frameworks=jest total=124 passed=118 failed=3 skipped=3 todo=0 ms=12405 started=2026-04-27T10:12:00Z truncated=false
-U name="checkout flow" file=tests/checkout.test.ts passed=12 failed=2 skipped=0 ms=3402
-C status=failed name="creates an order with a discount code" suite="checkout flow" file=tests/checkout.test.ts line=47 ms=234 message="expected 200, got 500" actual=500 expected=200
-C status=failed name="applies tax for EU customers" suite="checkout flow" file=tests/checkout.test.ts line=89 ms=118 message="Internal server error: undefined is not a function"
-S run="axt-test --filter 'checkout flow' --include-output"
+```jsonl
+{"schema":"axt.test.summary.v1","type":"summary","frameworks":["jest"],"total":124,"passed":118,"failed":3,"skipped":3,"todo":0,"duration_ms":12405,"started":"2026-04-27T10:12:00Z","truncated":false,"next":["axt-test --rerun-failed --include-output --agent"]}
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"failed","name":"creates an order with a discount code","suite":"checkout flow","file":"tests/checkout.test.ts","line":47,"duration_ms":234,"failure":{"message":"expected 200, got 500","stack":null,"actual":"500","expected":"200","diff":null},"stdout":null,"stderr":null}
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"failed","name":"applies tax for EU customers","suite":"checkout flow","file":"tests/checkout.test.ts","line":89,"duration_ms":118,"failure":{"message":"Internal server error: undefined is not a function","stack":null,"actual":null,"expected":null,"diff":null},"stdout":null,"stderr":null}
 ```
 
-Human mode prints a compact table with only failures expanded; success cases are summarized. `--include-output` shows stdout/stderr for failed cases.
+Human mode prints a compact table with only failures expanded; success cases are summarized. Agent mode defaults to failure-only case records. `--include-output` shows stdout/stderr for failed cases.
 
 ### 11.4.6 What "normalized" means precisely
 
@@ -323,8 +321,8 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 ### 11.4.9 Definition of done for v0.6
 
 1. Auto-detection works for the seven primary frameworks.
-2. JSONL schemas validated for every supported framework against committed fixtures; ACF snapshots cover compact agent output.
-3. Streaming: failures appear in `--jsonl` as they happen, not at the end.
+2. Agent JSONL schemas validated for every supported framework against committed fixtures; snapshots cover compact agent output.
+3. Streaming: an initial summary appears first, then failures appear in `--agent` as they happen before the final summary.
 4. `--changed` and `--changed-since` integrate with `axt-git` to filter affected files.
 5. Cross-platform: jest and pytest work the same on Linux/macOS/Windows. cargo and go test work where their toolchain works.
 6. `docs/commands/test.md` documents every framework's mapping in a table.
@@ -350,17 +348,16 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 axt-outline [PATHS]...
 axt-outline crates/axt-test/src --agent
 axt-outline src/lib.rs --public-only --json
-axt-outline . --jsonl --limit 100 --max-bytes 32768
+axt-outline . --agent --limit 100 --max-bytes 32768
 
   --lang rust|typescript|javascript|python|go|java|php
   --public-only
-  --private
-  --tests
+  --symbols-only
   --max-depth <N>
   --sort path|name|kind|source
 ```
 
-Standard shared flags apply: `--plain`, `--json`, `--json-data`, `--jsonl`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+Standard shared flags apply: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 ### 11.5.3 Scope
 
@@ -387,7 +384,7 @@ JSON uses the `axt.outline.v1` envelope. JSON data includes:
 }
 ```
 
-JSONL records:
+Agent JSONL records:
 
 - `axt.outline.summary.v1`
 - `axt.outline.symbol.v1`
@@ -395,13 +392,12 @@ JSONL records:
 
 Agent mode:
 
-```text
-schema=axt.outline.agent.v1 ok=true mode=records files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240 truncated=false
-Y path=src/lib.rs lang=rust kind=fn visibility=pub name=parse_config line=42 end_line=57 parent=- signature="pub fn parse_config(input: &str) -> Result<Config, Error>" docs="Parse the configuration text."
-S run="axt-slice src/lib.rs --symbol parse_config --agent"
+```jsonl
+{"schema":"axt.outline.summary.v1","type":"summary","ok":true,"root":".","files":1,"symbols":3,"warnings":0,"source_bytes":8192,"signature_bytes":240,"truncated":false,"next":["axt-slice src/lib.rs --symbol parse_config --agent"]}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"parse_config","sig":"pub fn parse_config(input: &str) -> Result<Config, Error>","docs":"Parse the configuration text.","range":{"start_line":42,"end_line":57},"parent":null}
 ```
 
-`Y` is the command-specific symbol record prefix.
+`--symbols-only` keeps symbol records to `name`, `kind`, and `line`.
 
 ### 11.5.5 Definition of done for v0.7
 
@@ -443,7 +439,7 @@ axt-ctxpack --print-schema json
   --no-ignore                  disable ignore and gitignore filters
 ```
 
-Standard shared flags apply: `--plain`, `--json`, `--json-data`, `--jsonl`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+Standard shared flags apply: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 ### 11.6.3 Scope
 
@@ -453,7 +449,8 @@ Standard shared flags apply: `--plain`, `--json`, `--json-data`, `--jsonl`, `--a
 - Include globs via `--files` and `--include`.
 - Gitignore-aware directory traversal by default.
 - Deterministic ordering by path, pattern order, and source position.
-- Per-hit fields: `pattern`, `path`, `line`, `column`, `byte_range`, `kind`, `classification_source`, `language`, `node_kind`, `enclosing_symbol`, `ast_path`, `matched_text`, and `snippet`.
+- JSON per-hit fields: `pattern`, `path`, `line`, `column`, `byte_range`, `kind`, `classification_source`, `language`, `node_kind`, `enclosing_symbol`, `ast_path`, `matched_text`, and `snippet`.
+- Agent per-hit fields use short keys and omit `ast_path`: `pat`, `p`, `line`, `col`, `range`, `k`, `src`, `l`, `node`, `sym`, `text`, and `snippet`.
 - Tree-sitter hit classification for supported languages: `code`, `comment`, `string`, `test`, or `unknown`.
 - Heuristic fallback only when the file language is unsupported or the source cannot be parsed.
 - Optional alias binary `ctxpack` behind the `aliases` feature.
@@ -490,7 +487,7 @@ JSON uses the `axt.ctxpack.v1` envelope. JSON data includes:
 }
 ```
 
-JSONL records:
+Agent JSONL records:
 
 - `axt.ctxpack.summary.v1`
 - `axt.ctxpack.hit.v1`
@@ -498,13 +495,12 @@ JSONL records:
 
 Agent mode:
 
-```text
-schema=axt.ctxpack.agent.v1 ok=true mode=records patterns=2 files=10 matched=1 hits=3 warnings=0 bytes=8192 truncated=false
-H pattern=todo path=src/lib.rs line=12 col=5 start=240 end=244 kind=comment src=ast lang=rust node=line_comment symbol=- text=TODO snippet="12:// TODO: tighten this"
-S run="axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"
+```jsonl
+{"schema":"axt.ctxpack.summary.v1","type":"summary","ok":true,"root":".","patterns":2,"files_scanned":10,"files_matched":1,"hits":3,"warnings":0,"bytes_scanned":8192,"truncated":false,"next":["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]}
+{"schema":"axt.ctxpack.hit.v1","type":"hit","pat":"todo","p":"src/lib.rs","line":12,"col":5,"range":{"start":240,"end":244},"k":"comment","src":"ast","l":"rust","node":"line_comment","sym":null,"text":"TODO","snippet":"12:// TODO: tighten this"}
 ```
 
-`H` is the command-specific hit record prefix.
+`ast_path` is retained in the JSON envelope for exact parser debugging and omitted from agent records to save tokens.
 
 ### 11.6.5 Definition of done for v0.8
 
@@ -646,4 +642,4 @@ If a clear, repeated pain point emerges in the v1.0 roadmap that one of these wo
 
 ## Continuation prompt for Phase 6 (use after Phase 5 ships)
 
-> Continue with Milestone 6 from the spec addendum. Implement `axt-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against normalized JSONL plus compact ACF agent output. Streaming is required for `--jsonl`: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.
+> Continue with Milestone 6 from the spec addendum. Implement `axt-test` per the spec in section 11.4. Define the `TestFrontend` trait first, then implement frontends one at a time in the priority order: jest, pytest, cargo test, go test, vitest, bun, deno. Each frontend gets a committed fixture project (one passing test, one failing test, one skipped test) and snapshot tests against normalized JSONL plus agent JSONL agent output. Streaming is required for `--agent`: events must appear as they happen, not at the end. Run all standard quality gates. Stop when the milestone's Done criteria in 11.4.9 are met.

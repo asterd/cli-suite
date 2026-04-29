@@ -12,6 +12,10 @@ use crate::{
 };
 
 pub async fn run(args: &Args, ctx: &CommandContext) -> Result<RunOutput> {
+    if args.rerun_last {
+        return show_run(&ctx.cwd, "last", false, false);
+    }
+
     match &args.subcommand {
         Some(Command::Show(show)) => show_run(&ctx.cwd, &show.name, show.stdout, show.stderr),
         Some(Command::List) => list_runs(&ctx.cwd),

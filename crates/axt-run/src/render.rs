@@ -2,8 +2,8 @@ use std::io::Write;
 
 use axt_core::ErrorCode;
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    AgentJsonlWriter, JsonEnvelope, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -27,6 +27,7 @@ struct JsonlSummaryOwned {
     changed: usize,
     saved: Option<String>,
     truncated: bool,
+    next: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,31 +35,12 @@ struct JsonlFile<'a> {
     schema: &'static str,
     #[serde(rename = "type")]
     kind: &'static str,
+    #[serde(rename = "p")]
     path: &'a str,
+    #[serde(rename = "a")]
     action: &'static str,
+    #[serde(rename = "b")]
     bytes: Option<u64>,
-}
-
-impl RunOutput {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        match self {
-            Self::Run(data) | Self::Show(data) => serde_json::to_writer(&mut *w, data)?,
-            Self::Stream { name, stream, text } => {
-                serde_json::to_writer(
-                    &mut *w,
-                    &json!({ "name": name, "stream": stream, "text": text }),
-                )?;
-            }
-            Self::List { runs } => {
-                serde_json::to_writer(&mut *w, &json!({ "runs": runs }))?;
-            }
-            Self::Clean { removed } => {
-                serde_json::to_writer(&mut *w, &json!({ "removed": removed }))?;
-            }
-        }
-        writeln!(w)?;
-        Ok(())
-    }
 }
 
 impl Renderable for RunOutput {
@@ -117,11 +99,11 @@ impl Renderable for RunOutput {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = JsonlWriter::new(w, ctx.limits);
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
         match self {
             Self::Run(data) | Self::Show(data) => {
-                writer.write_record(&jsonl_summary(data))?;
+                writer.write_record(&jsonl_summary(data, next_hints_run(data)))?;
                 for change in &data.changed {
                     writer.write_record(&jsonl_file(change))?;
                 }
@@ -166,121 +148,6 @@ impl Renderable for RunOutput {
         let _summary = writer.finish("axt.run.warn.v1")?;
         Ok(())
     }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        match self {
-            Self::Run(data) | Self::Show(data) => {
-                writer.write_line(&agent_summary_line(data)?)?;
-                if data.timed_out {
-                    writer.write_line("X code=timeout")?;
-                } else if data.exit != Some(0) {
-                    writer.write_line(&format!(
-                        "X code=command_failed exit={}",
-                        data.exit.unwrap_or(-1)
-                    ))?;
-                }
-                for (index, line) in data.stderr.tail.iter().enumerate() {
-                    writer.write_line(&agent_prefixed_line(
-                        "E",
-                        &[
-                            AgentField::str("stream", "stderr"),
-                            AgentField::usize("line", index + 1),
-                            AgentField::str("text", line),
-                        ],
-                    )?)?;
-                }
-                for change in &data.changed {
-                    writer.write_line(&agent_file_line(change)?)?;
-                }
-                if let Some(saved) = &data.saved {
-                    writer.write_line(&agent_prefixed_line(
-                        "S",
-                        &[AgentField::str(
-                            "run",
-                            &format!("axt-run show {}", saved.name),
-                        )],
-                    )?)?;
-                }
-            }
-            Self::Stream { name, stream, text } => {
-                writer.write_fields(&[
-                    AgentField::str("schema", "axt.run.agent.v1"),
-                    AgentField::bool("ok", true),
-                    AgentField::str("mode", "records"),
-                    AgentField::str("name", name),
-                    AgentField::str("stream", stream),
-                    AgentField::bool("truncated", false),
-                ])?;
-                for line in text.lines() {
-                    writer.write_line(&agent_prefixed_line(
-                        "D",
-                        &[
-                            AgentField::str("stream", stream),
-                            AgentField::str("text", line),
-                        ],
-                    )?)?;
-                }
-            }
-            Self::List { runs } => {
-                writer.write_fields(&[
-                    AgentField::str("schema", "axt.run.agent.v1"),
-                    AgentField::bool("ok", true),
-                    AgentField::str("mode", "records"),
-                    AgentField::usize("runs", runs.len()),
-                    AgentField::bool("truncated", false),
-                ])?;
-                for run in runs {
-                    writer.write_line(&agent_prefixed_line(
-                        "R",
-                        &[
-                            AgentField::str("name", &run.name),
-                            AgentField::str("cmd", &run.command),
-                            AgentField::i64("exit", i64::from(run.exit.unwrap_or(-1))),
-                            AgentField::u64("ms", run.duration_ms),
-                        ],
-                    )?)?;
-                }
-            }
-            Self::Clean { removed } => {
-                writer.write_fields(&[
-                    AgentField::str("schema", "axt.run.agent.v1"),
-                    AgentField::bool("ok", true),
-                    AgentField::str("mode", "records"),
-                    AgentField::usize("removed", *removed),
-                    AgentField::bool("truncated", false),
-                ])?;
-            }
-        }
-        let _summary = writer.finish()?;
-        Ok(())
-    }
-}
-
-pub fn agent_summary_line(data: &RunData) -> RenderResult<String> {
-    format_agent_fields(&[
-        AgentField::str("schema", "axt.run.agent.v1"),
-        AgentField::bool("ok", data.ok()),
-        AgentField::str("mode", "records"),
-        AgentField::str("cmd", &command_string(data)),
-        AgentField::str(
-            "exit",
-            &data
-                .exit
-                .map_or_else(|| "timeout".to_owned(), |exit| exit.to_string()),
-        ),
-        AgentField::u64("ms", data.duration_ms),
-        AgentField::usize("stdout_lines", data.stdout.lines),
-        AgentField::usize("stderr_lines", data.stderr.lines),
-        AgentField::usize("changed", data.changed_count),
-        AgentField::str(
-            "saved",
-            data.saved
-                .as_ref()
-                .map_or("none", |saved| saved.name.as_str()),
-        ),
-        AgentField::bool("truncated", data.truncated),
-    ])
 }
 
 fn render_run_human(w: &mut dyn Write, data: &RunData) -> RenderResult<()> {
@@ -332,7 +199,12 @@ fn render_run_human(w: &mut dyn Write, data: &RunData) -> RenderResult<()> {
     Ok(())
 }
 
-fn jsonl_summary(data: &RunData) -> JsonlSummaryOwned {
+pub fn agent_summary_line(data: &RunData) -> RenderResult<String> {
+    let summary = jsonl_summary(data, next_hints_run(data));
+    Ok(serde_json::to_string(&summary)?)
+}
+
+fn jsonl_summary(data: &RunData, next: Vec<String>) -> JsonlSummaryOwned {
     JsonlSummaryOwned {
         schema: "axt.run.summary.v1",
         kind: "summary",
@@ -345,7 +217,21 @@ fn jsonl_summary(data: &RunData) -> JsonlSummaryOwned {
         changed: data.changed_count,
         saved: data.saved.as_ref().map(|saved| saved.name.clone()),
         truncated: data.truncated,
+        next,
     }
+}
+
+fn next_hints_run(data: &RunData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if let Some(saved) = &data.saved {
+        if data.timed_out || data.exit != Some(0) {
+            hints.push(format!("axt-run show {} --stderr", saved.name));
+        }
+    }
+    if data.changed_count > 0 {
+        hints.push("axt-peek . --changed --agent".to_owned());
+    }
+    hints
 }
 
 fn jsonl_file(change: &FileChange) -> JsonlFile<'_> {
@@ -356,32 +242,6 @@ fn jsonl_file(change: &FileChange) -> JsonlFile<'_> {
         action: change.action.as_str(),
         bytes: change.bytes,
     }
-}
-
-fn agent_file_line(change: &FileChange) -> RenderResult<String> {
-    agent_prefixed_line(
-        "F",
-        &[
-            AgentField::str("path", &change.path),
-            AgentField::str("action", change.action.as_str()),
-            AgentField::str(
-                "bytes",
-                &change
-                    .bytes
-                    .map_or_else(|| "none".to_owned(), |bytes| bytes.to_string()),
-            ),
-        ],
-    )
-}
-
-fn agent_prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let mut line = prefix.to_owned();
-    let formatted = format_agent_fields(fields)?;
-    if !formatted.is_empty() {
-        line.push(' ');
-        line.push_str(&formatted);
-    }
-    Ok(line)
 }
 
 fn command_string(data: &RunData) -> String {

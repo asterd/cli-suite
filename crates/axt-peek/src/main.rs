@@ -41,10 +41,8 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
 
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => data.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => data.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => data.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => data.render_json_data(&mut stdout),
-        OutputMode::Jsonl => data.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => data.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -60,11 +58,8 @@ fn main() -> anyhow::Result<ExitCode> {
 fn print_schema(format: SchemaFormat) {
     match format {
         SchemaFormat::Json => print!("{}", include_str!("../../../schemas/axt.peek.v1.schema.json")),
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.peek.jsonl.v1 records=axt.peek.summary.v1,axt.peek.entry.v1,axt.peek.warn.v1 first=summary"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.peek.agent.v1 mode=table cols=path,kind,bytes,lang,git,mtime warnings=W"
+            "schema=axt.peek.agent.v1 records=axt.peek.summary.v1,axt.peek.entry.v1,axt.peek.warn.v1 first=summary"
         ),
         SchemaFormat::Human => println!(
             "schema=axt.peek.human.v1 sections=tree,summary columns=path,bytes,lang,git"

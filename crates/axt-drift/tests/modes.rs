@@ -25,6 +25,7 @@ fn mark_uses_default_name_and_writes_jsonl_snapshot() -> Result<(), Box<dyn std:
     fs::write(temp.path().join("input.txt"), "hello")?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "mark"])
         .assert()
@@ -53,6 +54,7 @@ fn diff_reports_created_modified_deleted_sorted_by_size_delta(
     fs::write(temp.path().join("created.txt"), "new")?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "diff", "--since", "base"])
         .assert()
@@ -82,6 +84,7 @@ fn hash_mode_includes_hashes_for_changed_files() -> Result<(), Box<dyn std::erro
     fs::write(temp.path().join("file.txt"), "after")?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "diff", "--since", "hashy", "--hash"])
         .assert()
@@ -102,6 +105,7 @@ fn diff_hash_mode_does_not_modify_unchanged_metadata_mark() -> Result<(), Box<dy
     mark(temp.path(), "mixed")?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "diff", "--since", "mixed", "--hash"])
         .assert()
@@ -119,6 +123,7 @@ fn run_executes_command_and_reports_drift() -> Result<(), Box<dyn std::error::Er
     let temp = tempfile::tempdir()?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "run", "--name", "build", "--"])
         .args(file_create_command())
@@ -140,6 +145,7 @@ fn run_reports_non_zero_command_exit() -> Result<(), Box<dyn std::error::Error>>
     let temp = tempfile::tempdir()?;
 
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "run", "--"])
         .args(non_zero_command())
@@ -163,6 +169,7 @@ fn list_and_reset_manage_marks() -> Result<(), Box<dyn std::error::Error>> {
     mark(temp.path(), "two")?;
 
     let list = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "list"])
         .assert()
@@ -173,6 +180,7 @@ fn list_and_reset_manage_marks() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(value["data"]["marks"].as_array().map(Vec::len), Some(2));
 
     let reset = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "reset"])
         .assert()
@@ -189,6 +197,7 @@ fn invalid_mark_name_and_missing_mark_fail() -> Result<(), Box<dyn std::error::E
     let temp = tempfile::tempdir()?;
 
     let invalid = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["mark", "--name", "../outside"])
         .assert()
@@ -197,6 +206,7 @@ fn invalid_mark_name_and_missing_mark_fail() -> Result<(), Box<dyn std::error::E
     assert!(stderr.contains("invalid mark name"));
 
     let missing = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["diff", "--since", "missing"])
         .assert()
@@ -212,8 +222,9 @@ fn jsonl_and_agent_start_with_schema_records() -> Result<(), Box<dyn std::error:
     fs::write(temp.path().join("input.txt"), "hello")?;
 
     let jsonl = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
-        .args(["--jsonl", "mark"])
+        .args(["--agent", "mark"])
         .assert()
         .success();
     let stdout = String::from_utf8(jsonl.get_output().stdout.clone())?;
@@ -225,16 +236,18 @@ fn jsonl_and_agent_start_with_schema_records() -> Result<(), Box<dyn std::error:
     assert_eq!(value["schema"], "axt.drift.summary.v1");
 
     let agent = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--agent", "list"])
         .assert()
         .success();
     let stdout = String::from_utf8(agent.get_output().stdout.clone())?;
-    let first = stdout
+    let first_line = stdout
         .lines()
         .next()
         .ok_or_else(|| io::Error::other("agent output was empty"))?;
-    assert!(first.starts_with("schema=axt.drift.agent.v1 "));
+    let value: Value = serde_json::from_str(first_line)?;
+    assert_eq!(value["schema"], "axt.drift.summary.v1");
     Ok(())
 }
 
@@ -245,8 +258,9 @@ fn jsonl_and_agent_summaries_report_truncation() -> Result<(), Box<dyn std::erro
     fs::write(temp.path().join("one.txt"), "one")?;
 
     let jsonl = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
-        .args(["--jsonl", "--limit", "1", "diff", "--since", "base"])
+        .args(["--agent", "--limit", "1", "diff", "--since", "base"])
         .assert()
         .success();
     let stdout = String::from_utf8(jsonl.get_output().stdout.clone())?;
@@ -262,27 +276,13 @@ fn jsonl_and_agent_summaries_report_truncation() -> Result<(), Box<dyn std::erro
     let value: Value = serde_json::from_str(warning)?;
     assert_eq!(value["type"], "warn");
 
-    let agent = Command::cargo_bin("axt-drift")?
-        .current_dir(temp.path())
-        .args(["--agent", "--limit", "1", "diff", "--since", "base"])
-        .assert()
-        .success();
-    let stdout = String::from_utf8(agent.get_output().stdout.clone())?;
-    let mut lines = stdout.lines();
-    let first = lines
-        .next()
-        .ok_or_else(|| io::Error::other("agent output was empty"))?;
-    assert!(first.contains("truncated=true"));
-    let warning = lines
-        .next()
-        .ok_or_else(|| io::Error::other("agent warning was missing"))?;
-    assert!(warning.starts_with("W code=truncated "));
     Ok(())
 }
 
 #[test]
 fn print_schema_outputs_json_schema() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .args(["--print-schema"])
         .assert()
         .success();
@@ -293,6 +293,7 @@ fn print_schema_outputs_json_schema() -> Result<(), Box<dyn std::error::Error>> 
 
 fn mark(dir: &Path, name: &str) -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(dir)
         .args(["mark", "--name", name])
         .assert()
@@ -302,6 +303,7 @@ fn mark(dir: &Path, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 fn mark_hash(dir: &Path, name: &str) -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(dir)
         .args(["mark", "--name", name, "--hash"])
         .assert()

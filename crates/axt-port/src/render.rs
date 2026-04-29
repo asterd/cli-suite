@@ -2,16 +2,13 @@ use std::io::Write;
 
 use axt_core::{ErrorCode, OutputLimits};
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    AgentJsonlWriter, JsonEnvelope, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::{
-    model::{FreeAttempt, PortData, PortHolder},
-    output::PortOutput,
-};
+use crate::{model::PortData, output::PortOutput};
 
 #[derive(Debug, Serialize)]
 struct JsonlSummary<'a> {
@@ -28,14 +25,7 @@ struct JsonlSummary<'a> {
     timed_out: bool,
     duration_ms: u64,
     truncated: bool,
-}
-
-impl PortOutput {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        serde_json::to_writer(&mut *w, self.data())?;
-        writeln!(w)?;
-        Ok(())
-    }
+    next: Vec<String>,
 }
 
 impl Renderable for PortOutput {
@@ -132,51 +122,25 @@ impl Renderable for PortOutput {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
         let data = self.data();
         let records = jsonl_detail_records(data);
         let truncated = line_output_would_truncate(
-            serialized_jsonl_len(&jsonl_summary(data, false))?,
+            serialized_jsonl_len(&jsonl_summary(data, false, Vec::new()))?,
             records.iter().map(serialized_jsonl_len),
             ctx.limits,
         )?;
-        let mut writer = JsonlWriter::new(w, ctx.limits);
-        writer.write_record(&jsonl_summary(data, truncated))?;
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
+        writer.write_record(&jsonl_summary(data, truncated, next_hints(data)))?;
         for record in &records {
             writer.write_record(record)?;
         }
         let _summary = writer.finish("axt.port.warn.v1")?;
         Ok(())
     }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let data = self.data();
-        let mut lines = Vec::new();
-        for holder in &data.holders {
-            lines.push(agent_holder_line(holder)?);
-        }
-        for attempt in &data.attempts {
-            lines.push(agent_attempt_line(attempt)?);
-        }
-        for error in errors(data) {
-            lines.push(agent_error_line(&error)?);
-        }
-        let truncated = line_output_would_truncate(
-            agent_summary_line(data, false)?.len() + 1,
-            lines.iter().map(|line| Ok(line.len() + 1)),
-            ctx.limits,
-        )?;
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        writer.write_line(&agent_summary_line(data, truncated)?)?;
-        for line in &lines {
-            writer.write_line(line)?;
-        }
-        let _summary = writer.finish()?;
-        Ok(())
-    }
 }
 
-fn jsonl_summary(data: &PortData, truncated: bool) -> JsonlSummary<'_> {
+fn jsonl_summary(data: &PortData, truncated: bool, next: Vec<String>) -> JsonlSummary<'_> {
     JsonlSummary {
         schema: "axt.port.summary.v1",
         kind: "summary",
@@ -190,7 +154,18 @@ fn jsonl_summary(data: &PortData, truncated: bool) -> JsonlSummary<'_> {
         timed_out: data.timed_out,
         duration_ms: data.duration_ms,
         truncated,
+        next,
     }
+}
+
+fn next_hints(data: &PortData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if data.held && !data.freed {
+        if let Some(port) = data.ports.first() {
+            hints.push(format!("axt-port free {port} --dry-run --agent"));
+        }
+    }
+    hints
 }
 
 fn jsonl_detail_records(data: &PortData) -> Vec<Value> {
@@ -243,92 +218,6 @@ fn jsonl_detail_records(data: &PortData) -> Vec<Value> {
 
 fn serialized_jsonl_len<T: Serialize>(record: &T) -> RenderResult<usize> {
     Ok(serde_json::to_vec(record)?.len() + 1)
-}
-
-fn agent_summary_line(data: &PortData, truncated: bool) -> RenderResult<String> {
-    let port = data
-        .ports
-        .first()
-        .map_or_else(|| "all".to_owned(), u16::to_string);
-    format_agent_fields(&[
-        AgentField::str("schema", "axt.port.agent.v1"),
-        AgentField::bool("ok", data.ok()),
-        AgentField::str("mode", "records"),
-        AgentField::str("action", data.action.as_str()),
-        AgentField::str("port", &port),
-        AgentField::bool("held", data.held),
-        AgentField::usize("holders", data.holders.len()),
-        AgentField::bool("freed", data.freed),
-        AgentField::bool("timed_out", data.timed_out),
-        AgentField::u64("ms", data.duration_ms),
-        AgentField::bool("truncated", truncated),
-    ])
-}
-
-fn agent_holder_line(holder: &PortHolder) -> RenderResult<String> {
-    let bound = holder.bound.join(",");
-    let mut fields = vec![
-        AgentField::u64("port", u64::from(holder.port)),
-        AgentField::str("proto", holder.proto.as_str()),
-        AgentField::u64("pid", u64::from(holder.pid)),
-        AgentField::str("name", &holder.name),
-        AgentField::str("bound", &bound),
-    ];
-    if let Some(command) = &holder.command {
-        fields.push(AgentField::str("cmd", command));
-    }
-    if let Some(cwd) = &holder.cwd {
-        fields.push(AgentField::str("cwd", cwd));
-    }
-    if let Some(owner) = &holder.owner {
-        fields.push(AgentField::str("owner", owner));
-    }
-    if let Some(memory) = holder.memory_bytes {
-        fields.push(AgentField::u64("mem", memory));
-    }
-    if let Some(started) = &holder.started {
-        fields.push(AgentField::str("started", started));
-    }
-    prefixed_line("H", &fields)
-}
-
-fn agent_attempt_line(attempt: &FreeAttempt) -> RenderResult<String> {
-    let mut fields = vec![
-        AgentField::u64("port", u64::from(attempt.port)),
-        AgentField::u64("pid", u64::from(attempt.pid)),
-        AgentField::str("name", &attempt.name),
-        AgentField::str("signal", &attempt.signal),
-        AgentField::str("action", attempt.action.as_str()),
-        AgentField::str("result", attempt.result.as_str()),
-        AgentField::bool("ok", attempt.ok),
-        AgentField::bool("escalated", attempt.escalated),
-        AgentField::u64("ms", attempt.ms),
-    ];
-    if let Some(message) = &attempt.message {
-        fields.push(AgentField::str("message", message));
-    }
-    prefixed_line("A", &fields)
-}
-
-fn agent_error_line(error: &OutputDiagnostic) -> RenderResult<String> {
-    let context = error.context.to_string();
-    prefixed_line(
-        "X",
-        &[
-            AgentField::str("code", error.code.as_str()),
-            AgentField::str("message", &error.message),
-            AgentField::str("context", &context),
-        ],
-    )
-}
-
-fn prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let formatted = format_agent_fields(fields)?;
-    if formatted.is_empty() {
-        Ok(prefix.to_owned())
-    } else {
-        Ok(format!("{prefix} {formatted}"))
-    }
 }
 
 fn errors(data: &PortData) -> Vec<OutputDiagnostic> {

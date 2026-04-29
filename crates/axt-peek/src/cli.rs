@@ -15,20 +15,14 @@ pub struct Args {
     #[arg(long, default_value_t = 2, value_name = "N")]
     pub depth: usize,
 
-    #[arg(long, conflicts_with = "dirs_only")]
-    pub files_only: bool,
-
-    #[arg(long, conflicts_with = "files_only")]
-    pub dirs_only: bool,
+    #[arg(long, value_name = "KIND", default_value_t = KindFilter::All)]
+    pub kind: KindFilter,
 
     #[arg(long)]
     pub include_hidden: bool,
 
     #[arg(long)]
     pub no_ignore: bool,
-
-    #[arg(long, conflicts_with = "no_git")]
-    pub git: bool,
 
     #[arg(long)]
     pub no_git: bool,
@@ -68,18 +62,39 @@ pub struct Args {
 
     #[arg(long, default_value_t = ColorArg::Auto)]
     pub color: ColorArg,
-
-    #[arg(long)]
-    pub quiet: bool,
-
-    #[arg(long, short = 'v', action = clap::ArgAction::Count)]
-    pub verbose: u8,
 }
 
 impl Args {
     #[must_use]
     pub const fn git_enabled(&self) -> bool {
         !self.no_git
+    }
+
+    #[must_use]
+    pub const fn files_only(&self) -> bool {
+        matches!(self.kind, KindFilter::File)
+    }
+
+    #[must_use]
+    pub const fn dirs_only(&self) -> bool {
+        matches!(self.kind, KindFilter::Dir)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum KindFilter {
+    All,
+    File,
+    Dir,
+}
+
+impl std::fmt::Display for KindFilter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::All => f.write_str("all"),
+            Self::File => f.write_str("file"),
+            Self::Dir => f.write_str("dir"),
+        }
     }
 }
 

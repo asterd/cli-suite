@@ -27,7 +27,7 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<OutlineData> {
     let mut symbols = Vec::new();
     let mut parsed_files = 0;
     let mut source_bytes = 0;
-    let public_only = args.public_only && !args.private;
+    let public_only = args.public_only;
     for file in files {
         let language = language_for_path(&file);
         let Some(language) = language else {
@@ -76,6 +76,7 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<OutlineData> {
         symbols,
         warnings,
         next,
+        symbols_only: args.symbols_only,
     })
 }
 

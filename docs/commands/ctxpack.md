@@ -15,7 +15,7 @@ For Rust, TypeScript, JavaScript, Python, Go, Java, and PHP, each hit is parsed 
 ```bash
 axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --json
 axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2 --agent
-axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --jsonl --limit 50
+axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --agent --limit 50
 ```
 
 ## Flags
@@ -31,13 +31,13 @@ axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --jsonl --limit 50
 - `--limit <N>`: maximum hit records retained and maximum line-oriented output records.
 - `--max-bytes <BYTES>`: maximum payload bytes for line-oriented output.
 - `--strict`: return exit 6 when line-oriented output truncation is required.
-- `--plain`, `--json`, `--json-data`, `--jsonl`, `--agent`: standard output modes.
-- `--print-schema [human|json|jsonl|agent]`: print the selected schema description.
+- `--json`, `--agent`: standard output modes.
+- `--print-schema [human|json|agent]`: print the selected schema description.
 - `--list-errors`: emit the standard error catalog as JSONL.
 
 ## JSON
 
-`--json` emits an `axt.ctxpack.v1` envelope. `--json-data` emits only:
+`--json` emits an `axt.ctxpack.v1` envelope:
 
 ```json
 {
@@ -74,28 +74,17 @@ axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --jsonl --limit 50
 }
 ```
 
-## JSONL
+## Agent Mode
 
 The first record is always `axt.ctxpack.summary.v1`. Hit records use `axt.ctxpack.hit.v1`. Warning records use `axt.ctxpack.warn.v1`.
 
-## Agent Mode
+Agent records use short keys for high-cardinality hit fields and omit `ast_path`.
+`ast_path` is available only in the JSON envelope.
 
-Agent mode uses `axt.ctxpack.agent.v1`:
-
-```text
-schema=axt.ctxpack.agent.v1 ok=true mode=records patterns=2 files=10 matched=1 hits=3 warnings=0 bytes=8192 truncated=false
-H pattern=todo path=src/lib.rs line=12 col=5 start=240 end=244 kind=comment src=ast lang=rust node=line_comment symbol=- text=TODO snippet="12:// TODO: tighten this"
-S run="axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"
+```jsonl
+{"schema":"axt.ctxpack.summary.v1","type":"summary","ok":true,"root":".","patterns":2,"files_scanned":10,"files_matched":1,"hits":3,"warnings":0,"bytes_scanned":8192,"truncated":false,"next":["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]}
+{"schema":"axt.ctxpack.hit.v1","type":"hit","pat":"todo","p":"src/lib.rs","line":12,"col":5,"range":{"start":240,"end":244},"k":"comment","src":"ast","l":"rust","node":"line_comment","sym":null,"text":"TODO","snippet":"12:// TODO: tighten this"}
 ```
-
-Command-specific prefix:
-
-- `H`: hit record.
-
-Shared prefixes:
-
-- `W`: warning.
-- `S`: suggested next command.
 
 ## Error Codes
 

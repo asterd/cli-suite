@@ -41,10 +41,8 @@ fn main() -> anyhow::Result<ExitCode> {
 
     let mut stdout = std::io::stdout().lock();
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => output.render_json_data(&mut stdout),
-        OutputMode::Jsonl => output.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -62,11 +60,8 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Json => {
             print!("{}", include_str!("../../../schemas/axt.ctxpack.v1.schema.json"));
         }
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.ctxpack.jsonl.v1 records=axt.ctxpack.summary.v1,axt.ctxpack.hit.v1,axt.ctxpack.warn.v1"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.ctxpack.agent.v1 mode=records prefixes=H,S,W fields=patterns,files,matched,hits,warnings,bytes,truncated,path,line,col,start,end,kind,src,lang,node,symbol,text,snippet"
+            "schema=axt.ctxpack.agent.v1 records=axt.ctxpack.summary.v1,axt.ctxpack.hit.v1,axt.ctxpack.warn.v1 first=summary"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.ctxpack.human.v1 sections=summary,hits,warnings");

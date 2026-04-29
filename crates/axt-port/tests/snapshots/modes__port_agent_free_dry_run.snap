@@ -1,5 +1,0 @@
----
-source: crates/axt-port/tests/modes.rs
-expression: "&normalize_agent_fixture_output(&agent_stdout)"
----
-schema=axt.port.agent.v1 ok=true mode=records action=free port=<port> held=true holders=1 freed=false timed_out=false ms=<ms> truncated=false H port=<port> proto=tcp pid=<pid> name=<name> bound=<bound> cmd=<cmd> cwd=<cwd> owner=<owner> mem=<mem> started=<started> A port=<port> pid=<pid> name=<name> signal=term action=simulated result=skipped ok=true escalated=false ms=<ms>

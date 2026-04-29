@@ -2,8 +2,8 @@ use std::io::Write;
 
 use axt_core::ErrorCode;
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    JsonEnvelope, AgentJsonlWriter, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -13,17 +13,6 @@ use crate::{
     model::{TestCase, TestData, TestStatus, TestSummary},
 };
 
-impl TestOutput {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        match self {
-            Self::Run { data, .. } => serde_json::to_writer(&mut *w, data)?,
-            Self::Frameworks { frameworks } => serde_json::to_writer(&mut *w, frameworks)?,
-        }
-        writeln!(w)?;
-        Ok(())
-    }
-}
-
 impl Renderable for TestOutput {
     fn render_human(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         match self {
@@ -32,7 +21,8 @@ impl Renderable for TestOutput {
                 data,
                 top_failures,
                 include_output,
-            } => render_run_human(w, data, *top_failures, *include_output),
+                failures_only,
+            } => render_run_human(w, data, *top_failures, *include_output, *failures_only),
         }
     }
 
@@ -44,10 +34,16 @@ impl Renderable for TestOutput {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = JsonlWriter::new(w, ctx.limits);
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
         match self {
             Self::Frameworks { frameworks } => {
+                writer.write_record(&json!({
+                    "schema": "axt.test.frameworks.summary.v1",
+                    "type": "summary",
+                    "frameworks": frameworks.len(),
+                    "next": ["axt-test --json"]
+                }))?;
                 for framework in frameworks {
                     writer.write_record(&json!({
                         "schema": "axt.test.framework.v1",
@@ -62,8 +58,9 @@ impl Renderable for TestOutput {
                 data,
                 top_failures,
                 include_output,
+                failures_only,
             } => {
-                writer.write_record(&jsonl_summary(data, false))?;
+                writer.write_record(&jsonl_summary(data, false, &next_hints(data)))?;
                 for suite in &data.suites {
                     writer.write_record(&json!({
                         "schema": "axt.test.suite.v1",
@@ -78,64 +75,12 @@ impl Renderable for TestOutput {
                         "duration_ms": suite.duration_ms
                     }))?;
                 }
-                for case in selected_cases(data, *top_failures) {
+                for case in selected_cases(data, *top_failures, *failures_only) {
                     writer.write_record(&case_record(case, *include_output))?;
                 }
             }
         }
         let _summary = writer.finish("axt.test.warn.v1")?;
-        Ok(())
-    }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        match self {
-            Self::Frameworks { frameworks } => {
-                writer.write_line("schema=axt.test.agent.v1 ok=true mode=frameworks")?;
-                for framework in frameworks {
-                    writer.write_line(&prefixed_line(
-                        "F",
-                        &[
-                            AgentField::str("name", framework.name.as_str()),
-                            AgentField::str("marker", framework.marker.as_str()),
-                            AgentField::str("detection", framework.detection.as_str()),
-                        ],
-                    )?)?;
-                }
-            }
-            Self::Run {
-                data,
-                top_failures,
-                include_output: _,
-            } => {
-                writer.write_line(&agent_summary_line(data, false)?)?;
-                for suite in &data.suites {
-                    writer.write_line(&prefixed_line(
-                        "U",
-                        &[
-                            AgentField::str("name", &suite.name),
-                            AgentField::str("framework", &suite.framework),
-                            AgentField::str(
-                                "file",
-                                suite.file.as_ref().map_or("-", |path| path.as_str()),
-                            ),
-                            AgentField::usize("passed", suite.passed),
-                            AgentField::usize("failed", suite.failed),
-                            AgentField::usize("skipped", suite.skipped),
-                            AgentField::u64("ms", suite.duration_ms),
-                        ],
-                    )?)?;
-                }
-                for case in selected_cases(data, *top_failures)
-                    .into_iter()
-                    .filter(|case| case.status != TestStatus::Passed)
-                {
-                    writer.write_line(&agent_case_line(case)?)?;
-                }
-                writer.write_line("S run=\"axt-test\"")?;
-            }
-        }
-        let _summary = writer.finish()?;
         Ok(())
     }
 }
@@ -157,6 +102,7 @@ fn render_run_human(
     data: &TestData,
     top_failures: usize,
     include_output: bool,
+    failures_only: bool,
 ) -> RenderResult<()> {
     writeln!(
         w,
@@ -169,7 +115,7 @@ fn render_run_human(
         data.todo,
         data.duration_ms
     )?;
-    for case in selected_cases(data, top_failures)
+    for case in selected_cases(data, top_failures, failures_only)
         .into_iter()
         .filter(|case| case.status == TestStatus::Failed)
     {
@@ -196,7 +142,7 @@ fn render_run_human(
     Ok(())
 }
 
-fn jsonl_summary(data: &TestData, truncated: bool) -> Value {
+fn jsonl_summary(data: &TestData, truncated: bool, next: &[String]) -> Value {
     let mut summary = TestSummary::from(data);
     summary.truncated = truncated;
     json!({
@@ -210,15 +156,37 @@ fn jsonl_summary(data: &TestData, truncated: bool) -> Value {
         "todo": summary.todo,
         "duration_ms": summary.duration_ms,
         "started": summary.started,
-        "truncated": summary.truncated
+        "truncated": summary.truncated,
+        "next": next
     })
 }
 
-fn selected_cases(data: &TestData, top_failures: usize) -> Vec<&TestCase> {
+fn next_hints(data: &TestData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if data.failed > 0 {
+        hints.push("axt-test --rerun-failed --include-output --agent".to_owned());
+        hints.push("axt-test --top-failures 5 --include-output --json".to_owned());
+        if let Some(failed) = data
+            .cases
+            .iter()
+            .find(|case| case.status == TestStatus::Failed)
+        {
+            if let (Some(file), Some(line)) = (failed.file.as_ref(), failed.line) {
+                hints.push(format!("axt-outline {file} --agent  # near line {line}"));
+            }
+        }
+    }
+    hints
+}
+
+fn selected_cases(data: &TestData, top_failures: usize, failures_only: bool) -> Vec<&TestCase> {
     let mut failures_left = top_failures;
     data.cases
         .iter()
         .filter(|case| {
+            if failures_only && case.status != TestStatus::Failed {
+                return false;
+            }
             if case.status == TestStatus::Failed {
                 if failures_left == 0 {
                     false
@@ -248,51 +216,6 @@ fn case_record(case: &TestCase, include_output: bool) -> Value {
         "stdout": if include_output || case.status == TestStatus::Failed { case.stdout.clone() } else { None },
         "stderr": if include_output || case.status == TestStatus::Failed { case.stderr.clone() } else { None }
     })
-}
-
-fn agent_summary_line(data: &TestData, truncated: bool) -> RenderResult<String> {
-    format_agent_fields(&[
-        AgentField::str("schema", "axt.test.agent.v1"),
-        AgentField::bool("ok", data.ok()),
-        AgentField::str("mode", "records"),
-        AgentField::str("frameworks", &data.frameworks.join(",")),
-        AgentField::usize("total", data.total),
-        AgentField::usize("passed", data.passed),
-        AgentField::usize("failed", data.failed),
-        AgentField::usize("skipped", data.skipped),
-        AgentField::usize("todo", data.todo),
-        AgentField::u64("ms", data.duration_ms),
-        AgentField::str("started", &data.started),
-        AgentField::bool("truncated", truncated),
-    ])
-}
-
-fn agent_case_line(case: &TestCase) -> RenderResult<String> {
-    let mut fields = vec![
-        AgentField::str("status", case.status.as_str()),
-        AgentField::str("name", &case.name),
-        AgentField::str("framework", &case.framework),
-        AgentField::str("file", case.file.as_ref().map_or("-", |path| path.as_str())),
-        AgentField::u64("line", case.line.unwrap_or(0)),
-        AgentField::u64("ms", case.duration_ms),
-    ];
-    if let Some(suite) = &case.suite {
-        fields.push(AgentField::str("suite", suite));
-    }
-    if let Some(failure) = &case.failure {
-        fields.push(AgentField::str("message", &failure.message));
-    }
-    prefixed_line("C", &fields)
-}
-
-fn prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let mut line = String::with_capacity(prefix.len() + 1);
-    line.push_str(prefix);
-    if !fields.is_empty() {
-        line.push(' ');
-        line.push_str(&format_agent_fields(fields)?);
-    }
-    Ok(line)
 }
 
 fn errors(output: &TestOutput) -> Vec<OutputDiagnostic> {

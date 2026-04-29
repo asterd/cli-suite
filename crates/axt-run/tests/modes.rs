@@ -5,7 +5,11 @@ use insta::assert_snapshot;
 use serde_json::Value;
 
 fn run_bin_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    Ok(PathBuf::from(Command::cargo_bin("axt-run")?.get_program()))
+    Ok(PathBuf::from(
+        Command::cargo_bin("axt-run")?
+            .env("AXT_OUTPUT", "human")
+            .get_program(),
+    ))
 }
 
 fn validate_json_schema(stdout: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -115,6 +119,7 @@ fn json_mode_runs_command_and_validates_schema() -> Result<(), Box<dyn std::erro
     let temp = tempfile::tempdir()?;
     let bin = run_bin_path()?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--"])
         .arg(bin)
@@ -136,6 +141,7 @@ fn non_zero_command_exits_with_command_failed() -> Result<(), Box<dyn std::error
     let temp = tempfile::tempdir()?;
     let bin = run_bin_path()?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--"])
         .arg(bin)
@@ -154,6 +160,7 @@ fn env_flag_is_passed_to_child() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let helper = compile_helper(temp.path())?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--env", "AXT_RUN_TEST=ok", "--"])
         .arg(helper)
@@ -173,6 +180,7 @@ fn no_watch_files_disables_file_change_detection() -> Result<(), Box<dyn std::er
     fs::write(temp.path().join("deleted.txt"), "delete me\n")?;
     let helper = compile_helper(temp.path())?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--no-watch-files", "--"])
         .arg(helper)
@@ -191,6 +199,7 @@ fn saved_runs_can_be_listed_and_shown() -> Result<(), Box<dyn std::error::Error>
     let temp = tempfile::tempdir()?;
     let helper = compile_helper(temp.path())?;
     Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--save", "named", "--"])
         .arg(&helper)
@@ -199,14 +208,16 @@ fn saved_runs_can_be_listed_and_shown() -> Result<(), Box<dyn std::error::Error>
         .success();
 
     let list = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
-        .args(["--json-data", "list"])
+        .args(["--json", "list"])
         .assert()
         .success();
     let list_value: Value = serde_json::from_slice(&list.get_output().stdout)?;
-    assert_eq!(list_value["runs"][0]["name"], "named");
+    assert_eq!(list_value["data"]["runs"][0]["name"], "named");
 
     let show = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["show", "named", "--stdout"])
         .assert()
@@ -223,6 +234,7 @@ fn json_subcommands_validate_schema() -> Result<(), Box<dyn std::error::Error>> 
     let temp = tempfile::tempdir()?;
     let helper = compile_helper(temp.path())?;
     Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--save", "named", "--"])
         .arg(&helper)
@@ -237,6 +249,7 @@ fn json_subcommands_validate_schema() -> Result<(), Box<dyn std::error::Error>> 
         vec!["--json", "clean", "--older-than", "999d"],
     ] {
         let assert = Command::cargo_bin("axt-run")?
+            .env("AXT_OUTPUT", "human")
             .current_dir(temp.path())
             .args(args)
             .assert()
@@ -253,6 +266,7 @@ fn file_watching_reports_created_modified_and_deleted() -> Result<(), Box<dyn st
     fs::write(temp.path().join("deleted.txt"), "delete me\n")?;
     let helper = compile_helper(temp.path())?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--"])
         .arg(helper)
@@ -289,6 +303,7 @@ fn fixture_script_reports_created_modified_and_deleted() -> Result<(), Box<dyn s
         env!("CARGO_MANIFEST_DIR")
     );
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--shell", "--"])
         .arg(format!("sh {script}"))
@@ -306,6 +321,7 @@ fn timeout_exits_with_timeout_code() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let helper = compile_helper(temp.path())?;
     let assert = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--json", "--no-save", "--timeout", "10ms", "--"])
         .arg(helper)
@@ -325,6 +341,7 @@ fn deterministic_fixture_modes_match_snapshots() -> Result<(), Box<dyn std::erro
     let helper = compile_helper(temp.path())?;
 
     let human = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--no-save", "--no-watch-files", "--"])
         .arg(&helper)
@@ -340,6 +357,7 @@ fn deterministic_fixture_modes_match_snapshots() -> Result<(), Box<dyn std::erro
     );
 
     let agent = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--agent", "--no-save", "--no-watch-files", "--"])
         .arg(&helper)
@@ -355,8 +373,9 @@ fn deterministic_fixture_modes_match_snapshots() -> Result<(), Box<dyn std::erro
     );
 
     let jsonl = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
-        .args(["--jsonl", "--no-save", "--no-watch-files", "--"])
+        .args(["--agent", "--no-save", "--no-watch-files", "--"])
         .arg(&helper)
         .args(["echo", "hello"])
         .assert()
@@ -372,6 +391,7 @@ fn clean_removes_old_runs() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let helper = compile_helper(temp.path())?;
     Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
         .args(["--save", "old", "--"])
         .arg(helper)
@@ -379,12 +399,13 @@ fn clean_removes_old_runs() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success();
     let clean = Command::cargo_bin("axt-run")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(temp.path())
-        .args(["--json-data", "clean", "--older-than", "0s"])
+        .args(["--json", "clean", "--older-than", "0s"])
         .assert()
         .success();
     let value: Value = serde_json::from_slice(&clean.get_output().stdout)?;
-    assert_eq!(value["removed"], 1);
+    assert_eq!(value["data"]["removed"], 1);
     Ok(())
 }
 

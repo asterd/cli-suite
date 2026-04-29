@@ -8,7 +8,7 @@
 
 ## 0. TL;DR for the implementing agent
 
-Build a small suite of single-binary CLI tools, written in Rust, designed to be **agent-friendly** (low token cost, compact ACF output, stable schemas) and **human-friendly** (colored output, sensible defaults). Each binary is independently installable via Homebrew, Scoop, Cargo, GitHub Releases, or shell installer. They live together in one monorepo and share internal libraries.
+Build a small suite of single-binary CLI tools, written in Rust, designed to be **agent-friendly** (low token cost, agent JSONL output, stable schemas) and **human-friendly** (colored output, sensible defaults). Each binary is independently installable via Homebrew, Scoop, Cargo, GitHub Releases, or shell installer. They live together in one monorepo and share internal libraries.
 
 The suite is named **`axt`** ("agent eXperience" / "axe", short and unique). All binaries are prefixed with `axt-` so they cluster under one namespace in `$PATH` and in package registries.
 
@@ -61,7 +61,7 @@ This is the central design constraint. A command is agent-friendly when:
 1. **One call returns enough information to make a decision.** Avoid forcing the agent to round-trip through several commands.
 2. **Output is stable** across OS, locale, terminal width, tool versions, and time of day.
 3. **Output is small.** Token cost is a first-class concern. Default limits are tight; verbose modes are explicit.
-4. **Output is schema-versioned.** JSON/JSONL records carry `schema`; ACF declares it on the first line. Breaking changes bump the schema major.
+4. **Output is schema-versioned.** JSON/agent records carry `schema`; agent JSONL declares it in each record. Breaking changes bump the schema major.
 5. **Errors are typed.** Codes like `path_not_found`, never `error: something went wrong`.
 6. **Errors echo the input** that caused them, so the agent can construct a fix.
 7. **Errors suggest a next command** when a useful one exists.
@@ -160,116 +160,38 @@ Every binary supports four primary output modes. These are the contract; everyth
 - snake_case keys.
 - The `schema` field is **versioned independently per command**: `axt.peek.v1`, `axt.run.v1`, etc. Breaking the JSON shape bumps it.
 
-### 3.3 JSONL mode (`--jsonl`)
+### 3.3 Agent mode (`--agent`)
 
-`--jsonl` emits newline-delimited JSON (NDJSON) for streaming, Unix pipelines, log collectors, `jq`, `duckdb`, `mlr`, and incremental processors.
-
-The format:
-
-- Each line is a single minified JSON object terminated by `\n`.
-- Each object has `schema` and `type` fields.
-- The first record is a summary record when the command emits a finite report.
-- Record keys use the same snake_case names as JSON mode.
-- No array wrapper.
-
-`--jsonl` is not the primary agent format. It intentionally repeats keys per record because parser ergonomics and streaming are more important than token cost in this mode.
-
-Example (`axt-peek . --jsonl`):
-
-```json
-{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":42,"dirs":8,"bytes":381204,"git":"dirty","modified":5,"untracked":2,"truncated":false}
-{"schema":"axt.peek.entry.v1","type":"file","path":"Cargo.toml","bytes":2102,"lang":"toml","git":"clean"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"src/main.rs","bytes":12003,"lang":"rust","git":"modified"}
-{"schema":"axt.peek.entry.v1","type":"dir","path":"src","children":2,"git":"mixed"}
-{"schema":"axt.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records","shown":200,"total":1832,"hint":"--limit 1000"}
-```
-
-### 3.4 Agent mode (`--agent`) — ACF
-
-`--agent` is the headline LLM-first format. It emits ACF, the Agent Compact Format: line-oriented text with schema declared once, no ANSI, no prose, stable keys, raw numeric values, and explicit truncation metadata.
-
-ACF exists because NDJSON is excellent for parsers but wasteful for coding-agent context: a large uniform list repeats keys on every row. `axt` should emit RTK-like compact output at the source instead of relying on an external compressor.
+`--agent` is the headline LLM-first format. It emits minified JSONL: one JSON
+object per line, summary first, then detail records. This replaces the earlier
+custom agent grammar and the separate `--jsonl` mode.
 
 Rules:
 
-- The first line is always the summary/schema line.
-- The first line includes `schema=...`, `ok=...`, `mode=records|table`, and `truncated=...`.
-- Values are `key=value`; values containing whitespace, commas, quotes, or control characters are JSON-string quoted.
-- Paths are relative when possible.
-- Sizes are bytes, durations are milliseconds, timestamps are RFC 3339 UTC.
+- The first line is always a summary record.
+- The summary record includes `schema`, `type: "summary"`, `ok`, `truncated`, and `next`.
+- Each object has a versioned `schema` and a `type`.
 - No ANSI and no decorative prose.
-- Important records come first.
-- Large outputs use native semantic compression: filtering, grouping, deduplication, truncation, top-N relevance, and "show detail" hints.
-- Uniform lists should use `mode=table`, declaring columns once with `cols=...`; heterogeneous results use `mode=records` with short record prefixes.
+- Large outputs use filtering, grouping, deduplication, truncation, top-N relevance, and dynamic `next` hints.
+- High-cardinality detail records may use short keys such as `p`, `k`, `b`, `l`, `g`, `ms`, and `ts`.
 
-Example table output (`axt-peek . --agent`):
+Example (`axt-peek . --agent`):
 
-```text
-schema=axt.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git rows=4 total=42 truncated=false
-Cargo.toml,file,2102,toml,clean
-README.md,file,8902,markdown,modified
-src,dir,0,,mixed
-src/main.rs,file,12003,rust,modified
-```
-
-Example records output (`axt-run --agent -- npm test`):
-
-```text
-schema=axt.run.agent.v1 ok=false mode=records cmd="npm test" exit=1 ms=12405 stdout_lines=842 stderr_lines=37 changed=5 saved=last truncated=false
-X code=command_failed exit=1
-E stream=stderr line=12 text="FAIL tests/checkout.test.ts"
-E stream=stderr line=13 text="Error: expected 200, got 500"
-F path=coverage/index.html action=created bytes=183204
-F path=src/app.ts action=modified bytes=12003
-S run="axt-run show last --stderr"
+```json
+{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":42,"dirs":8,"bytes":381204,"git":"dirty","modified":5,"untracked":2,"truncated":false,"next":["axt-outline src --agent"]}
+{"schema":"axt.peek.entry.v1","type":"file","p":"Cargo.toml","b":2102,"l":"toml","g":"clean"}
+{"schema":"axt.peek.entry.v1","type":"file","p":"src/main.rs","b":12003,"l":"rust","g":"modified"}
+{"schema":"axt.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records","truncated":true}
 ```
 
 The summary line is sufficient for many agent decisions. Agents only consume detail lines when the task needs them.
 
-#### 3.4.1 Agent table mode
+### 3.4 Mode selection rules
 
-`--agent-table` is reserved as a future shorthand for commands that naturally emit a single uniform table. It is equivalent to `--agent` with `mode=table`. Commands may choose table mode automatically under `--agent`; they must not invent per-command table flags.
-
-#### 3.4.2 Shared ACF key dictionary
-
-```
-schema     schema identifier, usually axt.<command>.agent.v<N>
-ok         bool, top-level success
-mode       records|table
-cols       comma-separated table columns
-rows       emitted row count
-total      total row count before truncation/filtering
-truncated  bool, output was truncated
-root       repo-relative root when relevant
-path       repo-relative path when possible
-kind       file|dir|symlink|other or command-specific entity kind
-bytes      raw byte count
-ms         milliseconds
-ts         RFC 3339 UTC timestamp
-lang       language (rust, python, ts, ...)
-git        git status (clean|modified|untracked|added|deleted|renamed|mixed)
-mime       mime type
-enc        encoding (utf-8, utf-16le, ...)
-nl         newline style (lf|crlf|mixed|none)
-generated  bool, "looks generated"
-code       error or warning code
-hint       human-or-agent next-step suggestion
-```
-
-Record prefixes are one uppercase letter for ACF `mode=records`: `X` error, `W` warning, `E` stream/error line, `F` file, `S` suggestion, plus command-specific prefixes documented in `docs/commands/<cmd>.md`.
-
-Each command's `docs/commands/<cmd>.md` lists command-specific keys and prefixes. The dictionary may grow but never shrink.
-
-### 3.5 Plain mode (`--plain`)
-
-Same as human mode but no color, no decorations, fixed simple layout. Useful for scripts that want human format without TTY heuristics.
-
-### 3.6 Mode selection rules
-
-- `--json`, `--jsonl`, `--agent`, and `--plain` are mutually exclusive. The CLI parser rejects multiple at parse time.
-- If none is set, human is the default.
-- `--json-data` exists as a shortcut that emits only `data` (unwrapped envelope), useful for piping to `jq`.
-- `--agent-table` is reserved for a future uniform-table shorthand and must remain mutually exclusive with the other mode flags if implemented.
+- `--json` and `--agent` are mutually exclusive. The CLI parser rejects both at parse time.
+- If no mode flag is set, stdout TTY uses human and non-TTY stdout uses agent.
+- `AXT_OUTPUT=human|agent|json` overrides the automatic default.
+- `--plain`, `--json-data`, and `--jsonl` are retired. Use human output, `jq .data`, and `--agent` respectively.
 - Stdin tty-ness has no effect on mode.
 
 ---
@@ -344,7 +266,7 @@ axt/
 ├── dist-workspace.toml         # cargo-dist config
 ├── docs/
 │   ├── architecture.md
-│   ├── agent-mode.md           # the ACF contract + key dictionary
+│   ├── agent-mode.md           # the agent JSONL contract + key dictionary
 │   ├── error-catalog.md        # standard error catalog reference
 │   ├── installation.md         # full per-platform install matrix
 │   ├── design-principles.md
@@ -464,7 +386,7 @@ Owns: errors, exit codes, paths, time, limits, terminal detection, config discov
 Key types (every binary imports these):
 
 ```rust
-pub enum OutputMode { Human, Json, JsonData, Jsonl, Agent, Plain }
+pub enum OutputMode { Human, Json, Agent }
 
 pub struct OutputLimits {
     pub max_records: usize,        // default 200
@@ -496,15 +418,13 @@ The renderer trait every command implements:
 pub trait Renderable {
     fn render_human(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
     fn render_json(&self,  w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
     fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
 }
 ```
 
 Concrete shared helpers:
 - `JsonEnvelope::new(schema, data, warnings, errors)` — produces the standard top-level envelope.
-- `JsonlWriter` — writes one minified JSON object per line, enforces `--max-bytes` and `--limit`, emits a `truncated` warn record at the end if either is hit.
-- `AgentCompactWriter` — writes ACF lines, enforces `--max-bytes` and `--limit`, emits a compact `W code=truncated ...` record at the end if either is hit.
+- `AgentJsonlWriter` — writes one minified JSON object per line, enforces `--max-bytes` and `--limit`, emits a `truncated` warn record at the end if either is hit.
 - Color and styling helpers using `anstyle` + `anstream`, with TTY detection and `NO_COLOR` / `CLICOLOR_FORCE` / `FORCE_COLOR` honored in that precedence order.
 
 ### 8.3 `axt-fs`
@@ -554,11 +474,10 @@ Produce a single compact answer to "what is in this directory and what is its cu
 ```
 axt-peek [PATHS]...                  # default: "."
   --depth <N>                       # default: 2
-  --files-only
-  --dirs-only
+  --kind file|dir|all
   --include-hidden
   --no-ignore                       # do not respect .gitignore
-  --git / --no-git                  # default: auto-detect
+  --no-git                  # default: git auto-detect enabled
   --changed                         # only files with non-clean git status
   --changed-since <REF>             # files differing from REF (commit/branch/tag)
   --type <KIND>                     # text|binary|image|archive|code|config|data
@@ -571,17 +490,12 @@ axt-peek [PATHS]...                  # default: "."
   --follow-symlinks
   --cross-fs                        # cross filesystem boundaries
   --json
-  --jsonl
   --agent
-  --json-data
-  --plain
   --color auto|always|never
   --limit <N>                       # default 200
   --max-bytes <SIZE>                # default 64KiB
   --strict
-  --quiet
-  --verbose, -v
-  --print-schema human|json|jsonl|agent
+  --print-schema human|json|agent
   --list-errors
   --version
   --help
@@ -606,33 +520,23 @@ Summary
   git      dirty       truncated  no
 ```
 
-### 9.5 Output: agent mode (ACF)
+### 9.5 Output: agent mode (JSONL)
 
-```text
-schema=axt.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git,mtime rows=4 total=42 truncated=false
-Cargo.toml,file,2102,toml,clean,2026-04-26T18:02:11Z
-README.md,file,8902,markdown,modified,2026-04-27T08:14:00Z
-src,dir,0,,mixed,
-src/main.rs,file,12003,rust,modified,2026-04-27T09:01:22Z
+```jsonl
+{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":42,"dirs":8,"bytes":381204,"git":"dirty","modified":5,"untracked":2,"ignored":138,"truncated":false,"next":["axt-outline src/main.rs --agent"]}
+{"schema":"axt.peek.entry.v1","type":"file","p":"Cargo.toml","b":2102,"l":"toml","g":"clean","ts":"2026-04-26T18:02:11Z"}
+{"schema":"axt.peek.entry.v1","type":"file","p":"README.md","b":8902,"l":"markdown","g":"modified","ts":"2026-04-27T08:14:00Z"}
+{"schema":"axt.peek.entry.v1","type":"dir","p":"src","b":0,"l":null,"g":"mixed","ts":null}
+{"schema":"axt.peek.entry.v1","type":"file","p":"src/main.rs","b":12003,"l":"rust","g":"modified","ts":"2026-04-27T09:01:22Z"}
 ```
 
 When `--limit` or `--max-bytes` triggers truncation, the last record is:
 
-```text
-W code=truncated reason=max_records shown=200 total=1832 hint="--limit 1000"
+```jsonl
+{"schema":"axt.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records"}
 ```
 
-### 9.6 Output: JSONL mode
-
-```json
-{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":42,"dirs":8,"bytes":381204,"git":"dirty","modified":5,"untracked":2,"ignored":138,"truncated":false}
-{"schema":"axt.peek.entry.v1","type":"file","path":"Cargo.toml","bytes":2102,"lang":"toml","git":"clean","mtime":"2026-04-26T18:02:11Z"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"README.md","bytes":8902,"lang":"markdown","git":"modified","mtime":"2026-04-27T08:14:00Z"}
-{"schema":"axt.peek.entry.v1","type":"dir","path":"src","children":2,"git":"mixed"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"src/main.rs","bytes":12003,"lang":"rust","git":"modified","mtime":"2026-04-27T09:01:22Z"}
-```
-
-### 9.7 Output: JSON mode
+### 9.6 Output: JSON mode
 
 ```json
 {
@@ -707,7 +611,7 @@ Numbers should be reproducible with committed or generated fixtures and document
 - Permission denied on a subtree: emit a warn record, continue walking the rest.
 - Non-UTF-8 paths on Unix: render in human mode with lossy UTF-8; in JSON/agent, use the standard `serde_json` lossless escaping.
 - Windows reserved names (`CON`, `NUL`, `AUX`, etc.): treat as regular files, no special handling.
-- Huge git repos (linux-kernel scale): `--no-git` is the escape hatch and must be fast; with `--git`, we cap operations within `--max-bytes` and emit a warn.
+- Huge git repos (linux-kernel scale): `--no-git` is the escape hatch and must be fast; git operations are capped within `--max-bytes` and emit a warn when capped.
 - Files with mtime in the future: keep the value, do not normalize.
 - Submodules: treated as directories with `g: "mixed"`; we do not recurse into the submodule's git status by default.
 
@@ -717,11 +621,11 @@ All of the following must be true to ship v0.1:
 
 1. Binary builds and runs on Linux (x86_64, aarch64), macOS (x86_64, aarch64), Windows (x86_64). Aarch64 Windows is best-effort.
 2. `axt-peek --version`, `axt-peek --help`, `axt-peek --print-schema agent`, `axt-peek --list-errors` all work without flags.
-3. Human, JSON, JSONL, agent, and plain modes all produce output for every fixture.
+3. Human, JSON, and agent modes all produce output for every fixture.
 4. Snapshot tests via `insta` cover human and agent for: small tree, tree with git, tree with `.gitignore`, empty dir, missing path, permission-denied dir, depth=0, depth=10, `--changed`, `--changed-since HEAD`, `--summary-only`.
 5. JSON output validates against `schemas/axt.peek.v1.schema.json` for every test case (test runs `jsonschema` on output).
-6. JSONL output: every line individually validates as a JSON object; first record always has `type:"summary"`; the `schema` field is present on every record.
-7. Agent output follows ACF: first line has `schema`, `ok`, `mode`, and `truncated`; table outputs declare `cols` once; truncation emits a compact `W code=truncated` record.
+6. Agent output: every line individually validates as a JSON object; first record always has `type:"summary"`; the `schema` field is present on every record.
+7. Agent output is summary-first JSONL with versioned records and explicit truncation warnings.
 8. `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass on all three OSes in CI.
 9. The release pipeline (section 12) successfully publishes a draft release for a tag like `v0.1.0-rc1` to GitHub, including a Homebrew tap update, a Scoop manifest update, and a `cargo publish --dry-run` for `axt-peek` (and dependencies).
 10. `docs/commands/peek.md` is written and matches the implementation. Every flag is documented. Every error code is listed. Every key in agent output is in the dictionary.
@@ -758,19 +662,15 @@ axt-run clean [--older-than <DURATION>]
   --shell                            # run via $SHELL or cmd /C; default OFF
   --summary-only
   --tail-bytes <N>                   # show last N bytes of stderr in agent output
-  + standard --json/--jsonl/--agent/--plain/--limit/--max-bytes/--strict
+  + standard --json/--agent/--limit/--max-bytes/--strict
 ```
 
-### 10.3 Agent output (ACF, illustrative)
+### 10.3 Agent output (JSONL, illustrative)
 
-```text
-schema=axt.run.agent.v1 ok=false mode=records cmd="npm test" exit=1 ms=12405 stdout_lines=842 stderr_lines=37 changed=5 saved=last truncated=false
-X code=command_failed exit=1
-E stream=stderr line=12 text="FAIL tests/checkout.test.ts"
-E stream=stderr line=13 text="Error: expected 200, got 500"
-F path=coverage/index.html action=created bytes=183204
-F path=src/app.ts action=modified bytes=12003
-S run="axt-run show last --stderr"
+```json
+{"schema":"axt.run.summary.v1","type":"summary","ok":false,"cmd":"npm test","exit":1,"ms":12405,"stdout_lines":842,"stderr_lines":37,"changed":5,"saved":"last","truncated":false,"next":["axt-run show last --stderr"]}
+{"schema":"axt.run.file.v1","type":"file","p":"coverage/index.html","a":"created","b":183204}
+{"schema":"axt.run.file.v1","type":"file","p":"src/app.ts","a":"modified","b":12003}
 ```
 
 ### 10.4 Storage layout
@@ -781,7 +681,7 @@ S run="axt-run show last --stderr"
 ├── stdout.log         # full stdout, truncated only if --max-log-bytes hit
 ├── stderr.log
 ├── changed.json
-└── summary.agent.acf
+└── summary.agent.jsonl
 ```
 
 `.axt/` is added to `.gitignore` only on user opt-in (printed suggestion, never auto-modify). `axt-run clean --older-than 7d` is the GC. Default retention is 30 days; configurable in `.axt/config.toml`.
@@ -813,7 +713,7 @@ A single command that diagnoses the local dev environment.
 - `axt-doc which <CMD>` — what does this command resolve to, all matches in PATH, version-manager attribution, version probe with timeout.
 - `axt-doc path` — PATH analysis: duplicates, missing dirs, broken symlinks, ordering issues.
 - `axt-doc env` — environment summary: var count, secret-like vars (redacted), suspicious or empty vars.
-- `axt-doc all <CMD>` — runs all three and emits a single combined response in the selected mode; `--jsonl` is the streaming JSONL form.
+- `axt-doc all <CMD>` — runs all three and emits a single combined response in the selected mode; `--agent` is the streaming JSONL form.
 
 Manager detection (best-effort, by path patterns + by querying the manager when present): Homebrew, mise, asdf, rustup, cargo bin, pyenv, rbenv, volta, nvm-shim, Scoop, Chocolatey, winget.
 
@@ -926,10 +826,10 @@ Workspace-level:
 
 - **Unit tests** for every parser, classifier, renderer.
 - **Integration tests** with `assert_cmd` for full CLI invocations.
-- **Snapshot tests** with `insta` for human, JSONL, and agent output. Snapshots are committed.
+- **Snapshot tests** with `insta` for human and agent output. Snapshots are committed.
 - **JSON schema validation** in tests: every JSON output is validated against the published schema.
 - **JSONL validation**: every output line is validated as an individual JSON object, schemas matched by the `schema` field.
-- **ACF validation**: first line has `schema`, `ok`, `mode`, and `truncated`; table mode declares columns once; record mode uses documented prefixes.
+- **Agent validation**: every line is JSON, the first line is a summary record, and truncation is explicit.
 - **Cross-platform CI**: Ubuntu, macOS, Windows matrix on every PR.
 - **Determinism**: tests use a fixed `Clock` and a fixed-tree fixture. No real-world dates or paths.
 - **Property tests** (via `proptest`) for the agent-mode escape logic and any text parsers we ship.
@@ -943,8 +843,8 @@ Workspace-level:
 ### 13.4 Documentation
 
 - Every flag in `--help` has a one-liner. Long help (`--help`) gives examples.
-- Every command has a `docs/commands/<cmd>.md` file with: purpose, examples, human/JSON/JSONL/agent output samples, full flag list, error codes, performance, cross-platform notes, agent-usage guide.
-- `docs/agent-mode.md` is the canonical reference for ACF and the shared agent key/prefix dictionary.
+- Every command has a `docs/commands/<cmd>.md` file with: purpose, examples, human/JSON/agent output samples, full flag list, error codes, performance, cross-platform notes, agent-usage guide.
+- `docs/agent-mode.md` is the canonical reference for agent JSONL and shared short keys.
 - `docs/error-catalog.md` documents the standard error catalog exported by `axt-core`.
 
 ---
@@ -968,13 +868,13 @@ This is the only section the implementing agent needs to follow strictly. Each m
 
 1. Implement `ErrorCode` enum, exit-code mapping, and the standard error catalog as `pub const` data.
 2. Implement `OutputMode` parsing and conflict detection in clap.
-3. Implement `JsonEnvelope`, `JsonlWriter`, and `AgentCompactWriter`.
+3. Implement `JsonEnvelope` and `AgentJsonlWriter`.
 4. Implement `Clock` trait + `SystemClock` + `FixedClock` (test-only).
 5. Implement TTY detection and color choice resolution honoring `NO_COLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`.
 6. Implement `--print-schema` and `--list-errors` shared flags via a small derive helper or trait.
 7. Tests for everything above.
 
-**Done when**: a "hello world" binary built on this scaffolding can emit the same hello-world data in human, JSON, JSONL, and agent modes, passes snapshot tests, and validates its JSON output against a tiny schema.
+**Done when**: a "hello world" binary built on this scaffolding can emit the same hello-world data in human, JSON, and agent modes, passes snapshot tests, and validates its JSON output against a tiny schema.
 
 ### Milestone 2 — `axt-fs` and `axt-git` (5–7 days)
 
@@ -1044,11 +944,11 @@ Copy-paste the block below to start Phase 1. Do not modify it without updating s
 - Each binary becomes a separate crate under `crates/`.
 - `unwrap()` and `expect()` are forbidden outside `#[cfg(test)]`.
 - All primary output modes must be implemented, even if some are stubs in Milestone 0.
-- Every command must support `--json`, `--jsonl`, `--agent`, `--plain`, `--print-schema`, `--list-errors`, `--version`, `--help`.
+- Every command must support `--json`, `--agent`, `--print-schema`, `--list-errors`, `--version`, `--help`.
 - Diagnostics on stderr, data on stdout, always.
 - Cross-platform: Linux, macOS, Windows. CI must be green on all three.
 - Prefer small, simple, debuggable code over clever generic abstractions.
-- Do not invent new commands. Do not skip writing documentation.
+- Do not invent new commands beyond the documented suite. Do not skip writing documentation.
 
 **Deliverables for Milestone 0**:
 1. The repository structure of section 6.
@@ -1076,13 +976,12 @@ For Milestones 1+, use this continuation prompt:
 
 ## 17. Glossary
 
-- **Agent mode**: ACF output, a compact line-oriented format designed for LLM consumption. First line is a summary/schema line.
-- **JSONL mode**: newline-delimited JSON output for streaming, pipelines, and log collectors. Also known as NDJSON.
+- **Agent mode**: agent JSONL output, a compact summary-first format designed for LLM consumption. First line is a summary/schema line.
 - **Binary crate**: a Rust crate that produces an executable. In this project, every `axt-*` is one.
 - **Internal library crate**: a Rust crate that produces a library, used only inside this workspace. We use four: `axt-core`, `axt-output`, `axt-fs`, `axt-git`. They are not stable API.
-- **Schema version**: the `schema` field in JSON, JSONL, and the first ACF line. Format: `axt.<command>.<recordtype>.v<N>` for JSONL records and `axt.<command>.agent.v<N>` for ACF.
+- **Schema version**: the `schema` field in JSON and agent JSONL records. Format: `axt.<command>.<recordtype>.v<N>` for agent records.
 - **Tier-1 target**: a target triple whose CI build must succeed for any release to ship.
-- **Truncation**: cutting output short when `--limit` or `--max-bytes` is hit. Always announced via explicit truncation metadata (`W code=truncated` in ACF, a warn record in JSONL/JSON).
+- **Truncation**: cutting output short when `--limit` or `--max-bytes` is hit. Always announced via explicit truncation metadata (a warn record in agent JSONL/JSON).
 
 ---
 
@@ -1093,4 +992,4 @@ These do not block implementation but should be answered before v1.0:
 1. Do we want a centralized config-file format shared across all `axt-*` binaries, or per-binary configs? Default in v0.x: per-binary, in `.axt/<binary>.toml`. Re-evaluate at v0.5.
 2. Should `axt-peek` integrate with `jc` (e.g., `axt-peek --pipe-from-jc <command>` to merge structured legacy output)? Probably no — they are orthogonal; document the composition pattern instead.
 3. Should we ship an npm wrapper for first-class adoption by JS-tooling agents? Likely yes in v0.5; deferred from v0.1 to keep the release pipeline simple.
-4. Should ACF be promoted to a separately-maintained spec (so other tools can reuse the conventions)? Worth considering at v1.0; not now.
+4. 

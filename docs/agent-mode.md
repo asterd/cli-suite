@@ -1,64 +1,46 @@
 # Agent Mode
 
-Agent mode emits ACF: Agent Compact Format. It is the LLM-first output format for `--agent`.
+Agent mode is minified JSONL. The first line is always a summary record with a
+`schema`, `type: "summary"`, `ok`, `truncated`, and `next` field. Detail records
+follow only when useful for the command result.
 
-ACF is line-oriented text:
+Selection:
 
-```text
-schema=axt.peek.agent.v1 ok=true mode=table root=. cols=path,kind,bytes,lang,git rows=3 total=42 truncated=false
-Cargo.toml,file,2102,toml,clean
-README.md,file,8902,markdown,modified
-src,dir,0,,mixed
+- TTY stdout defaults to human output.
+- Non-TTY stdout defaults to agent output.
+- `--agent`, `--json`, and human auto-selection are the only primary modes.
+- `AXT_OUTPUT=human|agent|json` overrides the automatic default.
+- `--json` emits the canonical envelope `{schema, ok, data, warnings, errors}`.
+
+`--plain`, `--json-data`, and `--jsonl` are retired. Use human output, `jq .data`,
+or `--agent` respectively.
+
+## Shared Fields
+
+Summary records use readable keys because they are low-cardinality control
+records. High-cardinality detail records should prefer short keys:
+
+| Key | Meaning |
+| --- | --- |
+| `p` | path |
+| `k` | kind |
+| `b` | bytes |
+| `l` | language |
+| `g` | git status |
+| `ms` | duration in milliseconds |
+| `ts` | timestamp |
+
+Command-specific records are versioned as `axt.<cmd>.<record>.v1`. Warnings use
+`axt.<cmd>.warn.v1` and include `type: "warn"` plus a stable `code`.
+
+## Example
+
+```jsonl
+{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":12,"dirs":3,"truncated":false,"next":["axt-outline src --agent"]}
+{"schema":"axt.peek.entry.v1","type":"file","p":"src/lib.rs","b":4210,"l":"rust","g":"modified"}
 ```
 
-## Contract
-
-- The first line is always the summary/schema line.
-- The first line includes `schema`, `ok`, `mode`, and `truncated`.
-- `mode=table` declares `cols` once; following rows are comma-separated values in that order.
-- `mode=records` uses uppercase record prefixes such as `X`, `W`, `F`, and `S`.
-- Values are raw unless they contain whitespace, commas, quotes, or control characters; those values are JSON-string quoted.
-- There is no ANSI color, no decorative prose, and no human-only unit formatting.
-- Paths are relative when possible.
-- Truncation is explicit: `W code=truncated reason=max_records truncated=true`.
-
-## Shared Keys
-
-```text
-schema     schema identifier, usually axt.<command>.agent.v<N>
-ok         bool, top-level success
-mode       records|table
-cols       comma-separated table columns
-rows       emitted row count
-total      total row count before truncation/filtering
-truncated  bool, output was truncated
-root       repo-relative root when relevant
-path       repo-relative path when possible
-kind       file|dir|symlink|other or command-specific entity kind
-bytes      raw byte count
-ms         milliseconds
-ts         RFC 3339 UTC timestamp
-lang       language (rust, python, ts, ...)
-git        git status (clean|modified|untracked|added|deleted|renamed|mixed)
-mime       mime type
-enc        encoding (utf-8, utf-16le, ...)
-nl         newline style (lf|crlf|mixed|none)
-generated  bool, "looks generated"
-code       error or warning code
-hint       human-or-agent next-step suggestion
-```
-
-## Shared Prefixes
-
-```text
-X  fatal or command-level error
-W  warning
-E  stderr/stdout excerpt or error line
-F  file record
-S  suggested next command
-```
-
-Command-specific keys and prefixes are documented in `docs/commands/<cmd>.md`.
-`axt-outline` uses `Y` for symbol records.
-
-`--jsonl` is the NDJSON/JSONL mode for streaming and pipelines. It is separate from agent mode.
+Schemas are useful as exact references for validators and tool authors. For an
+LLM, a schema file that is merely present on disk but not included in context has
+little direct value; the model only benefits once the schema is printed,
+referenced in docs, or used by tests/tools that enforce it.

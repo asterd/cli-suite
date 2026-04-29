@@ -2,5 +2,4 @@
 source: crates/axt-run/tests/modes.rs
 expression: "normalize_run_text(&String::from_utf8(agent.get_output().stdout.clone())?,\n&helper)"
 ---
-schema=axt.run.agent.v1 ok=false mode=records cmd="<helper> false" exit=1 ms=0 stdout_lines=0 stderr_lines=0 changed=0 saved=none truncated=false
-X code=command_failed exit=1
+{"schema":"axt.run.summary.v1","type":"summary","ok":false,"cmd":"<helper> false","exit":1,"ms":0,"stdout_lines":0,"stderr_lines":0,"changed":0,"saved":null,"truncated":false,"next":[]}

@@ -31,8 +31,7 @@ Diff against a named mark.
 .B --hash
 Use BLAKE3 content hashes in addition to metadata.
 .SH OUTPUT
-Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
-schema axt.drift.v1. Agent mode emits ACF schema axt.drift.agent.v1.
+Supports human, --json, and --agent. JSON emits schema axt.drift.v1. Agent mode emits summary-first JSONL.
 .SH FILES
 .I .axt/drift/<name>.jsonl
 stores snapshot records. The .axt directory is excluded from snapshots.

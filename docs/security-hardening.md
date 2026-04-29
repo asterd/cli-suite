@@ -10,11 +10,11 @@ remaining hardening work required before a stable public release.
 | Memory safety | Shared libraries deny unsafe code; binary unsafe blocks are limited to process control. | `#![deny(unsafe_code)]` in shared crates; `SAFETY:` comments in `axt-run` and `axt-port`. |
 | Panic avoidance | Non-test source denies `unwrap()` and `expect()` through Clippy policy and contains no direct calls. | `cargo clippy --workspace --all-targets -- -D warnings`; `rg "unwrap\\(|expect\\(" crates/*/src`. |
 | Network isolation | Binaries do not depend on HTTP client crates and do not perform remote calls. | Cargo manifests contain no `reqwest`, `ureq`, `hyper`, or `isahc`. |
-| Output injection | JSON/JSONL uses `serde_json`; ACF values are quoted when needed by `axt-output`. | `axt-output::format_agent_fields`. |
+| Output injection | JSON and agent JSONL use `serde_json`. | `JsonEnvelope`; `AgentJsonlWriter`. |
 | Secret handling | `axt-doc` redacts secret-like environment values by default. | `docs/commands/doc.md`; `axt-doc env`. |
 | Process mutation | `axt-port free` supports `--dry-run`, refuses PID 1 and self, and requires explicit subcommand. | `crates/axt-port/src/signal.rs`; `crates/axt-port/tests/modes.rs`. |
 | Command execution | `axt-run --shell` is opt-in; normal mode passes argv directly. | `crates/axt-run/src/execute.rs`. |
-| Schema stability | JSON and JSONL outputs validate against committed schemas in tests. | `crates/*/tests/modes.rs`. |
+| Schema stability | JSON and agent JSONL outputs validate against committed schemas in tests. | `crates/*/tests/modes.rs`. |
 
 ## OWASP-Oriented Mapping
 
@@ -33,7 +33,7 @@ remaining hardening work required before a stable public release.
 | Gap | Resolution |
 |---|---|
 | Cross-platform destructive behavior needs broader validation. | Add OS-specific smoke tests for `axt-port free` on Linux, macOS, and Windows CI using owned fixture processes. |
-| Parser fuzzing is not yet present. | Add property/fuzz tests for ACF formatting, duration parsing, JSONL streaming, env-file parsing, and path normalization. |
+| Parser fuzzing is not yet present. | Add property/fuzz tests for duration parsing, agent JSONL streaming, env-file parsing, and path normalization. |
 | Release artifacts need end-to-end install checks. | After tagging, verify shell, PowerShell, Homebrew, Scoop, and Cargo installs on clean hosts. |
 | `axt-test` framework reporter coverage is still best effort for some ecosystems. | Prefer native machine formats where stable; keep fallback parsing deterministic and covered by fixtures. |
 | Unsafe process-control blocks need platform audit. | Review Unix `pre_exec`/signals and Windows Job Object/TerminateProcess blocks with platform maintainers before v1.0. |

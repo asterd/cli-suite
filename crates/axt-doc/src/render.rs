@@ -1,8 +1,7 @@
 use std::io::Write;
 
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter, RenderContext,
-    Renderable, Result as RenderResult,
+    AgentJsonlWriter, JsonEnvelope, RenderContext, Renderable, Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -23,14 +22,7 @@ struct JsonlSummary {
     env_vars: Option<usize>,
     secret_like: Option<usize>,
     truncated: bool,
-}
-
-impl DocOutput {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        serde_json::to_writer(&mut *w, self.data())?;
-        writeln!(w)?;
-        Ok(())
-    }
+    next: Vec<String>,
 }
 
 impl Renderable for DocOutput {
@@ -55,10 +47,10 @@ impl Renderable for DocOutput {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
         let data = self.data();
-        let mut writer = JsonlWriter::new(w, ctx.limits);
-        writer.write_record(&jsonl_summary(data))?;
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
+        writer.write_record(&jsonl_summary(data, next_hints(data)))?;
         if let Some(which) = &data.which {
             writer.write_record(&json!({
                 "schema": "axt.doc.which.v1",
@@ -95,6 +87,15 @@ impl Renderable for DocOutput {
                     "manager": item.manager
                 }))?;
             }
+            for issue in &path.ordering_issues {
+                writer.write_record(&json!({
+                    "schema": "axt.doc.warn.v1",
+                    "type": "warn",
+                    "code": issue.kind,
+                    "path": issue.path,
+                    "hint": issue.message
+                }))?;
+            }
         }
         if let Some(env) = &data.env {
             for item in &env.secret_like {
@@ -116,81 +117,6 @@ impl Renderable for DocOutput {
             }
         }
         let _summary = writer.finish("axt.doc.warn.v1")?;
-        Ok(())
-    }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let data = self.data();
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        writer.write_fields(&[
-            AgentField::str("schema", "axt.doc.agent.v1"),
-            AgentField::bool("ok", true),
-            AgentField::str("mode", "records"),
-            AgentField::str(
-                "which",
-                optional_bool(data.which.as_ref().map(|item| item.found)),
-            ),
-            AgentField::usize(
-                "path_entries",
-                data.path.as_ref().map_or(0, |item| item.entries.len()),
-            ),
-            AgentField::usize("env_vars", data.env.as_ref().map_or(0, |item| item.total)),
-            AgentField::bool("truncated", false),
-        ])?;
-        if let Some(which) = &data.which {
-            writer.write_line(&prefixed_line(
-                "D",
-                &[
-                    AgentField::str("kind", "which"),
-                    AgentField::str("cmd", &which.cmd),
-                    AgentField::bool("found", which.found),
-                    AgentField::str("path", which.primary.as_deref().unwrap_or("none")),
-                ],
-            )?)?;
-        }
-        if let Some(path) = &data.path {
-            for issue in &path.ordering_issues {
-                writer.write_line(&prefixed_line(
-                    "W",
-                    &[
-                        AgentField::str("code", &issue.kind),
-                        AgentField::str("path", &issue.path),
-                        AgentField::str("hint", &issue.message),
-                    ],
-                )?)?;
-            }
-            for missing in &path.missing {
-                writer.write_line(&prefixed_line(
-                    "W",
-                    &[
-                        AgentField::str("code", "path_not_found"),
-                        AgentField::str("path", missing),
-                    ],
-                )?)?;
-            }
-        }
-        if let Some(env) = &data.env {
-            for secret in &env.secret_like {
-                writer.write_line(&prefixed_line(
-                    "W",
-                    &[
-                        AgentField::str("code", "secret_like_env"),
-                        AgentField::str("name", &secret.name),
-                    ],
-                )?)?;
-            }
-            for suspicion in &env.suspicious {
-                writer.write_line(&prefixed_line(
-                    "W",
-                    &[
-                        AgentField::str("code", "suspicious_env"),
-                        AgentField::str("name", &suspicion.name),
-                        AgentField::str("hint", &suspicion.reason),
-                    ],
-                )?)?;
-            }
-        }
-        let _summary = writer.finish()?;
         Ok(())
     }
 }
@@ -250,7 +176,7 @@ fn render_env_human(w: &mut dyn Write, env: &EnvReport) -> RenderResult<()> {
     Ok(())
 }
 
-fn jsonl_summary(data: &DocData) -> JsonlSummary {
+fn jsonl_summary(data: &DocData, next: Vec<String>) -> JsonlSummary {
     JsonlSummary {
         schema: "axt.doc.summary.v1",
         kind: "summary",
@@ -260,23 +186,21 @@ fn jsonl_summary(data: &DocData) -> JsonlSummary {
         env_vars: data.env.as_ref().map(|item| item.total),
         secret_like: data.env.as_ref().map(|item| item.secret_like.len()),
         truncated: false,
+        next,
     }
 }
 
-fn optional_bool(value: Option<bool>) -> &'static str {
-    match value {
-        Some(true) => "true",
-        Some(false) => "false",
-        None => "none",
+fn next_hints(data: &DocData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if let Some(which) = &data.which {
+        if !which.found {
+            hints.push(format!("axt-doc which {} --json", which.cmd));
+        }
     }
-}
-
-fn prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let mut line = prefix.to_owned();
-    let formatted = format_agent_fields(fields)?;
-    if !formatted.is_empty() {
-        line.push(' ');
-        line.push_str(&formatted);
+    if let Some(env) = &data.env {
+        if !env.secret_like.is_empty() {
+            hints.push("axt-doc env --json".to_owned());
+        }
     }
-    Ok(line)
+    hints
 }

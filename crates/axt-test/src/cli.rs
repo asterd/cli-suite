@@ -50,6 +50,12 @@ pub struct RunArgs {
     #[arg(long, default_value_t = 5, value_name = "N")]
     pub top_failures: usize,
 
+    #[arg(long)]
+    pub failures_only: bool,
+
+    #[arg(long)]
+    pub rerun_failed: bool,
+
     #[arg(long = "include-output", default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub include_output: bool,
 

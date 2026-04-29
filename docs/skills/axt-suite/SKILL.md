@@ -1,6 +1,6 @@
 ---
 name: axt-suite
-description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository, command execution, environment, filesystem drift, port, test, and source-outline inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
+description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository warmup, command execution, environment, filesystem drift, port, test, source-outline, and context-pack inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
 license: MIT OR Apache-2.0
 ---
 
@@ -28,13 +28,25 @@ python3 scripts/agent/install-skills.py --agent both --scope project --skill all
 
 - Use `--agent` for low-token agent context.
 - Use `--json` when you need a stable envelope with `schema`, `ok`, `data`, `warnings`, and `errors`.
-- Use `--jsonl` for streaming or incremental parsing.
+- Agent mode is minified JSONL with a summary record first. Non-TTY stdout defaults to agent mode.
 - Keep diagnostics and logs separate: axt commands write data to stdout and diagnostics to stderr.
 - Do not assume network access. The suite is designed for offline local inspection.
 - Inspect supported failures with `--list-errors`.
-- Inspect output contracts with `--print-schema json`, `--print-schema jsonl`, or `--print-schema agent`.
+- Inspect output contracts with `--print-schema json` or `--print-schema agent`.
 
 ## Commands
+
+### `axt-bundle`
+
+Use at the start of a repository task to warm up context in one call.
+
+```bash
+axt-bundle . --agent
+axt-bundle . --json
+```
+
+It returns a shallow file inventory, manifest previews, git state, and dynamic
+next-step hints.
 
 ### `axt-peek`
 
@@ -117,7 +129,7 @@ Use to inspect source declarations, signatures, doc comments, visibility, and ra
 ```bash
 axt-outline src/lib.rs --agent
 axt-outline crates/axt-outline/src --public-only --json
-axt-outline app --lang typescript --jsonl
+axt-outline app --lang typescript --agent
 ```
 
 Use it before opening large supported source files when symbol-level context is enough.
@@ -142,4 +154,4 @@ Install optional aliases:
 cargo install --path crates/axt-peek --locked --features aliases
 ```
 
-Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, and `axt-outline`.
+Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-ctxpack`, and `axt-bundle`.

@@ -6,6 +6,9 @@ axt-run \- run commands with structured execution envelopes
 [\fIOPTIONS\fR] -- \fICOMMAND\fR [\fIARG\fR...]
 .br
 .B axt-run
+--rerun-last
+.br
+.B axt-run
 show [\fINAME\fR|last] [--stdout|--stderr]
 .br
 .B axt-run
@@ -51,12 +54,14 @@ Use BLAKE3 hashes for changed-file detection.
 .TP
 .B --shell
 Run through the platform shell.
+.TP
+.B --rerun-last
+Show the latest saved run.
 .SH OUTPUT
-Supports human, --plain, --json, --json-data, --jsonl, and --agent. JSON emits
-schema axt.run.v1. Agent mode emits ACF schema axt.run.agent.v1.
+Supports human, --json, and --agent. JSON emits schema axt.run.v1. Agent mode emits summary-first JSONL.
 .SH FILES
 .I .axt/runs/<name>/
-contains meta.json, stdout.log, stderr.log, changed.json, and summary.agent.acf.
+contains meta.json, stdout.log, stderr.log, changed.json, and summary.agent.jsonl.
 .SH EXAMPLES
 .EX
 axt-run -- cargo test

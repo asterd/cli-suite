@@ -8,7 +8,7 @@ use std::{
 };
 
 use axt_core::CommandContext;
-use axt_output::{JsonlWriter, RenderContext};
+use axt_output::{AgentJsonlWriter, RenderContext};
 use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{json, Value};
 use time::format_description::well_known::Rfc3339;
@@ -20,6 +20,22 @@ use crate::{
     frontend::{parse_output, parse_stdout_line, Frontend, TestFrontend, TestOptions},
     model::{NormalizedEvent, TestCase, TestData, TestStatus, TestSuite, TestSummary},
 };
+
+struct StreamingState {
+    suites: Vec<TestSuite>,
+    cases: Vec<TestCase>,
+    failures_left: usize,
+}
+
+impl StreamingState {
+    const fn new(top_failures: usize) -> Self {
+        Self {
+            suites: Vec::new(),
+            cases: Vec::new(),
+            failures_left: top_failures,
+        }
+    }
+}
 
 pub fn run(args: &Args, ctx: &CommandContext) -> Result<TestOutput> {
     match args.command {
@@ -37,6 +53,7 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<TestOutput> {
             data,
             top_failures: args.run.top_failures,
             include_output: args.run.include_output,
+            failures_only: failures_only(args, ctx),
         }),
     }
 }
@@ -123,7 +140,7 @@ fn run_tests(args: &Args, ctx: &CommandContext) -> Result<TestData> {
     })
 }
 
-pub fn run_jsonl_streaming(
+pub fn run_agent_streaming(
     args: &Args,
     ctx: &CommandContext,
     w: &mut dyn Write,
@@ -144,11 +161,11 @@ pub fn run_jsonl_streaming(
     }
 
     let changed_files = changed_files(args, &ctx.cwd)?;
-    let mut writer = JsonlWriter::new(w, render_ctx.limits);
-    let mut suites = Vec::new();
-    let mut cases = Vec::new();
+    let mut writer = AgentJsonlWriter::new(w, render_ctx.limits);
+    write_initial_summary(&mut writer, &started_text)?;
+    let mut state = StreamingState::new(args.run.top_failures);
     let mut frameworks = BTreeSet::new();
-    let mut failures_left = args.run.top_failures;
+    let failures_only = failures_only(args, ctx);
 
     for project in projects {
         let files = selected_files(&project, &args.run.files, &changed_files);
@@ -166,58 +183,38 @@ pub fn run_jsonl_streaming(
             ctx,
             &mut writer,
             args.run.include_output,
-            &mut failures_left,
-            &mut suites,
-            &mut cases,
+            failures_only,
+            &mut state,
         )?;
-        let project_failed = cases
+        let project_failed = state
+            .cases
             .iter()
             .any(|case| case.framework == frontend.name() && case.status == TestStatus::Failed);
         if !status.success() && !project_failed {
-            let case = TestCase {
-                framework: frontend.name().to_owned(),
-                status: TestStatus::Failed,
-                name: "framework command failed".to_owned(),
-                suite: None,
-                file: None,
-                line: None,
-                duration_ms: 0,
-                failure: Some(crate::model::TestFailure {
-                    message: format!(
-                        "{} exited with status {}",
-                        frontend.command_name(),
-                        status.code().unwrap_or(1)
-                    ),
-                    stack: None,
-                    actual: None,
-                    expected: None,
-                    diff: None,
-                }),
-                stdout: None,
-                stderr: None,
-            };
+            let case = framework_failed_case(frontend, status);
             write_case(
                 &mut writer,
                 &case,
                 args.run.include_output,
-                &mut failures_left,
+                failures_only,
+                &mut state.failures_left,
             )?;
-            cases.push(case);
+            state.cases.push(case);
         }
     }
 
-    if suites.is_empty() {
-        suites = suites_from_cases(&cases);
+    if state.suites.is_empty() {
+        state.suites = suites_from_cases(&state.cases);
     }
-    for suite in &suites {
+    for suite in &state.suites {
         writer.write_record(&suite_record(suite))?;
     }
-    let (passed, failed, skipped, todo) = counts(&cases);
-    let total = cases.len();
+    let (passed, failed, skipped, todo) = counts(&state.cases);
+    let total = state.cases.len();
     let data = TestData {
         frameworks: frameworks.into_iter().collect(),
-        suites,
-        cases,
+        suites: state.suites,
+        cases: state.cases,
         total,
         passed,
         failed,
@@ -230,6 +227,53 @@ pub fn run_jsonl_streaming(
     writer.write_record(&summary_record(&data))?;
     let _summary = writer.finish("axt.test.warn.v1")?;
     Ok(data.ok())
+}
+
+fn write_initial_summary<W: Write + ?Sized>(
+    writer: &mut AgentJsonlWriter<'_, W>,
+    started: &str,
+) -> Result<()> {
+    writer.write_record(&json!({
+        "schema": "axt.test.summary.v1",
+        "type": "summary",
+        "frameworks": [],
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 0,
+        "started": started,
+        "truncated": false,
+        "next": []
+    }))?;
+    writer.flush()?;
+    Ok(())
+}
+
+fn framework_failed_case(frontend: Frontend, status: ExitStatus) -> TestCase {
+    TestCase {
+        framework: frontend.name().to_owned(),
+        status: TestStatus::Failed,
+        name: "framework command failed".to_owned(),
+        suite: None,
+        file: None,
+        line: None,
+        duration_ms: 0,
+        failure: Some(crate::model::TestFailure {
+            message: format!(
+                "{} exited with status {}",
+                frontend.command_name(),
+                status.code().unwrap_or(1)
+            ),
+            stack: None,
+            actual: None,
+            expected: None,
+            diff: None,
+        }),
+        stdout: None,
+        stderr: None,
+    }
 }
 
 fn invoke_frontend(
@@ -270,11 +314,10 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
     executable: &Path,
     opts: &TestOptions,
     ctx: &CommandContext,
-    writer: &mut JsonlWriter<'_, W>,
+    writer: &mut AgentJsonlWriter<'_, W>,
     include_output: bool,
-    failures_left: &mut usize,
-    suites: &mut Vec<TestSuite>,
-    cases: &mut Vec<TestCase>,
+    failures_only: bool,
+    state: &mut StreamingState,
 ) -> Result<ExitStatus> {
     let mut child = frontend
         .build_command(executable, opts)
@@ -318,9 +361,8 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
                 ctx,
                 writer,
                 include_output,
-                failures_left,
-                suites,
-                cases,
+                failures_only,
+                state,
             )?;
         }
     }
@@ -341,9 +383,8 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
                 ctx,
                 writer,
                 include_output,
-                failures_left,
-                suites,
-                cases,
+                failures_only,
+                state,
             )?;
         }
     }
@@ -353,20 +394,25 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
 fn handle_streamed_event<W: Write + ?Sized>(
     event: NormalizedEvent,
     ctx: &CommandContext,
-    writer: &mut JsonlWriter<'_, W>,
+    writer: &mut AgentJsonlWriter<'_, W>,
     include_output: bool,
-    failures_left: &mut usize,
-    suites: &mut Vec<TestSuite>,
-    cases: &mut Vec<TestCase>,
+    failures_only: bool,
+    state: &mut StreamingState,
 ) -> Result<()> {
     match event {
         NormalizedEvent::Suite(suite) => {
-            suites.push(prefix_suite(&ctx.cwd, suite));
+            state.suites.push(prefix_suite(&ctx.cwd, suite));
         }
         NormalizedEvent::Case(case) => {
             let case = prefix_case(&ctx.cwd, case);
-            write_case(writer, &case, include_output, failures_left)?;
-            cases.push(case);
+            write_case(
+                writer,
+                &case,
+                include_output,
+                failures_only,
+                &mut state.failures_left,
+            )?;
+            state.cases.push(case);
         }
         NormalizedEvent::Summary(_) => {}
     }
@@ -374,11 +420,15 @@ fn handle_streamed_event<W: Write + ?Sized>(
 }
 
 fn write_case<W: Write + ?Sized>(
-    writer: &mut JsonlWriter<'_, W>,
+    writer: &mut AgentJsonlWriter<'_, W>,
     case: &TestCase,
     include_output: bool,
+    failures_only: bool,
     failures_left: &mut usize,
 ) -> Result<()> {
+    if failures_only && case.status != TestStatus::Failed {
+        return Ok(());
+    }
     if case.status == TestStatus::Failed {
         if *failures_left == 0 {
             return Ok(());
@@ -388,6 +438,10 @@ fn write_case<W: Write + ?Sized>(
     writer.write_record(&case_record(case, include_output))?;
     writer.flush()?;
     Ok(())
+}
+
+fn failures_only(args: &Args, ctx: &CommandContext) -> bool {
+    args.run.failures_only || args.run.rerun_failed || ctx.mode == axt_core::OutputMode::Agent
 }
 
 fn resolve_tool(command: &str) -> Result<std::path::PathBuf> {
@@ -549,8 +603,18 @@ fn summary_record(data: &TestData) -> Value {
         "todo": summary.todo,
         "duration_ms": summary.duration_ms,
         "started": summary.started,
-        "truncated": summary.truncated
+        "truncated": summary.truncated,
+        "next": test_next_hints(data)
     })
+}
+
+fn test_next_hints(data: &TestData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if data.failed > 0 {
+        hints.push("axt-test --rerun-failed --include-output --agent".to_owned());
+        hints.push("axt-test --top-failures 5 --include-output --json".to_owned());
+    }
+    hints
 }
 
 fn suite_record(suite: &TestSuite) -> Value {
@@ -592,6 +656,8 @@ pub enum TestOutput {
         data: TestData,
         top_failures: usize,
         include_output: bool,
+        #[serde(skip)]
+        failures_only: bool,
     },
     Frameworks {
         frameworks: Vec<FrameworkInfo>,

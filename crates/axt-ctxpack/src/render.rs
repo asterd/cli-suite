@@ -2,13 +2,13 @@ use std::io::Write;
 
 use axt_core::ErrorCode;
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    JsonEnvelope, AgentJsonlWriter, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::json;
 
-use crate::model::{CtxpackData, CtxpackSummary, CtxpackWarning, SearchHit, WarningCode};
+use crate::model::{CtxpackData, CtxpackWarning, WarningCode};
 
 #[derive(Debug, Serialize)]
 struct JsonlSummary<'a> {
@@ -24,14 +24,7 @@ struct JsonlSummary<'a> {
     warnings: usize,
     bytes_scanned: u64,
     truncated: bool,
-}
-
-impl CtxpackData {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        serde_json::to_writer(&mut *w, self)?;
-        writeln!(w)?;
-        Ok(())
-    }
+    next: &'a [String],
 }
 
 impl Renderable for CtxpackData {
@@ -95,25 +88,24 @@ impl Renderable for CtxpackData {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = JsonlWriter::new(w, ctx.limits);
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
         writer.write_record(&jsonl_summary(self))?;
         for hit in &self.hits {
             writer.write_record(&json!({
                 "schema": "axt.ctxpack.hit.v1",
                 "type": "hit",
-                "pattern": hit.pattern,
-                "path": hit.path,
+                "pat": hit.pattern,
+                "p": hit.path,
                 "line": hit.line,
-                "column": hit.column,
-                "byte_range": hit.byte_range,
-                "kind": hit.kind,
-                "classification_source": hit.classification_source,
-                "language": hit.language,
-                "node_kind": hit.node_kind,
-                "enclosing_symbol": hit.enclosing_symbol,
-                "ast_path": hit.ast_path,
-                "matched_text": hit.matched_text,
+                "col": hit.column,
+                "range": hit.byte_range,
+                "k": hit.kind,
+                "src": hit.classification_source,
+                "l": hit.language,
+                "node": hit.node_kind,
+                "sym": hit.enclosing_symbol,
+                "text": hit.matched_text,
                 "snippet": hit.snippet
             }))?;
         }
@@ -127,22 +119,6 @@ impl Renderable for CtxpackData {
             }))?;
         }
         let _summary = writer.finish("axt.ctxpack.warn.v1")?;
-        Ok(())
-    }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        writer.write_line(&agent_summary(self)?)?;
-        for hit in &self.hits {
-            writer.write_line(&agent_hit(hit)?)?;
-        }
-        for warning in &self.warnings {
-            writer.write_line(&agent_warning(warning)?)?;
-        }
-        for next in &self.next {
-            writer.write_line(&prefixed_line("S", &[AgentField::str("run", next)])?)?;
-        }
-        let _summary = writer.finish()?;
         Ok(())
     }
 }
@@ -160,6 +136,7 @@ fn jsonl_summary(data: &CtxpackData) -> JsonlSummary<'_> {
         warnings: data.summary.warnings,
         bytes_scanned: data.summary.bytes_scanned,
         truncated: data.summary.truncated,
+        next: &data.next,
     }
 }
 
@@ -184,56 +161,5 @@ const fn warning_error_code(code: WarningCode) -> ErrorCode {
         | WarningCode::NonUtf8Skipped
         | WarningCode::PathNotUtf8
         | WarningCode::Walk => ErrorCode::IoError,
-    }
-}
-
-fn agent_summary(data: &CtxpackData) -> RenderResult<String> {
-    let summary: &CtxpackSummary = &data.summary;
-    format_agent_fields(&[
-        AgentField::str("schema", "axt.ctxpack.agent.v1"),
-        AgentField::bool("ok", true),
-        AgentField::str("mode", "records"),
-        AgentField::usize("patterns", data.patterns.len()),
-        AgentField::usize("files", summary.files_scanned),
-        AgentField::usize("matched", summary.files_matched),
-        AgentField::usize("hits", summary.hits),
-        AgentField::usize("warnings", summary.warnings),
-        AgentField::u64("bytes", summary.bytes_scanned),
-        AgentField::bool("truncated", summary.truncated),
-    ])
-}
-
-fn agent_hit(hit: &SearchHit) -> RenderResult<String> {
-    prefixed_line("H", &[
-        AgentField::str("pattern", &hit.pattern),
-        AgentField::str("path", hit.path.as_str()),
-        AgentField::usize("line", hit.line),
-        AgentField::usize("col", hit.column),
-        AgentField::usize("start", hit.byte_range.start),
-        AgentField::usize("end", hit.byte_range.end),
-        AgentField::str("kind", hit.kind.as_str()),
-        AgentField::str("src", hit.classification_source.as_str()),
-        AgentField::str("lang", hit.language.as_deref().unwrap_or("-")),
-        AgentField::str("node", hit.node_kind.as_deref().unwrap_or("-")),
-        AgentField::str("symbol", hit.enclosing_symbol.as_deref().unwrap_or("-")),
-        AgentField::str("text", &hit.matched_text),
-        AgentField::str("snippet", &hit.snippet),
-    ])
-}
-
-fn agent_warning(warning: &CtxpackWarning) -> RenderResult<String> {
-    prefixed_line("W", &[
-        AgentField::str("code", warning.code.as_str()),
-        AgentField::str("path", warning.path.as_ref().map_or("-", |path| path.as_str())),
-        AgentField::str("message", &warning.message),
-    ])
-}
-
-fn prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let rest = format_agent_fields(fields)?;
-    if rest.is_empty() {
-        Ok(prefix.to_owned())
-    } else {
-        Ok(format!("{prefix} {rest}"))
     }
 }

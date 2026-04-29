@@ -11,7 +11,7 @@ axt-port [FLAGS] free <PORT> [<PORT>...] [--dry-run] [--signal term|kill|int] [-
 axt-port [FLAGS] watch <PORT> [--timeout 30s]
 ```
 
-Shared flags are available before the subcommand: `--json`, `--json-data`, `--jsonl`, `--agent`, `--plain`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+Shared flags are available before the subcommand: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 Port filters are also shared: `--proto tcp|udp|both`, `--include-loopback true|false`, `--listening-only true|false`, `--host <ADDR>`, `--owner <USER>`, and `--pid <PID>`.
 
@@ -34,14 +34,14 @@ Port 3000 (tcp, listening)
   Owner:       dario
 ```
 
-Agent output starts with an ACF summary:
+Agent output starts with a summary-first JSONL record:
 
-```text
-schema=axt.port.agent.v1 ok=true mode=records action=who port=3000 held=true holders=1 freed=false timed_out=false ms=12 truncated=false
-H port=3000 proto=tcp pid=47281 name=node bound=0.0.0.0:3000 cmd="node server.js" cwd=/Users/dario/projects/api owner=dario
+```jsonl
+{"schema":"axt.port.summary.v1","type":"summary","action":"who","port":3000,"held":true,"holders":1,"freed":false,"timed_out":false,"duration_ms":12,"truncated":false,"next":[]}
+{"schema":"axt.port.holder.v1","type":"holder","port":3000,"proto":"tcp","pid":47281,"name":"node","bound":"0.0.0.0:3000","command":"node server.js","cwd":"/Users/dario/projects/api","owner":"dario"}
 ```
 
-JSON uses the stable `axt.port.v1` envelope. JSONL emits `axt.port.summary.v1` first, followed by socket, holder, and action records.
+JSON uses the stable `axt.port.v1` envelope. Agent mode emits `axt.port.summary.v1` first, followed by socket, holder, and action records.
 
 `watch` exits successfully as soon as the port is observed free. If the port remains held until `--timeout`, it exits with `timeout` and includes the last observed holder records.
 

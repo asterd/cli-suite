@@ -11,6 +11,9 @@ pub struct Args {
     #[command(flatten)]
     pub common: axt_core::CommonArgs,
 
+    #[arg(long)]
+    pub rerun_last: bool,
+
     #[command(subcommand)]
     pub subcommand: Option<Command>,
 

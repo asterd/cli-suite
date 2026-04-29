@@ -2,8 +2,8 @@
 
 `axt` is a set of small, native command-line tools for inspecting local projects,
 running commands, checking environment problems, tracking file changes, inspecting
-ports, normalizing test output, extracting source outlines, and packing
-multi-pattern code context.
+ports, normalizing test output, extracting source outlines, packing
+multi-pattern code context, and warming up an agent session.
 
 The goal is to make local developer and agent workflows easier to automate
 without turning every task into a custom shell script. Each command does one job,
@@ -23,6 +23,7 @@ The suite is intentionally narrow:
 | `axt-test` | Run and normalize test suites across common frameworks. |
 | `axt-outline` | Emit compact tree-sitter source outlines without function bodies. |
 | `axt-ctxpack` | Search multiple named patterns and classify hits with tree-sitter context. |
+| `axt-bundle` | Bundle files, manifests, git state, and next hints for session warmup. |
 
 ## Compatibility Matrix
 
@@ -36,25 +37,24 @@ The suite is intentionally narrow:
 | `axt-test` | Yes | Yes | Yes | Framework support depends on the local toolchain being installed. |
 | `axt-outline` | Yes | Yes | Yes | Uses embedded tree-sitter grammars; no parser tools or LSP servers required. |
 | `axt-ctxpack` | Yes | Yes | Yes | Uses embedded tree-sitter grammars where supported and heuristic fallback otherwise. |
+| `axt-bundle` | Yes | Yes | Yes | Git state is included when a readable local repo is available. |
 
 When a feature cannot be implemented on a platform, commands return
 `feature_unsupported` with exit code `9` rather than silently degrading.
 
 ## Output Modes
 
-Every command supports the shared modes:
+Every command supports three primary modes:
 
 | Mode | Flag | Use |
 |---|---|---|
-| Human | default | Compact terminal output for people. |
-| Plain | `--plain` | Human-readable output without decoration. |
+| Human | default on TTY stdout | Compact terminal output for people. |
 | JSON | `--json` | Stable envelope: `schema`, `ok`, `data`, `warnings`, `errors`. |
-| JSON data | `--json-data` | Only the command payload from the JSON envelope. |
-| JSONL | `--jsonl` | Streaming newline-delimited records. |
-| Agent | `--agent` | ACF, the compact line-oriented format for LLM contexts. |
+| Agent | default on non-TTY stdout, or `--agent` | Minified JSONL with a summary record first and dynamic `next` hints. |
 
 Shared flags include `--print-schema`, `--list-errors`, `--limit`,
-`--max-bytes`, and `--strict`. Diagnostics go to stderr; data goes to stdout.
+`--max-bytes`, and `--strict`. Set `AXT_OUTPUT=human|agent|json` to override
+the automatic TTY default. Diagnostics go to stderr; data goes to stdout.
 
 ## Installation
 
@@ -109,6 +109,7 @@ only when explicitly installed with the `aliases` feature:
 | `axt-test` | `test` |
 | `axt-outline` | `outline` |
 | `axt-ctxpack` | `ctxpack` |
+| `axt-bundle` | none |
 
 There are no `ax-*` aliases. Prefer canonical `axt-*` names in scripts and CI.
 See [docs/installation.md](docs/installation.md) for the full install matrix and
@@ -252,9 +253,9 @@ Output examples:
 3000 tcp listen pid=12345 name=node
 ```
 
-```text
-schema=axt.port.agent.v1 ok=true port=3000 holders=1 action=inspect
-P port=3000 proto=tcp state=listen pid=12345 name=node
+```jsonl
+{"schema":"axt.port.summary.v1","type":"summary","action":"who","port":3000,"held":true,"holders":1,"freed":false,"timed_out":false,"duration_ms":12,"truncated":false,"next":[]}
+{"schema":"axt.port.holder.v1","type":"holder","port":3000,"proto":"tcp","pid":12345,"name":"node","bound":"0.0.0.0:3000","command":"node server.js","cwd":null,"owner":null}
 ```
 
 Safety controls include `--dry-run`, `--confirm`, `--signal term|kill|int`,
@@ -298,7 +299,7 @@ source/signature byte counts to make compression visible.
 ```bash
 axt-outline crates/axt-outline/src --agent
 axt-outline src/lib.rs --public-only --json
-axt-outline app --lang typescript --jsonl
+axt-outline app --lang typescript --agent
 ```
 
 Output examples:
@@ -307,9 +308,9 @@ Output examples:
 src/lib.rs:42 pub fn parse_config(input: &str) -> Result<Config, Error>
 ```
 
-```text
-schema=axt.outline.agent.v1 ok=true mode=records files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240 truncated=false
-Y path=src/lib.rs lang=rust kind=fn visibility=pub name=parse_config line=42 end_line=57 parent=- signature="pub fn parse_config(input: &str) -> Result<Config, Error>"
+```jsonl
+{"schema":"axt.outline.summary.v1","type":"summary","ok":true,"root":".","files":1,"symbols":3,"warnings":0,"source_bytes":8192,"signature_bytes":240,"truncated":false,"next":["axt-slice src/lib.rs --symbol parse_config --agent"]}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"parse_config","sig":"pub fn parse_config(input: &str) -> Result<Config, Error>","docs":null,"range":{"start_line":42,"end_line":57},"parent":null}
 ```
 
 Use it before reading large source files when symbol-level context is enough.
@@ -326,7 +327,7 @@ enclosing symbol, and a classification such as `comment`, `string`, `test`, or
 ```bash
 axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --json
 axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2 --agent
-axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --jsonl --limit 50
+axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --agent --limit 50
 ```
 
 Output examples:
@@ -335,9 +336,9 @@ Output examples:
 src/lib.rs:12:5 todo comment "TODO"
 ```
 
-```text
-schema=axt.ctxpack.agent.v1 ok=true mode=records patterns=2 files=10 matched=1 hits=3 warnings=0 bytes=8192 truncated=false
-H pattern=todo path=src/lib.rs line=12 col=5 start=240 end=244 kind=comment src=ast lang=rust node=line_comment symbol=- text=TODO snippet="12:// TODO: tighten this"
+```jsonl
+{"schema":"axt.ctxpack.summary.v1","type":"summary","ok":true,"root":".","patterns":2,"files_scanned":10,"files_matched":1,"hits":3,"warnings":0,"bytes_scanned":8192,"truncated":false,"next":["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]}
+{"schema":"axt.ctxpack.hit.v1","type":"hit","pat":"todo","p":"src/lib.rs","line":12,"col":5,"range":{"start":240,"end":244},"k":"comment","src":"ast","l":"rust","node":"line_comment","sym":null,"text":"TODO","snippet":"12:// TODO: tighten this"}
 ```
 
 Use it when an agent would otherwise run several `rg` commands and then inspect
@@ -354,7 +355,7 @@ line ranges manually. Full options and output contracts:
 - `axt-port free` can terminate local processes. Start with `--dry-run` and use
   `--confirm` for intentional process cleanup.
 - `axt-drift` and `axt-run` may write local artifacts under `.axt/`.
-- JSON, JSONL, and agent output are schema-versioned so scripts can detect
+- JSON and agent JSONL output are schema-versioned so scripts can detect
   incompatible changes.
 
 Security policy and disclosure guidance live in [SECURITY.md](SECURITY.md).

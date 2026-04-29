@@ -45,10 +45,8 @@ async fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
 
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => output.render_json_data(&mut stdout),
-        OutputMode::Jsonl => output.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -70,11 +68,8 @@ async fn main() -> anyhow::Result<ExitCode> {
 fn print_schema(format: SchemaFormat) {
     match format {
         SchemaFormat::Json => print!("{}", include_str!("../../../schemas/axt.run.v1.schema.json")),
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.run.jsonl.v1 records=axt.run.summary.v1,axt.run.file.v1,axt.run.stream.v1,axt.run.list.v1,axt.run.clean.v1,axt.run.warn.v1 first=summary"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.run.agent.v1 mode=records prefixes=X,E,F,S,D,R fields=cmd,exit,ms,stdout_lines,stderr_lines,changed,saved,truncated,name,stream,runs,removed"
+            "schema=axt.run.agent.v1 records=axt.run.summary.v1,axt.run.file.v1,axt.run.stream.v1,axt.run.list.v1,axt.run.clean.v1,axt.run.warn.v1 first=summary"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.run.human.v1 sections=summary,stderr_tail,changed_files,saved")

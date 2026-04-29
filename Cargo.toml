@@ -13,6 +13,7 @@ members = [
   "crates/axt-test",
   "crates/axt-outline",
   "crates/axt-ctxpack",
+  "crates/axt-bundle",
 ]
 
 [workspace.package]

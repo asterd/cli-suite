@@ -13,20 +13,14 @@ file paths, and source ranges. Function bodies are not emitted.
 .B --json
 Emit an axt.outline.v1 JSON envelope.
 .TP
-.B --json-data
-Emit only the JSON data payload.
-.TP
-.B --jsonl
-Emit newline-delimited JSON records.
-.TP
 .B --agent
-Emit Agent Compact Format.
-.TP
-.B --plain
-Emit plain human output.
+Emit summary-first JSONL records.
 .TP
 .B --public-only
 Emit only public, crate-visible, and restricted symbols.
+.TP
+.B --symbols-only
+In agent mode, emit only name, kind, and line for each symbol.
 .TP
 .B --lang rust|typescript|javascript|python|go|java|php
 Select one supported language.

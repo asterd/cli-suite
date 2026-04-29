@@ -13,7 +13,8 @@
     "todo": { "type": "integer", "minimum": 0 },
     "duration_ms": { "type": "integer", "minimum": 0 },
     "started": { "type": "string" },
-    "truncated": { "type": "boolean" }
+    "truncated": { "type": "boolean" },
+    "next": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": false
 }

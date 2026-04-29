@@ -18,6 +18,16 @@ pub async fn run(args: &Args, _ctx: &CommandContext) -> Result<crate::output::Do
         eprintln!("Warning: --show-secrets prints secret-like environment variable values.");
     }
 
+    if let Some(cmd) = &args.cmd {
+        let manager_hints = manager_hints(Duration::from_millis(300)).await;
+        let data = DocData {
+            which: Some(which_report(cmd, Duration::from_millis(1_500), &manager_hints).await?),
+            path: Some(path_report(&manager_hints)?),
+            env: Some(env_report(args.show_secrets)),
+        };
+        return Ok(crate::output::DocOutput::All(data));
+    }
+
     match args.command.as_ref().ok_or(DocError::MissingSubcommand)? {
         Command::Which(which) => {
             let manager_hints = manager_hints(Duration::from_millis(300)).await;

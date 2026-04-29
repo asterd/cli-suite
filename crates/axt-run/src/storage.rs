@@ -34,7 +34,7 @@ pub fn prepare(root: &Utf8Path, requested: Option<&str>, command: &[String]) -> 
         stderr: dir.join("stderr.log"),
         meta: dir.join("meta.json"),
         changed: dir.join("changed.json"),
-        summary: dir.join("summary.agent.acf"),
+        summary: dir.join("summary.agent.jsonl"),
         dir,
     })
 }

@@ -14,25 +14,28 @@ axt-test --changed-since main
 axt-test --bail
 axt-test --workers 4
 axt-test --top-failures 10
+axt-test --failures-only
+axt-test --rerun-failed
 axt-test --include-output
 axt-test --pass-through -- --framework-specific-flag
 axt-test list-frameworks
 ```
 
-Shared flags are available before the subcommand or run options: `--json`, `--json-data`, `--jsonl`, `--agent`, `--plain`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+Shared flags are available before the subcommand or run options: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 ## Output
 
-JSON uses the stable `axt.test.v1` envelope. JSONL streams `axt.test.case.v1` records as the underlying framework reports them, then emits `axt.test.suite.v1` and `axt.test.summary.v1` records at the end. Agent mode emits compact ACF records:
+JSON uses the stable `axt.test.v1` envelope and retains the full normalized result data. Agent mode emits summary-first JSONL. In agent mode, `--failures-only` is the default so successful and skipped case records are suppressed while totals remain in the summary.
 
-```text
-schema=axt.test.agent.v1 ok=false mode=records frameworks=jest total=3 passed=1 failed=1 skipped=1 todo=0 ms=120 started=2026-04-27T10:12:00Z truncated=false
-U name="checkout flow" framework=jest file=tests/checkout.test.ts passed=1 failed=1 skipped=1 ms=23
-C status=failed name=fails framework=jest file=tests/checkout.test.ts line=20 ms=12 suite="checkout flow" message="expected 200, got 500"
-S run="axt-test"
+```jsonl
+{"schema":"axt.test.case.v1","type":"case","framework":"jest","status":"failed","name":"fails","suite":"checkout flow","file":"tests/checkout.test.ts","line":20,"duration_ms":12,"failure":{"message":"expected 200, got 500","stack":null,"actual":"500","expected":"200","diff":null},"stdout":null,"stderr":null}
+{"schema":"axt.test.suite.v1","type":"suite","framework":"jest","name":"checkout flow","file":"tests/checkout.test.ts","passed":1,"failed":1,"skipped":1,"todo":0,"duration_ms":23}
+{"schema":"axt.test.summary.v1","type":"summary","frameworks":["jest"],"total":3,"passed":1,"failed":1,"skipped":1,"todo":0,"duration_ms":120,"started":"2026-04-27T10:12:00Z","truncated":false}
 ```
 
 Human mode prints a compact summary and expands only failed tests. `--include-output` includes captured stdout/stderr for failed cases when the framework provides it.
+
+`--rerun-failed` is a run shortcut for failure-focused agent loops. It applies the same failure-only output filtering as `--failures-only`; command-level test selection remains delegated to the underlying framework because `axt-test` does not persist framework-specific failure IDs.
 
 ## Framework Mapping
 

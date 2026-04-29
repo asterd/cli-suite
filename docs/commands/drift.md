@@ -12,7 +12,7 @@ axt-drift [FLAGS] list
 axt-drift [FLAGS] reset
 ```
 
-Shared flags are available before the subcommand: `--json`, `--json-data`, `--jsonl`, `--agent`, `--plain`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+Shared flags are available before the subcommand: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
 When no name is provided, `axt-drift` uses `default`. Snapshots are stored as JSONL under `.axt/drift/<NAME>.jsonl`. Snapshot records contain relative path, size, mtime, and an optional BLAKE3 hash when `--hash` is passed.
 
@@ -36,13 +36,11 @@ JSON mode emits the `axt.drift.v1` envelope:
 }
 ```
 
-JSONL mode starts with `axt.drift.summary.v1`, then emits `axt.drift.file.v1` records for changed files and `axt.drift.mark.v1` records for `list`.
+Agent mode emits summary-first JSONL records:
 
-Agent mode emits ACF records:
-
-```text
-schema=axt.drift.agent.v1 ok=true mode=records operation=diff name=default files=12 changed=1 marks=0 removed=0 truncated=false
-F path=dist/app.js action=created size_delta=1204
+```jsonl
+{"schema":"axt.drift.summary.v1","type":"summary","operation":"diff","name":"default","files":12,"changed":1,"marks":0,"removed":0,"truncated":false,"next":[]}
+{"schema":"axt.drift.file.v1","type":"file","path":"dist/app.js","action":"created","size_delta":1204}
 ```
 
 ## Cross-Platform Matrix

@@ -8,6 +8,8 @@ pub struct OutlineData {
     pub symbols: Vec<Symbol>,
     pub warnings: Vec<OutlineWarning>,
     pub next: Vec<String>,
+    #[serde(skip)]
+    pub symbols_only: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,21 +45,6 @@ pub enum Language {
     Python,
     Rust,
     Typescript,
-}
-
-impl Language {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Go => "go",
-            Self::Java => "java",
-            Self::Javascript => "javascript",
-            Self::Php => "php",
-            Self::Python => "python",
-            Self::Rust => "rust",
-            Self::Typescript => "typescript",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.bundle.v1",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.bundle.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "type": "object",
+      "required": ["root", "summary", "files", "manifests", "git", "next"],
+      "properties": {
+        "root": { "type": "string" },
+        "summary": { "type": "object" },
+        "files": { "type": "array" },
+        "manifests": { "type": "array" },
+        "git": { "type": ["object", "null"] },
+        "next": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  }
+}

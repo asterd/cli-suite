@@ -2,16 +2,13 @@ use std::io::Write;
 
 use axt_core::{ErrorCode, OutputLimits};
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    AgentJsonlWriter, JsonEnvelope, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::{
-    model::{DriftData, FileChange},
-    output::DriftOutput,
-};
+use crate::{model::DriftData, output::DriftOutput};
 
 #[derive(Debug, Serialize)]
 struct JsonlSummary<'a> {
@@ -27,14 +24,7 @@ struct JsonlSummary<'a> {
     removed: usize,
     exit: Option<i32>,
     truncated: bool,
-}
-
-impl DriftOutput {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        serde_json::to_writer(&mut *w, self.data())?;
-        writeln!(w)?;
-        Ok(())
-    }
+    next: Vec<String>,
 }
 
 impl Renderable for DriftOutput {
@@ -97,64 +87,21 @@ impl Renderable for DriftOutput {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
         let data = self.data();
         let records = jsonl_detail_records(data);
         let truncated = jsonl_would_truncate(data, &records, ctx.limits)?;
-        let mut writer = JsonlWriter::new(w, ctx.limits);
-        writer.write_record(&jsonl_summary(data, truncated))?;
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
+        writer.write_record(&jsonl_summary(data, truncated, next_hints(data)))?;
         for record in &records {
             writer.write_record(record)?;
         }
         let _summary = writer.finish("axt.drift.warn.v1")?;
         Ok(())
     }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let data = self.data();
-        let mut lines = Vec::new();
-        if let Some(exit) = data.exit {
-            if exit != 0 {
-                lines.push(format!("X code=command_failed exit={exit}"));
-            }
-        }
-        for change in &data.changes {
-            lines.push(agent_file_line(change)?);
-        }
-        for mark in &data.marks {
-            lines.push(prefixed_line(
-                "D",
-                &[
-                    AgentField::str("kind", "mark"),
-                    AgentField::str("name", &mark.name),
-                    AgentField::usize("files", mark.files),
-                    AgentField::str("path", &mark.path),
-                ],
-            )?);
-        }
-        let truncated = agent_would_truncate(data, &lines, ctx.limits)?;
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        writer.write_fields(&[
-            AgentField::str("schema", "axt.drift.agent.v1"),
-            AgentField::bool("ok", data.ok()),
-            AgentField::str("mode", "records"),
-            AgentField::str("operation", data.operation.as_str()),
-            AgentField::str("name", data.name.as_deref().unwrap_or("none")),
-            AgentField::usize("files", data.files),
-            AgentField::usize("changed", data.changes.len()),
-            AgentField::usize("marks", data.marks.len()),
-            AgentField::usize("removed", data.removed),
-            AgentField::bool("truncated", truncated),
-        ])?;
-        for line in &lines {
-            writer.write_line(line)?;
-        }
-        let _summary = writer.finish()?;
-        Ok(())
-    }
 }
 
-fn jsonl_summary(data: &DriftData, truncated: bool) -> JsonlSummary<'_> {
+fn jsonl_summary<'a>(data: &'a DriftData, truncated: bool, next: Vec<String>) -> JsonlSummary<'a> {
     JsonlSummary {
         schema: "axt.drift.summary.v1",
         kind: "summary",
@@ -167,7 +114,21 @@ fn jsonl_summary(data: &DriftData, truncated: bool) -> JsonlSummary<'_> {
         removed: data.removed,
         exit: data.exit,
         truncated,
+        next,
     }
+}
+
+fn next_hints(data: &DriftData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if data.operation.as_str() == "mark" {
+        if let Some(name) = data.name.as_deref() {
+            hints.push(format!("axt-drift diff --since {name} --agent"));
+        }
+    }
+    if !data.changes.is_empty() {
+        hints.push("axt-peek . --changed --agent".to_owned());
+    }
+    hints
 }
 
 fn jsonl_detail_records(data: &DriftData) -> Vec<Value> {
@@ -201,7 +162,7 @@ fn jsonl_would_truncate(
     records: &[Value],
     limits: OutputLimits,
 ) -> RenderResult<bool> {
-    let summary_len = serialized_jsonl_len(&jsonl_summary(data, false))?;
+    let summary_len = serialized_jsonl_len(&jsonl_summary(data, false, Vec::new()))?;
     line_output_would_truncate(
         summary_len,
         records.iter().map(serialized_jsonl_len),
@@ -211,30 +172,6 @@ fn jsonl_would_truncate(
 
 fn serialized_jsonl_len<T: Serialize>(record: &T) -> RenderResult<usize> {
     Ok(serde_json::to_vec(record)?.len() + 1)
-}
-
-fn agent_would_truncate(
-    data: &DriftData,
-    lines: &[String],
-    limits: OutputLimits,
-) -> RenderResult<bool> {
-    let summary = format_agent_fields(&[
-        AgentField::str("schema", "axt.drift.agent.v1"),
-        AgentField::bool("ok", data.ok()),
-        AgentField::str("mode", "records"),
-        AgentField::str("operation", data.operation.as_str()),
-        AgentField::str("name", data.name.as_deref().unwrap_or("none")),
-        AgentField::usize("files", data.files),
-        AgentField::usize("changed", data.changes.len()),
-        AgentField::usize("marks", data.marks.len()),
-        AgentField::usize("removed", data.removed),
-        AgentField::bool("truncated", false),
-    ])?;
-    line_output_would_truncate(
-        summary.len() + 1,
-        lines.iter().map(|line| Ok(line.len() + 1)),
-        limits,
-    )
 }
 
 fn line_output_would_truncate<I>(
@@ -258,26 +195,6 @@ where
         bytes += detail_len;
     }
     Ok(false)
-}
-
-fn agent_file_line(change: &FileChange) -> RenderResult<String> {
-    prefixed_line(
-        "F",
-        &[
-            AgentField::str("path", &change.path),
-            AgentField::str("action", change.action.as_str()),
-            AgentField::i64("size_delta", change.size_delta),
-        ],
-    )
-}
-
-fn prefixed_line(prefix: &str, fields: &[AgentField<'_>]) -> RenderResult<String> {
-    let formatted = format_agent_fields(fields)?;
-    if formatted.is_empty() {
-        Ok(prefix.to_owned())
-    } else {
-        Ok(format!("{prefix} {formatted}"))
-    }
 }
 
 fn command_string(command: &crate::model::RunCommand) -> String {

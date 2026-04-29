@@ -1,0 +1,34 @@
+[package]
+name = "axt-bundle"
+description = "Session warmup bundle command for the axt Foundation CLI Suite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "axt-bundle"
+path = "src/main.rs"
+
+[package.metadata.dist]
+dist = true
+
+[dependencies]
+axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-fs = { package = "axt-fs", path = "../axt-fs", version = "0.1.0-rc1" }
+axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
+axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
+anyhow.workspace = true
+camino.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+jsonschema.workspace = true
+tempfile.workspace = true

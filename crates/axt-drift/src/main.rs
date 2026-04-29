@@ -43,10 +43,8 @@ async fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
 
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => output.render_json_data(&mut stdout),
-        OutputMode::Jsonl => output.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -70,11 +68,8 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Json => {
             print!("{}", include_str!("../../../schemas/axt.drift.v1.schema.json"));
         }
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.drift.jsonl.v1 records=axt.drift.summary.v1,axt.drift.file.v1,axt.drift.mark.v1,axt.drift.warn.v1 first=summary"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.drift.agent.v1 mode=records prefixes=X,F,D fields=operation,name,files,changed,marks,removed,path,action,size_delta,code"
+            "schema=axt.drift.agent.v1 records=axt.drift.summary.v1,axt.drift.file.v1,axt.drift.mark.v1,axt.drift.warn.v1 first=summary"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.drift.human.v1 sections=mark,diff,run,list,reset");

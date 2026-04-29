@@ -2,8 +2,8 @@ use std::io::Write;
 
 use axt_core::ErrorCode;
 use axt_output::{
-    format_agent_fields, AgentCompactWriter, AgentField, JsonEnvelope, JsonlWriter,
-    OutputDiagnostic, RenderContext, Renderable, Result as RenderResult,
+    AgentJsonlWriter, JsonEnvelope, OutputDiagnostic, RenderContext, Renderable,
+    Result as RenderResult,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -25,6 +25,7 @@ struct JsonlSummary<'a> {
     untracked: usize,
     ignored: usize,
     truncated: bool,
+    next: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -32,10 +33,15 @@ struct JsonlEntry<'a> {
     schema: &'static str,
     #[serde(rename = "type")]
     kind: &'static str,
+    #[serde(rename = "p")]
     path: &'a str,
+    #[serde(rename = "b")]
     bytes: u64,
+    #[serde(rename = "l")]
     lang: Option<&'a str>,
+    #[serde(rename = "g")]
     git: &'static str,
+    #[serde(rename = "ts")]
     mtime: Option<&'a str>,
 }
 
@@ -47,14 +53,6 @@ struct JsonlWarning<'a> {
     code: &'static str,
     path: Option<&'a str>,
     reason: &'a str,
-}
-
-impl PeekData {
-    pub fn render_json_data(&self, w: &mut dyn Write) -> RenderResult<()> {
-        serde_json::to_writer(&mut *w, self)?;
-        writeln!(w)?;
-        Ok(())
-    }
 }
 
 impl Renderable for PeekData {
@@ -109,11 +107,16 @@ impl Renderable for PeekData {
         Ok(())
     }
 
-    fn render_jsonl(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
+    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
         let records = jsonl_records(self);
         let truncated = jsonl_output_truncated(&records, ctx);
-        let mut writer = JsonlWriter::new(w, ctx.limits);
-        writer.write_record(&jsonl_summary(&self.root, &self.summary, truncated))?;
+        let mut writer = AgentJsonlWriter::new(w, ctx.limits);
+        writer.write_record(&jsonl_summary(
+            &self.root,
+            &self.summary,
+            truncated,
+            next_hints(self),
+        ))?;
         for entry in &self.entries {
             writer.write_record(&jsonl_entry(entry))?;
         }
@@ -121,28 +124,6 @@ impl Renderable for PeekData {
             writer.write_record(&jsonl_warning(warning))?;
         }
         let _summary = writer.finish("axt.peek.warn.v1")?;
-        Ok(())
-    }
-
-    fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> RenderResult<()> {
-        let mut writer = AgentCompactWriter::new(w, ctx.limits);
-        let total = self.entries.len();
-        let rows = emitted_agent_rows(self, ctx)?;
-        let truncated = agent_output_truncated(self, ctx)?;
-        writer.write_line(&format!(
-            "schema=axt.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
-            agent_value(&self.root),
-            rows,
-            total,
-            truncated
-        ))?;
-        for entry in &self.entries {
-            writer.write_line(&agent_row(entry))?;
-        }
-        for warning in &self.warnings {
-            writer.write_line(&agent_warning(warning)?)?;
-        }
-        let _summary = writer.finish()?;
         Ok(())
     }
 }
@@ -170,7 +151,12 @@ const fn warning_error_code(code: WarningCode) -> ErrorCode {
     }
 }
 
-fn jsonl_summary<'a>(root: &'a str, summary: &Summary, truncated: bool) -> JsonlSummary<'a> {
+fn jsonl_summary<'a>(
+    root: &'a str,
+    summary: &Summary,
+    truncated: bool,
+    next: Vec<String>,
+) -> JsonlSummary<'a> {
     JsonlSummary {
         schema: "axt.peek.summary.v1",
         kind: "summary",
@@ -184,59 +170,34 @@ fn jsonl_summary<'a>(root: &'a str, summary: &Summary, truncated: bool) -> Jsonl
         untracked: summary.untracked,
         ignored: summary.ignored,
         truncated,
+        next,
     }
 }
 
-fn emitted_agent_rows(data: &PeekData, ctx: &RenderContext<'_>) -> RenderResult<usize> {
-    let header_len = agent_header(data, false, data.entries.len())?.len() + 1;
-    let mut bytes = header_len;
-    let mut rows = 0;
-    for (records, entry) in (1..).zip(data.entries.iter()) {
-        let len = agent_row(entry).len() + 1;
-        if records >= ctx.limits.max_records || bytes + len > ctx.limits.max_bytes {
-            break;
-        }
-        bytes += len;
-        rows += 1;
+fn next_hints(data: &PeekData) -> Vec<String> {
+    let mut hints = Vec::new();
+    if let Some(largest) = data
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == crate::model::EntryKind::File)
+        .max_by_key(|entry| entry.bytes)
+    {
+        hints.push(format!("axt-outline {} --agent", largest.path));
     }
-    Ok(rows)
-}
-
-fn agent_output_truncated(data: &PeekData, ctx: &RenderContext<'_>) -> RenderResult<bool> {
-    let rows = emitted_agent_rows(data, ctx)?;
-    if rows < data.entries.len() {
-        return Ok(true);
+    if data.summary.modified > 0 || data.summary.untracked > 0 {
+        hints.push("axt-peek . --changed --agent".to_owned());
     }
-    let mut bytes = agent_header(data, false, data.entries.len())?.len()
-        + 1
-        + data
-            .entries
-            .iter()
-            .map(|entry| agent_row(entry).len() + 1)
-            .sum::<usize>();
-    for (records, warning) in (1 + data.entries.len()..).zip(data.warnings.iter()) {
-        let len = agent_warning(warning)?.len() + 1;
-        if records >= ctx.limits.max_records || bytes + len > ctx.limits.max_bytes {
-            return Ok(true);
-        }
-        bytes += len;
-    }
-    Ok(data.entries.is_empty() && data.warnings.is_empty() && bytes > ctx.limits.max_bytes)
-}
-
-fn agent_header(data: &PeekData, truncated: bool, rows: usize) -> RenderResult<String> {
-    Ok(format!(
-        "schema=axt.peek.agent.v1 ok=true mode=table root={} cols=path,kind,bytes,lang,git,mtime rows={} total={} truncated={}",
-        agent_value(&data.root),
-        rows,
-        data.entries.len(),
-        truncated
-    ))
+    hints
 }
 
 fn jsonl_records(data: &PeekData) -> Vec<Vec<u8>> {
     let mut records = Vec::with_capacity(1 + data.entries.len() + data.warnings.len());
-    if let Ok(record) = serde_json::to_vec(&jsonl_summary(&data.root, &data.summary, false)) {
+    if let Ok(record) = serde_json::to_vec(&jsonl_summary(
+        &data.root,
+        &data.summary,
+        false,
+        next_hints(data),
+    )) {
         records.push(record);
     }
     records.extend(
@@ -273,19 +234,6 @@ fn jsonl_output_truncated(records: &[Vec<u8>], ctx: &RenderContext<'_>) -> bool 
     false
 }
 
-fn agent_value(value: &str) -> String {
-    let raw = !value.is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'.' | b'_' | b'-' | b'/' | b':' | b'+' | b'@')
-        });
-    if raw {
-        value.to_owned()
-    } else {
-        serde_json::to_string(value).unwrap_or_else(|_err| "\"\"".to_owned())
-    }
-}
-
 fn jsonl_entry(entry: &Entry) -> JsonlEntry<'_> {
     JsonlEntry {
         schema: "axt.peek.entry.v1",
@@ -305,41 +253,6 @@ fn jsonl_warning(warning: &PeekWarning) -> JsonlWarning<'_> {
         code: warning.code.as_str(),
         path: warning.path.as_deref(),
         reason: &warning.reason,
-    }
-}
-
-fn agent_row(entry: &Entry) -> String {
-    format!(
-        "{},{},{},{},{},{}",
-        csv_cell(&entry.path),
-        entry.kind.as_str(),
-        entry.bytes,
-        entry.language.as_deref().unwrap_or(""),
-        entry.git.as_str(),
-        entry.mtime.as_deref().unwrap_or("")
-    )
-}
-
-fn agent_warning(warning: &PeekWarning) -> RenderResult<String> {
-    let mut fields = vec![
-        AgentField::str("code", warning.code.as_str()),
-        AgentField::str("reason", &warning.reason),
-    ];
-    if let Some(path) = warning.path.as_deref() {
-        fields.push(AgentField::str("path", path));
-    }
-    Ok(format!("W {}", format_agent_fields(&fields)?))
-}
-
-fn csv_cell(value: &str) -> String {
-    if value
-        .bytes()
-        .any(|byte| matches!(byte, b',' | b'"' | b'\n' | b'\r'))
-    {
-        let escaped = value.replace('"', "\"\"");
-        format!("\"{escaped}\"")
-    } else {
-        value.to_owned()
     }
 }
 

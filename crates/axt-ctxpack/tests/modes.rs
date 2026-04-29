@@ -28,10 +28,20 @@ fn validate_json_schema(stdout: &str) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
+fn json_data(stdout: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let value: Value = serde_json::from_str(stdout)?;
+    Ok(value["data"].clone())
+}
+
+fn json_data_string(stdout: &str) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(format!("{}\n", serde_json::to_string(&json_data(stdout)?)?))
+}
+
 #[test]
 fn all_output_modes_work() -> Result<(), Box<dyn std::error::Error>> {
-    for mode in ["--plain", "--json", "--json-data", "--jsonl", "--agent"] {
+    for mode in ["--json", "--agent"] {
         let assert = Command::cargo_bin("axt-ctxpack")?
+            .env("AXT_OUTPUT", "human")
             .args([
                 mode,
                 "--pattern",
@@ -54,6 +64,7 @@ fn all_output_modes_work() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     let human = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
             "--pattern",
             "todo=TODO",
@@ -72,23 +83,8 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
         String::from_utf8(human.get_output().stdout.clone())?
     );
 
-    let plain = Command::cargo_bin("axt-ctxpack")?
-        .args([
-            "--plain",
-            "--pattern",
-            "todo=TODO",
-            "--include",
-            "**/*.rs",
-            &fixture("src"),
-        ])
-        .assert()
-        .success();
-    assert_snapshot!(
-        "ctxpack_plain",
-        String::from_utf8(plain.get_output().stdout.clone())?
-    );
-
     let envelope = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
             "--json",
             "--pattern",
@@ -105,8 +101,9 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let data = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "todo=TODO",
             "--include",
@@ -117,12 +114,13 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
         .success();
     assert_snapshot!(
         "ctxpack_json_data",
-        String::from_utf8(data.get_output().stdout.clone())?
+        json_data_string(&String::from_utf8(data.get_output().stdout.clone())?)?
     );
 
     let jsonl = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--jsonl",
+            "--agent",
             "--pattern",
             "todo=TODO",
             "--include",
@@ -137,6 +135,7 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let agent = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
             "--agent",
             "--pattern",
@@ -157,8 +156,9 @@ fn fixture_modes_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn named_patterns_and_overlapping_hits_are_reported() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "alpha=alpha",
             "--pattern",
@@ -168,7 +168,7 @@ fn named_patterns_and_overlapping_hits_are_reported() -> Result<(), Box<dyn std:
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["patterns"].as_array().map_or(0, Vec::len), 2);
     let hits = value["hits"]
         .as_array()
@@ -181,8 +181,9 @@ fn named_patterns_and_overlapping_hits_are_reported() -> Result<(), Box<dyn std:
 #[test]
 fn rust_hits_are_classified_with_tree_sitter_ast() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "todo=TODO",
             "--pattern",
@@ -192,7 +193,7 @@ fn rust_hits_are_classified_with_tree_sitter_ast() -> Result<(), Box<dyn std::er
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     let hits = value["hits"]
         .as_array()
         .ok_or_else(|| io::Error::other("hits must be an array"))?;
@@ -225,8 +226,9 @@ fn rust_hits_are_classified_with_tree_sitter_ast() -> Result<(), Box<dyn std::er
 #[test]
 fn no_hits_is_successful() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "missing=DOES_NOT_EXIST",
             &fixture("src/empty.txt"),
@@ -234,7 +236,7 @@ fn no_hits_is_successful() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["hits"], 0);
     assert_eq!(value["hits"].as_array().map_or(usize::MAX, Vec::len), 0);
     Ok(())
@@ -243,7 +245,8 @@ fn no_hits_is_successful() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn hidden_and_ignored_files_are_skipped_by_default() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
-        .args(["--json-data", "--pattern", "todo=TODO", &fixture("")])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", "--pattern", "todo=TODO", &fixture("")])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
@@ -251,8 +254,9 @@ fn hidden_and_ignored_files_are_skipped_by_default() -> Result<(), Box<dyn std::
     assert!(!stdout.contains("ignored.txt"));
 
     let with_hidden = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--hidden",
             "--no-ignore",
             "--pattern",
@@ -270,16 +274,12 @@ fn hidden_and_ignored_files_are_skipped_by_default() -> Result<(), Box<dyn std::
 #[test]
 fn binary_files_are_skipped_with_warning() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
-        .args([
-            "--json-data",
-            "--pattern",
-            "abc=abc",
-            &fixture("binary.bin"),
-        ])
+        .env("AXT_OUTPUT", "human")
+        .args(["--json", "--pattern", "abc=abc", &fixture("binary.bin")])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["hits"], 0);
     assert!(value["warnings"].as_array().is_some_and(|warnings| warnings
         .iter()
@@ -290,8 +290,9 @@ fn binary_files_are_skipped_with_warning() -> Result<(), Box<dyn std::error::Err
 #[test]
 fn snippets_include_requested_context() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "unwrap=unwrap_or",
             "--context",
@@ -301,7 +302,7 @@ fn snippets_include_requested_context() -> Result<(), Box<dyn std::error::Error>
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     let snippet = value["hits"][0]["snippet"]
         .as_str()
         .ok_or_else(|| io::Error::other("snippet must be string"))?;
@@ -314,8 +315,9 @@ fn snippets_include_requested_context() -> Result<(), Box<dyn std::error::Error>
 #[test]
 fn truncates_by_limit() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--limit",
             "1",
             "--pattern",
@@ -325,7 +327,7 @@ fn truncates_by_limit() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
+    let value = json_data(&stdout)?;
     assert_eq!(value["summary"]["hits"], 1);
     assert_eq!(value["summary"]["truncated"], true);
     Ok(())
@@ -334,8 +336,9 @@ fn truncates_by_limit() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn strict_jsonl_truncation_exits_non_zero() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--jsonl",
+            "--agent",
             "--limit",
             "1",
             "--strict",
@@ -351,10 +354,12 @@ fn strict_jsonl_truncation_exits_non_zero() -> Result<(), Box<dyn std::error::Er
 #[test]
 fn print_schema_and_list_errors_work() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args(["--print-schema", "json"])
         .assert()
         .success();
     Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .arg("--list-errors")
         .assert()
         .success();
@@ -367,8 +372,9 @@ fn invalid_pattern_is_usage_error() -> Result<(), Box<dyn std::error::Error>> {
     let file = temp.path().join("sample.txt");
     fs::write(&file, "TODO")?;
     Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
         .args([
-            "--json-data",
+            "--json",
             "--pattern",
             "broken",
             file.to_string_lossy().as_ref(),

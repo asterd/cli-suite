@@ -42,10 +42,8 @@ async fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
 
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => output.render_json_data(&mut stdout),
-        OutputMode::Jsonl => output.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -61,11 +59,8 @@ async fn main() -> anyhow::Result<ExitCode> {
 fn print_schema(format: SchemaFormat) {
     match format {
         SchemaFormat::Json => print!("{}", include_str!("../../../schemas/axt.doc.v1.schema.json")),
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.doc.jsonl.v1 records=axt.doc.summary.v1,axt.doc.which.v1,axt.doc.which.match.v1,axt.doc.path.entry.v1,axt.doc.env.secret.v1,axt.doc.env.suspicion.v1,axt.doc.warn.v1 first=summary"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.doc.agent.v1 mode=records prefixes=D,W fields=which,path_entries,env_vars,cmd,found,path,code,hint,name"
+            "schema=axt.doc.agent.v1 records=axt.doc.summary.v1,axt.doc.which.v1,axt.doc.which.match.v1,axt.doc.path.entry.v1,axt.doc.env.secret.v1,axt.doc.env.suspicion.v1,axt.doc.warn.v1 first=summary"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.doc.human.v1 sections=which,path,env")

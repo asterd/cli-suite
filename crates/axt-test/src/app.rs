@@ -33,8 +33,8 @@ fn main() -> anyhow::Result<ExitCode> {
     let render_ctx =
         axt_output::RenderContext::new(mode, ctx.limits, ctx.color, ctx.clock.as_ref());
     let mut stdout = std::io::stdout().lock();
-    if mode == OutputMode::Jsonl && args.command.is_none() {
-        return match command::run_jsonl_streaming(&args, &ctx, &mut stdout, &render_ctx) {
+    if mode == OutputMode::Agent && args.command.is_none() {
+        return match command::run_agent_streaming(&args, &ctx, &mut stdout, &render_ctx) {
             Ok(true) => Ok(ExitCode::SUCCESS),
             Ok(false) => Ok(ExitCode::from(ErrorCode::CommandFailed.exit_code())),
             Err(TestError::Output(axt_output::OutputError::TruncatedStrict)) => {
@@ -55,10 +55,8 @@ fn main() -> anyhow::Result<ExitCode> {
         }
     };
     let result = match mode {
-        OutputMode::Human | OutputMode::Plain => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
-        OutputMode::JsonData => output.render_json_data(&mut stdout),
-        OutputMode::Jsonl => output.render_jsonl(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
 
@@ -82,11 +80,8 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Json => {
             print!("{}", include_str!("../../../schemas/axt.test.v1.schema.json"));
         }
-        SchemaFormat::Jsonl => println!(
-            "schema=axt.test.jsonl.v1 records=axt.test.summary.v1,axt.test.suite.v1,axt.test.case.v1,axt.test.framework.v1,axt.test.warn.v1"
-        ),
         SchemaFormat::Agent => println!(
-            "schema=axt.test.agent.v1 mode=records prefixes=U,C,S fields=frameworks,total,passed,failed,skipped,todo,ms,started,name,file,line,message"
+            "schema=axt.test.agent.v1 records=axt.test.summary.v1,axt.test.suite.v1,axt.test.case.v1,axt.test.framework.v1,axt.test.warn.v1 first=summary"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.test.human.v1 sections=summary,failures,frameworks");

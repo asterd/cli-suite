@@ -13,6 +13,9 @@ pub struct Args {
     #[arg(long)]
     pub show_secrets: bool,
 
+    #[arg(value_name = "CMD")]
+    pub cmd: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Command>,
 }

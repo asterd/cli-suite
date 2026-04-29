@@ -93,8 +93,8 @@ fn collect_root(root: &Utf8Path, args: &Args) -> Result<RootCollection> {
 fn walk_options(args: &Args) -> WalkOptions {
     WalkOptions {
         max_depth: Some(args.depth),
-        files_only: args.files_only,
-        dirs_only: args.dirs_only,
+        files_only: args.files_only(),
+        dirs_only: args.dirs_only(),
         include_hidden: args.include_hidden,
         no_ignore: args.no_ignore,
         cross_fs: args.cross_fs,

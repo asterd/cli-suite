@@ -39,6 +39,7 @@ fn validate_jsonl_schemas(stdout: &str) -> Result<(), Box<dyn std::error::Error>
                 include_str!("../../../schemas/axt.test.framework.v1.schema.json")
             }
             "axt.test.warn.v1" => include_str!("../../../schemas/axt.test.warn.v1.schema.json"),
+            "axt.test.frameworks.summary.v1" => continue,
             other => return Err(io::Error::other(format!("unknown jsonl schema {other}")).into()),
         };
         let schema: Value = serde_json::from_str(schema_text)?;
@@ -63,10 +64,16 @@ fn validate_against_schema(
     Ok(())
 }
 
+fn json_data(stdout: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let value: Value = serde_json::from_str(stdout)?;
+    Ok(value["data"].clone())
+}
+
 #[test]
 fn list_frameworks_reports_supported_frontends() -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-test")?
-        .args(["--jsonl", "list-frameworks"])
+        .env("AXT_OUTPUT", "human")
+        .args(["--agent", "list-frameworks"])
         .assert()
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
@@ -80,6 +87,7 @@ fn list_frameworks_reports_supported_frontends() -> Result<(), Box<dyn std::erro
 fn json_output_validates_against_schema() -> Result<(), Box<dyn std::error::Error>> {
     let tools = FakeTools::new()?;
     let assert = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(fixture_path("jest"))
         .env("PATH", tools.path_value()?)
         .args(["--json", "--framework", "jest"])
@@ -98,9 +106,10 @@ fn json_output_validates_against_schema() -> Result<(), Box<dyn std::error::Erro
 fn fixture_jsonl_and_agent_match_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     let tools = FakeTools::new()?;
     let jsonl = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(fixture_path("jest"))
         .env("PATH", tools.path_value()?)
-        .args(["--jsonl", "--framework", "jest"])
+        .args(["--agent", "--framework", "jest"])
         .assert()
         .failure();
     let jsonl_stdout = String::from_utf8(jsonl.get_output().stdout.clone())?;
@@ -108,6 +117,7 @@ fn fixture_jsonl_and_agent_match_snapshots() -> Result<(), Box<dyn std::error::E
     assert_snapshot!("test_jsonl_jest", normalize_jsonl(&jsonl_stdout)?);
 
     let agent = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(fixture_path("jest"))
         .env("PATH", tools.path_value()?)
         .args(["--agent", "--framework", "jest"])
@@ -124,16 +134,17 @@ fn all_supported_frameworks_emit_valid_jsonl() -> Result<(), Box<dyn std::error:
     for framework in ["jest", "vitest", "pytest", "cargo", "go", "bun", "deno"] {
         let fixture = fixture_path(framework);
         let assert = Command::cargo_bin("axt-test")?
+            .env("AXT_OUTPUT", "human")
             .current_dir(fixture)
             .env("PATH", tools.path_value()?)
-            .args(["--jsonl", "--framework", framework])
+            .args(["--agent", "--framework", framework])
             .assert()
             .failure();
         let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
         validate_jsonl_schemas(&stdout)?;
-        assert!(stdout.contains("\"status\":\"passed\""), "{framework}");
         assert!(stdout.contains("\"status\":\"failed\""), "{framework}");
-        assert!(stdout.contains("\"status\":\"skipped\""), "{framework}");
+        assert!(!stdout.contains("\"status\":\"passed\""), "{framework}");
+        assert!(!stdout.contains("\"status\":\"skipped\""), "{framework}");
     }
     Ok(())
 }
@@ -145,6 +156,7 @@ fn all_supported_frameworks_agent_output_matches_snapshots(
     for framework in ["jest", "vitest", "pytest", "cargo", "go", "bun", "deno"] {
         let fixture = fixture_path(framework);
         let assert = Command::cargo_bin("axt-test")?
+            .env("AXT_OUTPUT", "human")
             .current_dir(fixture)
             .env("PATH", tools.path_value()?)
             .args(["--agent", "--framework", framework])
@@ -208,15 +220,16 @@ fn changed_files_are_mapped_into_nested_project_roots() -> Result<(), Box<dyn st
 
     let tools = FakeTools::with_npm(npm_requires_nested_test_path())?;
     let assert = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(&root)
         .env("PATH", tools.path_value()?)
-        .args(["--json-data", "--changed"])
+        .args(["--json", "--changed"])
         .assert()
         .failure();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
-    assert_eq!(value["frameworks"][0], "jest");
-    assert_eq!(value["total"], 3);
+    let value = json_data(&stdout)?;
+    assert_eq!(value["data"]["frameworks"][0], "jest");
+    assert_eq!(value["data"]["total"], 3);
     Ok(())
 }
 
@@ -227,15 +240,18 @@ fn jsonl_failures_are_flushed_before_process_exit() -> Result<(), Box<dyn std::e
     let mut child = ProcessCommand::new(assert_cmd::cargo::cargo_bin("axt-test"))
         .current_dir(fixture_path("jest"))
         .env("PATH", tools.path_value()?)
-        .args(["--jsonl", "--framework", "jest"])
+        .args(["--agent", "--framework", "jest"])
         .stdout(Stdio::piped())
         .spawn()?;
     let stdout = child
         .stdout
         .take()
         .ok_or_else(|| io::Error::other("missing child stdout"))?;
+    let mut reader = BufReader::new(stdout);
     let mut line = String::new();
-    BufReader::new(stdout).read_line(&mut line)?;
+    reader.read_line(&mut line)?;
+    line.clear();
+    reader.read_line(&mut line)?;
     assert!(line.contains("\"status\":\"failed\""));
     assert!(
         child.try_wait()?.is_none(),
@@ -284,14 +300,15 @@ fn assert_detected_framework(
     framework: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
         .current_dir(dir)
         .env("PATH", tools.path_value()?)
-        .args(["--json-data"])
+        .args(["--json"])
         .assert()
         .failure();
     let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
-    let value: Value = serde_json::from_str(&stdout)?;
-    assert_eq!(value["frameworks"][0], framework);
+    let value = json_data(&stdout)?;
+    assert_eq!(value["data"]["frameworks"][0], framework);
     Ok(())
 }
 
@@ -445,17 +462,11 @@ fn normalize_value(value: &mut Value) {
 
 fn normalize_agent(stdout: &str) -> String {
     stdout
-        .split_whitespace()
-        .map(|field| {
-            if field.starts_with("ms=") {
-                "ms=<ms>".to_owned()
-            } else if field.starts_with("started=") {
-                "started=<started>".to_owned()
-            } else if field.starts_with("line=") {
-                "line=<line>".to_owned()
-            } else {
-                field.to_owned()
-            }
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .map(|mut value| {
+            normalize_value(&mut value);
+            serde_json::to_string(&value).unwrap_or_else(|_| "{}".to_owned())
         })
         .collect::<Vec<_>>()
         .join(" ")

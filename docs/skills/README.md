@@ -5,13 +5,16 @@ and compatible tools.
 
 | Skill | Scope |
 |---|---|
-| `axt-suite` | Whole six-command suite. |
+| `axt-suite` | Whole command suite. |
 | `axt-peek` | Repository and filesystem snapshots. |
 | `axt-run` | Structured command execution. |
 | `axt-doc` | PATH, command, and environment diagnostics. |
 | `axt-drift` | Filesystem drift marks and diffs. |
 | `axt-port` | Local port inspection and cleanup. |
 | `axt-test` | Normalized test runner output. |
+| `axt-outline` | Source symbol outlines. |
+| `axt-ctxpack` | Search/read context packs. |
+| `axt-bundle` | Session warmup bundle. |
 
 ## Install
 

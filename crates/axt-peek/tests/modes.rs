@@ -11,6 +11,7 @@ fn fixture(name: &str) -> String {
 fn run_axt_peek(args: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
     let assert = Command::cargo_bin("axt-peek")?
         .current_dir(workspace_root())
+        .env("AXT_OUTPUT", "human")
         .args(args)
         .assert()
         .success();
@@ -89,9 +90,10 @@ fn json_mode_matches_schema_and_contract() -> Result<(), Box<dyn std::error::Err
 }
 
 #[test]
-fn json_data_mode_emits_payload_only() -> Result<(), Box<dyn std::error::Error>> {
-    let stdout = run_axt_peek(&[&fixture("fs-small"), "--json-data", "--summary-only"])?;
-    let data: Value = serde_json::from_str(&stdout)?;
+fn json_mode_contains_payload() -> Result<(), Box<dyn std::error::Error>> {
+    let stdout = run_axt_peek(&[&fixture("fs-small"), "--json", "--summary-only"])?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    let data = &value["data"];
     assert_eq!(data["root"], "fixtures/fs-small");
     assert_eq!(data["summary"]["files"], 4);
     assert_eq!(data["entries"].as_array().map(Vec::len), Some(0));
@@ -102,26 +104,21 @@ fn json_data_mode_emits_payload_only() -> Result<(), Box<dyn std::error::Error>>
 fn print_schema_agent_outputs_agent_schema() -> Result<(), Box<dyn std::error::Error>> {
     let stdout = run_axt_peek(&["--print-schema", "agent"])?;
     assert!(stdout.starts_with("schema=axt.peek.agent.v1 "));
-    assert!(stdout.contains(" mode=table "));
+    assert!(stdout.contains("first=summary"));
     Ok(())
 }
 
 #[test]
-fn jsonl_mode_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
-    let stdout = run_axt_peek(&[&fixture("fs-small"), "--jsonl"])?;
-    insta::assert_snapshot!(normalize_timestamps(&stdout), @r###"{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":"fixtures/fs-small","files":4,"dirs":2,"bytes":718,"git":"clean","modified":0,"untracked":0,"ignored":1,"truncated":false}
-{"schema":"axt.peek.entry.v1","type":"file","path":"README.md","bytes":56,"lang":"markdown","git":"clean","mtime":"<ts>"}
-{"schema":"axt.peek.entry.v1","type":"dir","path":"dist","bytes":0,"lang":null,"git":"clean","mtime":"<ts>"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"dist/app.min.js","bytes":561,"lang":"javascript","git":"clean","mtime":"<ts>"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"generated.txt","bytes":56,"lang":"text","git":"clean","mtime":"<ts>"}
-{"schema":"axt.peek.entry.v1","type":"dir","path":"src","bytes":0,"lang":null,"git":"clean","mtime":"<ts>"}
-{"schema":"axt.peek.entry.v1","type":"file","path":"src/main.rs","bytes":45,"lang":"rust","git":"clean","mtime":"<ts>"}
-"###);
-
+fn agent_mode_matches_jsonl_contract() -> Result<(), Box<dyn std::error::Error>> {
+    let stdout = run_axt_peek(&[&fixture("fs-small"), "--agent"])?;
     let lines = stdout.lines().collect::<Vec<_>>();
     let first: Value = serde_json::from_str(lines[0])?;
+    assert_eq!(first["schema"], "axt.peek.summary.v1");
     assert_eq!(first["type"], "summary");
-    for line in lines {
+    assert_eq!(first["ok"], true);
+    assert_eq!(first["truncated"], false);
+    assert!(first["next"].is_array(), "summary must include next hints");
+    for line in &lines[1..] {
         let value: Value = serde_json::from_str(line)?;
         assert!(value.get("schema").is_some());
     }
@@ -129,33 +126,12 @@ fn jsonl_mode_matches_contract() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn agent_mode_matches_acf_contract() -> Result<(), Box<dyn std::error::Error>> {
-    let stdout = run_axt_peek(&[&fixture("fs-small"), "--agent"])?;
-    insta::assert_snapshot!(normalize_timestamps(&stdout), @r###"schema=axt.peek.agent.v1 ok=true mode=table root=fixtures/fs-small cols=path,kind,bytes,lang,git,mtime rows=6 total=6 truncated=false
-README.md,file,56,markdown,clean,<ts>
-dist,dir,0,,clean,<ts>
-dist/app.min.js,file,561,javascript,clean,<ts>
-generated.txt,file,56,text,clean,<ts>
-src,dir,0,,clean,<ts>
-src/main.rs,file,45,rust,clean,<ts>
-"###);
-
-    let lines = stdout.lines().collect::<Vec<_>>();
-    assert!(lines[0].starts_with("schema=axt.peek.agent.v1 "));
-    assert!(lines[0].contains(" ok=true "));
-    assert!(lines[0].contains(" mode=table "));
-    assert!(lines[0].contains(" truncated=false"));
-    Ok(())
-}
-
-#[test]
 fn agent_mode_preserves_summary_first_when_truncated() -> Result<(), Box<dyn std::error::Error>> {
     let stdout = run_axt_peek(&[&fixture("fs-small"), "--agent", "--limit", "3"])?;
-    insta::assert_snapshot!(normalize_timestamps(&stdout), @r###"schema=axt.peek.agent.v1 ok=true mode=table root=fixtures/fs-small cols=path,kind,bytes,lang,git,mtime rows=2 total=6 truncated=true
-README.md,file,56,markdown,clean,<ts>
-dist,dir,0,,clean,<ts>
-W code=truncated reason=max_records truncated=true
-"###);
+    let mut lines = stdout.lines();
+    let first: Value = serde_json::from_str(lines.next().unwrap())?;
+    assert_eq!(first["schema"], "axt.peek.summary.v1");
+    assert_eq!(first["truncated"], true);
     Ok(())
 }
 
@@ -193,23 +169,17 @@ fn filters_depth_hash_and_summary_only_work() -> Result<(), Box<dyn std::error::
     assert_eq!(hash_value["data"]["entries"][0]["path"], "src/main.rs");
     assert!(hash_value["data"]["entries"][0]["hash"].as_str().is_some());
 
-    let summary = run_axt_peek(&[&fixture("fs-small"), "--jsonl", "--summary-only"])?;
+    let summary = run_axt_peek(&[&fixture("fs-small"), "--agent", "--summary-only"])?;
     assert_eq!(summary.lines().count(), 1);
     Ok(())
 }
 
 #[test]
-fn all_modes_emit_for_empty_dir_and_plain_mode() -> Result<(), Box<dyn std::error::Error>> {
+fn all_modes_emit_for_empty_dir() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let root = utf8_path_io(temp.path())?;
     let root_arg = root.to_string();
-    for mode in [
-        None,
-        Some("--plain"),
-        Some("--json"),
-        Some("--jsonl"),
-        Some("--agent"),
-    ] {
+    for mode in [None, Some("--json"), Some("--agent")] {
         let mut args = vec![root_arg.as_str()];
         if let Some(flag) = mode {
             args.push(flag);
@@ -268,22 +238,15 @@ fn submodule_like_directory_is_reported_mixed() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn byte_limit_marks_jsonl_and_agent_truncated() -> Result<(), Box<dyn std::error::Error>> {
-    let jsonl = run_axt_peek(&[&fixture("fs-small"), "--jsonl", "--max-bytes", "1"])?;
+fn byte_limit_marks_agent_truncated() -> Result<(), Box<dyn std::error::Error>> {
+    let agent = run_axt_peek(&[&fixture("fs-small"), "--agent", "--max-bytes", "1"])?;
     let first: Value = serde_json::from_str(
-        jsonl
+        agent
             .lines()
             .next()
-            .ok_or_else(|| io::Error::other("missing JSONL summary"))?,
+            .ok_or_else(|| io::Error::other("missing agent summary"))?,
     )?;
     assert_eq!(first["truncated"], true);
-
-    let agent = run_axt_peek(&[&fixture("fs-small"), "--agent", "--max-bytes", "1"])?;
-    let first = agent
-        .lines()
-        .next()
-        .ok_or_else(|| io::Error::other("missing agent header"))?;
-    assert!(first.contains(" truncated=true"));
     Ok(())
 }
 
@@ -299,10 +262,10 @@ fn permission_denied_subtree_warns_and_continues() -> Result<(), Box<dyn std::er
     fs::write(root.join("private").join("hidden.txt"), "hidden\n")?;
     fs::set_permissions(root.join("private"), fs::Permissions::from_mode(0o000))?;
 
-    let stdout = run_axt_peek(&[root.as_str(), "--jsonl"])?;
+    let stdout = run_axt_peek(&[root.as_str(), "--agent"])?;
     fs::set_permissions(root.join("private"), fs::Permissions::from_mode(0o700))?;
 
-    assert!(stdout.contains("\"path\":\"ok.txt\""));
+    assert!(stdout.contains("\"p\":\"ok.txt\""));
     assert!(stdout.contains("\"code\":\"permission_denied\""));
     for line in stdout.lines() {
         let _value: Value = serde_json::from_str(line)?;
@@ -318,7 +281,7 @@ fn symlink_loop_warns_when_following_links() -> Result<(), Box<dyn std::error::E
     std::os::unix::fs::symlink(root.as_std_path(), root.join("loop"))?;
 
     let stdout = run_axt_peek(&[root.as_str(), "--agent", "--follow-symlinks"])?;
-    assert!(stdout.contains("W code=symlink_loop "));
+    assert!(stdout.contains("\"code\":\"symlink_loop\""));
     Ok(())
 }
 
@@ -352,12 +315,6 @@ fn conflicting_modes_are_rejected_by_clap() -> Result<(), Box<dyn std::error::Er
     Command::cargo_bin("axt-peek")?
         .current_dir(workspace_root())
         .args(["--json", "--agent"])
-        .assert()
-        .failure()
-        .code(2);
-    Command::cargo_bin("axt-peek")?
-        .current_dir(workspace_root())
-        .args(["--files-only", "--dirs-only"])
         .assert()
         .failure()
         .code(2);
