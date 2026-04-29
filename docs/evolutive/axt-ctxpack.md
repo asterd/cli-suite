@@ -21,8 +21,9 @@ Existing tools:
 
 Market validity: high.
 
-Coverage and impact: high. Replaces repeated search/read loops and reduces
-token waste from broad snippets.
+Coverage and impact: high. Replaces repeated search/read loops, correlates
+multiple named patterns, and reduces token waste from broad snippets by adding
+tree-sitter AST context directly to each hit.
 
 Build decision: YES.
 
@@ -43,9 +44,11 @@ market scan. Verify crates.io and package registries again before publishing.
   `--pattern name=REGEX`.
 - Support include globs through `--files <GLOB>` and repeated `--include`.
 - Emit per-hit file, line, column, byte range, pattern name, matched text,
-  snippet, and optional language.
-- Add basic hit classification: `code`, `comment`, `string`, `test`, or
-  `unknown`.
+  snippet, language, tree-sitter node kind, enclosing symbol, and AST path.
+- Classify hits with embedded tree-sitter parsers when the file language is
+  supported: `code`, `comment`, `string`, `test`, or `unknown`.
+- Emit `classification_source` as `ast`, `heuristic`, or `unknown`; fallback to
+  heuristics only for unsupported languages or files that cannot be parsed.
 - Enforce `--limit`, `--max-bytes`, and `--strict`.
 
 ## Deferred Scope
@@ -55,6 +58,7 @@ market scan. Verify crates.io and package registries again before publishing.
 - Remote repository search.
 - Rewrite or edit application.
 - Full AST query language.
+- LSP-backed semantic ranking or cross-file symbol graphs.
 
 ## CLI Sketch
 
@@ -86,10 +90,15 @@ axt-ctxpack --print-schema json
       "line": 12,
       "column": 5,
       "kind": "comment",
+      "classification_source": "ast",
+      "language": "rust",
+      "node_kind": "line_comment",
+      "enclosing_symbol": null,
+      "ast_path": ["line_comment", "source_file"],
       "snippet": "..."
     }
   ],
-  "next": ["axt-slice src/lib.rs --line 12 --agent"]
+  "next": ["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]
 }
 ```
 
@@ -100,7 +109,8 @@ axt-ctxpack --print-schema json
 | Text regex search | yes | yes | yes |
 | Gitignore traversal | yes | yes | yes |
 | UTF-8 path output | yes | yes | partial; non-UTF-8 paths warn |
-| AST classification | parser-dependent | parser-dependent | parser-dependent |
+| AST classification | yes | yes | yes |
+| Heuristic fallback | yes | yes | yes |
 
 ## Tests
 
@@ -108,7 +118,9 @@ axt-ctxpack --print-schema json
 - Regex parser tests for named patterns.
 - Fixture tests for repeated hits, overlapping patterns, no hits, hidden files,
   gitignore behavior, binary file skipping, and truncation.
-- Classification fixtures for Rust comments, strings, normal code, and tests.
+- Tree-sitter classification fixtures for Rust comments, strings, normal code,
+  enclosing functions, and tests.
+- Fallback classification fixtures for unsupported extensions and parse errors.
 - Windows path separator snapshots gated by platform where necessary.
 
 ## Skill Requirements
@@ -118,6 +130,7 @@ Create `docs/skills/axt-ctxpack/SKILL.md` with rules:
 - Use `axt-ctxpack --agent` when searching for several related patterns.
 - Prefer named patterns over separate command calls.
 - Use `--context 0` first when only locations are needed.
-- Follow `next` suggestions with `axt-slice` for exact symbol reads.
+- Use `node_kind`, `enclosing_symbol`, and `ast_path` to decide which exact
+  file region to inspect next.
 
 Update `scripts/agent/install-skills.py` only after spec approval.

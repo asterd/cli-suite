@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt ctxpack v1 envelope",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.ctxpack.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "type": "object",
+      "required": ["root", "patterns", "summary", "hits", "warnings", "next"],
+      "properties": {
+        "root": { "type": "string" },
+        "patterns": { "type": "array" },
+        "summary": { "type": "object" },
+        "hits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "pattern",
+              "path",
+              "line",
+              "column",
+              "byte_range",
+              "kind",
+              "classification_source",
+              "language",
+              "node_kind",
+              "enclosing_symbol",
+              "ast_path",
+              "matched_text",
+              "snippet"
+            ],
+            "properties": {
+              "pattern": { "type": "string" },
+              "path": { "type": "string" },
+              "line": { "type": "integer", "minimum": 1 },
+              "column": { "type": "integer", "minimum": 1 },
+              "byte_range": {
+                "type": "object",
+                "required": ["start", "end"],
+                "properties": {
+                  "start": { "type": "integer", "minimum": 0 },
+                  "end": { "type": "integer", "minimum": 0 }
+                }
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["code", "comment", "string", "test", "unknown"]
+              },
+              "classification_source": {
+                "type": "string",
+                "enum": ["ast", "heuristic", "unknown"]
+              },
+              "language": { "type": ["string", "null"] },
+              "node_kind": { "type": ["string", "null"] },
+              "enclosing_symbol": { "type": ["string", "null"] },
+              "ast_path": { "type": "array", "items": { "type": "string" } },
+              "matched_text": { "type": "string" },
+              "snippet": { "type": "string" }
+            }
+          }
+        },
+        "warnings": { "type": "array" },
+        "next": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  }
+}

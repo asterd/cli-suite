@@ -1,0 +1,30 @@
+---
+source: crates/axt-ctxpack/tests/modes.rs
+expression: "String::from_utf8(human.get_output().stdout.clone())?"
+---
+root=. patterns=2 files=1 hits=5 warnings=0 bytes_scanned=280 truncated=false
+../../fixtures/axt-ctxpack/src/lib.rs:2:6 todo string "TODO"
+  ast source=ast lang=rust node=string_content symbol=build_message
+  1:pub fn build_message() -> &'static str {
+  2:    "TODO in a string"
+  3:}
+../../fixtures/axt-ctxpack/src/lib.rs:5:4 todo comment "TODO"
+  ast source=ast lang=rust node=line_comment symbol=-
+  4:
+  5:// TODO: replace temporary fallback
+  6:pub fn unwrap_value(value: Option<u32>) -> u32 {
+../../fixtures/axt-ctxpack/src/lib.rs:14:21 todo test "TODO"
+  ast source=ast lang=rust node=string_content symbol=todo_test
+  13:    fn todo_test() {
+  14:        assert_eq!("TODO", "TODO");
+  15:    }
+../../fixtures/axt-ctxpack/src/lib.rs:14:29 todo test "TODO"
+  ast source=ast lang=rust node=string_content symbol=todo_test
+  13:    fn todo_test() {
+  14:        assert_eq!("TODO", "TODO");
+  15:    }
+../../fixtures/axt-ctxpack/src/lib.rs:7:11 unwrap code "unwrap_or"
+  ast source=ast lang=rust node=field_identifier symbol=unwrap_value
+  6:pub fn unwrap_value(value: Option<u32>) -> u32 {
+  7:    value.unwrap_or(7)
+  8:}

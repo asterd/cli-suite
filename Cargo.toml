@@ -12,6 +12,7 @@ members = [
   "crates/axt-port",
   "crates/axt-test",
   "crates/axt-outline",
+  "crates/axt-ctxpack",
 ]
 
 [workspace.package]
@@ -60,6 +61,7 @@ tempfile = "3"
 schemars = "0.8"
 jsonschema = "0.18"
 globset = "0.4"
+regex = "1"
 libc = "0.2"
 windows-sys = "0.59"
 sysinfo = { version = "0.32", default-features = false, features = ["system", "user"] }

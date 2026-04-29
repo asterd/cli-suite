@@ -1,0 +1,41 @@
+.TH AXT-CTXPACK 1
+.SH NAME
+axt-ctxpack \- search local files for multiple named regex patterns
+.SH SYNOPSIS
+.B axt-ctxpack
+--pattern NAME=REGEX [--pattern NAME=REGEX]... [ROOT...]
+.SH DESCRIPTION
+.B axt-ctxpack
+performs bounded multi-pattern context search over local UTF-8 text files.
+Directory traversal is gitignore-aware by default. Supported source files are
+classified with embedded tree-sitter parsers; unsupported files fall back to
+line heuristics.
+.SH OPTIONS
+.TP
+.B --pattern NAME=REGEX
+Named regex to search for. Repeatable and required.
+.TP
+.B --files GLOB
+Include glob. Repeatable.
+.TP
+.B --include GLOB
+Include glob. Repeatable.
+.TP
+.B --context N
+Context lines around each match. Default: 0.
+.TP
+.B --hidden
+Include hidden files.
+.TP
+.B --no-ignore
+Disable ignore and gitignore filters.
+.TP
+.B --json, --json-data, --jsonl, --agent, --plain
+Select output mode.
+.TP
+.B --limit N, --max-bytes BYTES, --strict
+Control output truncation.
+.SH EXIT STATUS
+0 on success, 2 for invalid input, 3 for missing paths, 4 for permission errors, 6 for strict truncation, and 8 for filesystem or output errors.
+.SH SEE ALSO
+axt-outline(1)

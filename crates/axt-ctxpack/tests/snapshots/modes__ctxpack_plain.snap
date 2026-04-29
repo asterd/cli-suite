@@ -1,0 +1,17 @@
+---
+source: crates/axt-ctxpack/tests/modes.rs
+expression: "String::from_utf8(plain.get_output().stdout.clone())?"
+---
+root=. patterns=1 files=1 hits=4 warnings=0 bytes_scanned=280 truncated=false
+../../fixtures/axt-ctxpack/src/lib.rs:2:6 todo string "TODO"
+  ast source=ast lang=rust node=string_content symbol=build_message
+  2:    "TODO in a string"
+../../fixtures/axt-ctxpack/src/lib.rs:5:4 todo comment "TODO"
+  ast source=ast lang=rust node=line_comment symbol=-
+  5:// TODO: replace temporary fallback
+../../fixtures/axt-ctxpack/src/lib.rs:14:21 todo test "TODO"
+  ast source=ast lang=rust node=string_content symbol=todo_test
+  14:        assert_eq!("TODO", "TODO");
+../../fixtures/axt-ctxpack/src/lib.rs:14:29 todo test "TODO"
+  ast source=ast lang=rust node=string_content symbol=todo_test
+  14:        assert_eq!("TODO", "TODO");

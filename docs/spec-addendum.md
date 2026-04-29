@@ -1,7 +1,7 @@
 # `axt` Foundation CLI Suite — Spec Addendum: Additional Commands
 
 **Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7).
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-ctxpack` (Phase 8).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -40,7 +40,10 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 **Phase 7 (evolutive command):**
 - `axt-outline` — compact local source outlines for declarations, signatures, docs, visibility, paths, and ranges.
 
-**Total surface**: 7 binaries after Phase 7.
+**Phase 8 (evolutive command):**
+- `axt-ctxpack` — bounded multi-pattern, multi-file local context search for coding agents.
+
+**Total surface**: 8 binaries after Phase 8.
 
 ---
 
@@ -55,6 +58,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-port` | 5 | Find and (optionally) free processes that hold TCP/UDP ports. |
 | `axt-test` | 6 | Run a project's test suite and emit normalized JSON/JSONL plus compact ACF for agents, regardless of framework. |
 | `axt-outline` | 7 | Emit compact local source outlines without function bodies. |
+| `axt-ctxpack` | 8 | Search local files for multiple named regex patterns with compact snippets and tree-sitter hit classification in one bounded call. |
 
 ---
 
@@ -416,6 +420,112 @@ S run="axt-slice src/lib.rs --symbol parse_config --agent"
 - Full repository graph computation.
 - LSP-backed symbol resolution and cross-file graph ranking. The tree-sitter layer is intentionally declaration-focused.
 
+## 11.6 — `axt-ctxpack` (Phase 8)
+
+### 11.6.1 Purpose
+
+`axt-ctxpack` performs multi-pattern, multi-file context search in one bounded local call. It is for agents that would otherwise run several `rg` commands and then read line ranges manually. It goes beyond `rg --json` by correlating named patterns and classifying hits through embedded tree-sitter parsers where possible.
+
+### 11.6.2 CLI surface
+
+```
+axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --json
+axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2 --agent
+axt-ctxpack --print-schema json
+
+  ROOT...
+  --pattern <NAME=REGEX>       repeatable named regex
+  --files <GLOB>               include glob, repeatable
+  --include <GLOB>             include glob, repeatable
+  --context <N>                context lines around each match; default 0
+  --max-depth <N>              directory traversal depth; default 16
+  --hidden                     include hidden files
+  --no-ignore                  disable ignore and gitignore filters
+```
+
+Standard shared flags apply: `--plain`, `--json`, `--json-data`, `--jsonl`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+
+### 11.6.3 Scope
+
+- Local regex/text search only.
+- Multiple repeated named patterns using `--pattern name=REGEX`.
+- File and directory roots.
+- Include globs via `--files` and `--include`.
+- Gitignore-aware directory traversal by default.
+- Deterministic ordering by path, pattern order, and source position.
+- Per-hit fields: `pattern`, `path`, `line`, `column`, `byte_range`, `kind`, `classification_source`, `language`, `node_kind`, `enclosing_symbol`, `ast_path`, `matched_text`, and `snippet`.
+- Tree-sitter hit classification for supported languages: `code`, `comment`, `string`, `test`, or `unknown`.
+- Heuristic fallback only when the file language is unsupported or the source cannot be parsed.
+- Optional alias binary `ctxpack` behind the `aliases` feature.
+- Schema prefix `axt.ctxpack.v1`.
+
+### 11.6.4 Output contract
+
+JSON uses the `axt.ctxpack.v1` envelope. JSON data includes:
+
+```json
+{
+  "root": ".",
+  "patterns": [{"name": "todo", "query": "TODO", "kind": "regex"}],
+  "summary": {"roots": 1, "files_scanned": 10, "files_matched": 1, "hits": 3, "warnings": 0, "bytes_scanned": 8192, "truncated": false},
+  "hits": [
+    {
+      "pattern": "todo",
+      "path": "src/lib.rs",
+      "line": 12,
+      "column": 5,
+      "byte_range": {"start": 240, "end": 244},
+      "kind": "comment",
+      "classification_source": "ast",
+      "language": "rust",
+      "node_kind": "line_comment",
+      "enclosing_symbol": null,
+      "ast_path": ["line_comment", "source_file"],
+      "matched_text": "TODO",
+      "snippet": "12:// TODO: tighten this"
+    }
+  ],
+  "warnings": [],
+  "next": ["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]
+}
+```
+
+JSONL records:
+
+- `axt.ctxpack.summary.v1`
+- `axt.ctxpack.hit.v1`
+- `axt.ctxpack.warn.v1`
+
+Agent mode:
+
+```text
+schema=axt.ctxpack.agent.v1 ok=true mode=records patterns=2 files=10 matched=1 hits=3 warnings=0 bytes=8192 truncated=false
+H pattern=todo path=src/lib.rs line=12 col=5 start=240 end=244 kind=comment src=ast lang=rust node=line_comment symbol=- text=TODO snippet="12:// TODO: tighten this"
+S run="axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"
+```
+
+`H` is the command-specific hit record prefix.
+
+### 11.6.5 Definition of done for v0.8
+
+1. New crate `crates/axt-ctxpack` and binary `axt-ctxpack`.
+2. Optional alias `ctxpack` behind the `aliases` feature.
+3. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+4. Named regex patterns, roots, include globs, gitignore-aware walking, context lines, and deterministic ordering.
+5. Hit fields and tree-sitter kind classification with documented heuristic fallback.
+6. Truncation through `--limit`, `--max-bytes`, and `--strict`.
+7. `docs/commands/ctxpack.md`, `docs/man/axt-ctxpack.1`, and `docs/skills/axt-ctxpack/SKILL.md`.
+8. Fixture and snapshot tests for output modes plus focused tests for named patterns, overlapping hits, no hits, hidden files, ignored files, binary skipping, snippets, and truncation.
+
+### 11.6.6 Deferred scope
+
+- Semantic search.
+- Embeddings.
+- Remote repository search.
+- Rewrite or edit application.
+- Full AST query language.
+- LSP-backed semantic ranking or cross-file symbol graphs.
+
 ---
 
 ## Updated cross-platform matrix (additions to section 4)
@@ -441,6 +551,11 @@ S run="axt-slice src/lib.rs --symbol parse_config --agent"
 | `axt-outline`: Java outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
 | `axt-outline`: PHP outlines | ✅ | ✅ | ✅ | embedded tree-sitter grammar |
 | `axt-outline`: LSP ranking | ❌ | ❌ | ❌ | deferred; no external server dependency |
+| `axt-ctxpack`: text regex search | ✅ | ✅ | ✅ | Rust regex engine; no network or external tools |
+| `axt-ctxpack`: gitignore traversal | ✅ | ✅ | ✅ | uses the shared ignore-aware filesystem walker |
+| `axt-ctxpack`: UTF-8 path output | ✅ | ✅ | ⚠️ | non-UTF-8 paths are skipped with warnings |
+| `axt-ctxpack`: AST classification | ✅ | ✅ | ✅ | embedded tree-sitter grammars for Rust, TypeScript, JavaScript, Python, Go, Java, and PHP |
+| `axt-ctxpack`: heuristic fallback | ✅ | ✅ | ✅ | used only for unsupported languages or parse errors |
 
 ---
 
@@ -492,6 +607,21 @@ Steps:
 7. Run all standard quality gates.
 
 Done criteria: see 11.5.5.
+
+### Milestone 8 — `axt-ctxpack` (target: 3–5 days)
+
+Build `axt-ctxpack`. Do not add other new commands. Do not add semantic search, embeddings, edit application, or a full AST query language in this milestone.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-ctxpack`.
+3. Implement named regex patterns, root traversal, include globs, snippets, and tree-sitter hit classification.
+4. Implement renderers for every standard output mode.
+5. Add schema, docs, man page, and skill.
+6. Add fixtures, snapshots, and focused tests.
+7. Run all standard quality gates.
+
+Done criteria: see 11.6.5.
 
 ---
 

@@ -2,7 +2,8 @@
 
 `axt` is a set of small, native command-line tools for inspecting local projects,
 running commands, checking environment problems, tracking file changes, inspecting
-ports, normalizing test output, and extracting source outlines.
+ports, normalizing test output, extracting source outlines, and packing
+multi-pattern code context.
 
 The goal is to make local developer and agent workflows easier to automate
 without turning every task into a custom shell script. Each command does one job,
@@ -21,6 +22,7 @@ The suite is intentionally narrow:
 | `axt-port` | Inspect local TCP/UDP port holders and optionally free ports. |
 | `axt-test` | Run and normalize test suites across common frameworks. |
 | `axt-outline` | Emit compact tree-sitter source outlines without function bodies. |
+| `axt-ctxpack` | Search multiple named patterns and classify hits with tree-sitter context. |
 
 ## Compatibility Matrix
 
@@ -33,6 +35,7 @@ The suite is intentionally narrow:
 | `axt-port` | Yes | Yes | Yes | macOS uses local `lsof`; Windows uses local `netstat`, PowerShell process lookup, and `taskkill`. |
 | `axt-test` | Yes | Yes | Yes | Framework support depends on the local toolchain being installed. |
 | `axt-outline` | Yes | Yes | Yes | Uses embedded tree-sitter grammars; no parser tools or LSP servers required. |
+| `axt-ctxpack` | Yes | Yes | Yes | Uses embedded tree-sitter grammars where supported and heuristic fallback otherwise. |
 
 When a feature cannot be implemented on a platform, commands return
 `feature_unsupported` with exit code `9` rather than silently degrading.
@@ -105,6 +108,7 @@ only when explicitly installed with the `aliases` feature:
 | `axt-port` | `port` |
 | `axt-test` | `test` |
 | `axt-outline` | `outline` |
+| `axt-ctxpack` | `ctxpack` |
 
 There are no `ax-*` aliases. Prefer canonical `axt-*` names in scripts and CI.
 See [docs/installation.md](docs/installation.md) for the full install matrix and
@@ -124,6 +128,7 @@ contracts, examples, error codes, and cross-platform notes:
 | `axt-port` | [docs/commands/port.md](docs/commands/port.md) |
 | `axt-test` | [docs/commands/test.md](docs/commands/test.md) |
 | `axt-outline` | [docs/commands/outline.md](docs/commands/outline.md) |
+| `axt-ctxpack` | [docs/commands/ctxpack.md](docs/commands/ctxpack.md) |
 
 ### `axt-peek`
 
@@ -310,6 +315,34 @@ Y path=src/lib.rs lang=rust kind=fn visibility=pub name=parse_config line=42 end
 Use it before reading large source files when symbol-level context is enough.
 Full options and output contracts:
 [docs/commands/outline.md](docs/commands/outline.md).
+
+### `axt-ctxpack`
+
+Searches local files for several named regex patterns in one bounded pass. Each
+hit includes file, line, byte range, snippet, language, tree-sitter node kind,
+enclosing symbol, and a classification such as `comment`, `string`, `test`, or
+`code`.
+
+```bash
+axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --json
+axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2 --agent
+axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --jsonl --limit 50
+```
+
+Output examples:
+
+```text
+src/lib.rs:12:5 todo comment "TODO"
+```
+
+```text
+schema=axt.ctxpack.agent.v1 ok=true mode=records patterns=2 files=10 matched=1 hits=3 warnings=0 bytes=8192 truncated=false
+H pattern=todo path=src/lib.rs line=12 col=5 start=240 end=244 kind=comment src=ast lang=rust node=line_comment symbol=- text=TODO snippet="12:// TODO: tighten this"
+```
+
+Use it when an agent would otherwise run several `rg` commands and then inspect
+line ranges manually. Full options and output contracts:
+[docs/commands/ctxpack.md](docs/commands/ctxpack.md).
 
 ## Security and Production Notes
 
