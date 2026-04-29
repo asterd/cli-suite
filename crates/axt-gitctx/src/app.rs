@@ -902,16 +902,15 @@ fn agent_would_truncate(
         next: &data.next,
     };
     let mut bytes = json_record_len(&summary)?;
-    let mut records = 1;
     if ctx.limits.max_records == 0 || bytes > ctx.limits.max_bytes {
         return Ok(true);
     }
-    for record in detail_records {
+    for (index, record) in detail_records.iter().enumerate() {
+        let records = index + 1;
         let len = json_record_len(record)?;
         if records >= ctx.limits.max_records || bytes + len > ctx.limits.max_bytes {
             return Ok(true);
         }
-        records += 1;
         bytes += len;
     }
     Ok(false)
