@@ -703,6 +703,103 @@ The summary record is always first and includes `next` hints.
    `docs/skills/axt-bundle/SKILL.md`.
 6. Tests for JSON envelope and summary-first agent output.
 
+## 11.8 — `axt-gitctx` (Phase 10)
+
+### 11.8.1 Purpose
+
+`axt-gitctx` returns the local Git state an agent usually needs in one bounded
+call: repository root, branch, upstream, ahead/behind counts, dirty state,
+changed files, diff stats, recent commits, and small inline diffs.
+
+This command is distinct from a general `axt-git` porcelain replacement. It is
+read-only, local-only, provider-neutral context for coding-agent loops.
+
+### 11.8.2 CLI surface
+
+```
+axt-gitctx [ROOT]
+axt-gitctx . --agent
+axt-gitctx --commits 5 --inline-diff-max-bytes 12000 --json
+
+  ROOT                                  repository path; default .
+  --commits <N>                         recent commits to include; default 5
+  --inline-diff-max-bytes <BYTES>       per-file inline diff byte cap; default 12000
+  --changed-only                        omit recent commits when only file changes are needed
+```
+
+Standard shared flags apply: `--json`, `--agent`, `--print-schema`,
+`--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+
+### 11.8.3 Scope
+
+- Detect the current local repository worktree.
+- Return branch, upstream, ahead, behind, and dirty state.
+- Return changed files with status, additions, deletions, hunk count, byte size,
+  and optional previous path for renames.
+- Include recent commits with hash, subject, author, timestamp, and relative age
+  where available.
+- Include inline diffs only when the diff is at or below
+  `--inline-diff-max-bytes`.
+- Use deterministic ordering from Git status output.
+- Optional alias binary `gitctx` behind the `aliases` feature.
+- Schema prefix `axt.gitctx.v1`.
+- Never invoke network commands or hosting-provider APIs.
+
+### 11.8.4 Output contract
+
+JSON uses the `axt.gitctx.v1` envelope. JSON data includes:
+
+```json
+{
+  "repo": ".",
+  "root": "/work/repo",
+  "branch": {"name": "main", "upstream": "origin/main", "ahead": 1, "behind": 0},
+  "summary": {"changed": 3, "staged": 1, "unstaged": 2, "untracked": 1, "added": 10, "deleted": 4, "dirty": true, "truncated": false},
+  "files": [
+    {"path": "src/lib.rs", "previous_path": null, "status": "modified", "index_status": "modified", "worktree_status": "modified", "additions": 10, "deletions": 4, "hunks": 2, "bytes": 1200, "diff_inline": true, "diff_truncated": false, "diff": "..."}
+  ],
+  "commits": [{"hash": "abc1234", "subject": "fix parser", "author": "axt tests", "timestamp": "2026-04-27T10:12:00Z", "age": "2d"}],
+  "next": ["axt-slice src/lib.rs --agent"]
+}
+```
+
+Agent JSONL records:
+
+- `axt.gitctx.summary.v1`
+- `axt.gitctx.file.v1`
+- `axt.gitctx.commit.v1`
+- `axt.gitctx.warn.v1`
+
+Agent mode:
+
+```jsonl
+{"schema":"axt.gitctx.summary.v1","type":"summary","ok":true,"repo":".","branch":"main","upstream":"origin/main","ahead":1,"behind":0,"changed":3,"staged":1,"unstaged":2,"untracked":1,"dirty":true,"truncated":false,"next":["axt-slice src/lib.rs --agent"]}
+{"schema":"axt.gitctx.file.v1","type":"file","p":"src/lib.rs","g":"modified","idx":"modified","wt":"modified","add":10,"del":4,"hunks":2,"b":1200,"diff_inline":true,"diff":"..."}
+{"schema":"axt.gitctx.commit.v1","type":"commit","hash":"abc1234","subject":"fix parser","author":"axt tests","ts":"2026-04-27T10:12:00Z","age":"2d"}
+```
+
+### 11.8.5 Definition of done for v0.10
+
+1. New crate `crates/axt-gitctx` and binary `axt-gitctx`.
+2. Optional alias `gitctx` behind the `aliases` feature.
+3. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+4. Repository discovery, branch/upstream, ahead/behind, dirty state, changed
+   files, diff stats, recent commits, and bounded inline diffs.
+5. Truncation through `--limit`, `--max-bytes`, and `--strict`.
+6. `docs/commands/gitctx.md`, `docs/man/axt-gitctx.1`, and
+   `docs/skills/axt-gitctx/SKILL.md`.
+7. Fixture and snapshot tests for human, JSON, and agent output plus focused
+   tests for clean, dirty, staged, untracked, renamed, deleted, no-git,
+   ahead/behind with local bare remotes, inline diff thresholds, and truncation.
+
+### 11.8.6 Deferred scope
+
+- Pull request metadata.
+- Remote hosting APIs.
+- Network fetch, pull, push, or ls-remote operations.
+- Interactive diff viewing.
+- Commit creation or mutation.
+
 ---
 
 ## Updated cross-platform matrix (additions to section 4)
@@ -736,6 +833,9 @@ The summary record is always first and includes `next` hints.
 | `axt-bundle`: file inventory | ✅ | ✅ | ✅ | shared ignore-aware walker |
 | `axt-bundle`: manifest previews | ✅ | ✅ | ✅ | UTF-8 text manifests only |
 | `axt-bundle`: Git state | ✅ | ✅ | ✅ | included only in readable local worktrees |
+| `axt-gitctx`: Git discovery/status/log/diff | ✅ | ✅ | ✅ | requires local Git executable for detailed context; no network commands |
+| `axt-gitctx`: symlink and executable-bit diffs | ✅ | ✅ | ⚠️ | Windows mode details depend on Git configuration and filesystem support |
+| `axt-gitctx`: ahead/behind | ✅ | ✅ | ✅ | local refs only; no fetch or remote network access |
 
 ---
 
@@ -836,6 +936,23 @@ Steps:
 7. Run all standard quality gates.
 
 Done criteria: see 11.7.5.
+
+### Milestone 10 — `axt-gitctx` (target: 3–5 days)
+
+Build `axt-gitctx` as a bounded local Git context command. Do not add remote
+hosting metadata, mutation commands, or other new binaries in this milestone.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-gitctx`.
+3. Implement repository discovery, branch/upstream, ahead/behind, dirty state,
+   changed files, diff stats, recent commits, and bounded inline diffs.
+4. Implement renderers for every standard output mode.
+5. Add schema, docs, man page, and skill.
+6. Add fixtures, snapshots, and focused temporary-repository tests.
+7. Run all standard quality gates.
+
+Done criteria: see 11.8.5.
 
 ---
 

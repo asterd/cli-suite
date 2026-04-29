@@ -1,0 +1,25 @@
+{"run_id":"1777472231-805175000","line":57,"new":{"module_name":"modes","snapshot_name":"human_json_and_agent_match_snapshots-2","metadata":{"source":"crates/axt-gitctx/tests/modes.rs","assertion_line":57,"expression":"normalize_output(&json, &root)"},"snapshot":"{\"schema\":\"axt.gitctx.v1\",\"ok\":true,\"data\":{\"repo\":\".\",\"root\":\"/private<root>\",\"branch\":{\"name\":\"main\",\"upstream\":null,\"ahead\":0,\"behind\":0},\"summary\":{\"changed\":2,\"staged\":0,\"unstaged\":2,\"untracked\":1,\"added\":3,\"deleted\":1,\"dirty\":true,\"truncated\":false},\"files\":[{\"path\":\"tracked.txt\",\"previous_path\":null,\"status\":\"modified\",\"index_status\":null,\"worktree_status\":\"modified\",\"additions\":1,\"deletions\":1,\"hunks\":1,\"bytes\":12,\"diff_inline\":false,\"diff_truncated\":true,\"diff\":null},{\"path\":\"new.txt\",\"previous_path\":null,\"status\":\"untracked\",\"index_status\":\"untracked\",\"worktree_status\":\"untracked\",\"additions\":2,\"deletions\":0,\"hunks\":0,\"bytes\":9,\"diff_inline\":false,\"diff_truncated\":true,\"diff\":null}],\"commits\":[{\"hash\":\"<hash>\",\"subject\":\"initial\",\"author\":\"axt tests\",\"timestamp\":\"<ts>\",\"age\":\"<age>\"}],\"next\":[\"axt-slice tracked.txt --agent\",\"axt-slice new.txt --agent\"]},\"warnings\":[],\"errors\":[]}"},"old":{"module_name":"modes","metadata":{},"snapshot":"{\"schema\":\"axt.gitctx.v1\",\"ok\":true,\"data\":{\"repo\":\".\",\"root\":\"<root>\",\"branch\":{\"name\":\"main\",\"upstream\":null,\"ahead\":0,\"behind\":0},\"summary\":{\"changed\":2,\"staged\":0,\"unstaged\":2,\"untracked\":1,\"added\":3,\"deleted\":1,\"dirty\":true,\"truncated\":false},\"files\":[{\"path\":\"tracked.txt\",\"previous_path\":null,\"status\":\"modified\",\"index_status\":null,\"worktree_status\":\"modified\",\"additions\":1,\"deletions\":1,\"hunks\":1,\"bytes\":12,\"diff_inline\":false,\"diff_truncated\":true,\"diff\":null},{\"path\":\"new.txt\",\"previous_path\":null,\"status\":\"untracked\",\"index_status\":\"untracked\",\"worktree_status\":\"untracked\",\"additions\":2,\"deletions\":0,\"hunks\":0,\"bytes\":9,\"diff_inline\":false,\"diff_truncated\":true,\"diff\":null}],\"commits\":[{\"hash\":\"<hash>\",\"subject\":\"initial\",\"author\":\"axt tests\",\"timestamp\":\"<ts>\",\"age\":\"<age>\"}],\"next\":[\"axt-slice tracked.txt --agent\",\"axt-slice new.txt --agent\"]},\"warnings\":[],\"errors\":[]}"}}
+{"run_id":"1777472246-442315000","line":40,"new":null,"old":null}
+{"run_id":"1777472246-442315000","line":57,"new":null,"old":null}
+{"run_id":"1777472246-442315000","line":64,"new":null,"old":null}
+{"run_id":"1777472331-943600000","line":40,"new":null,"old":null}
+{"run_id":"1777472331-943600000","line":57,"new":null,"old":null}
+{"run_id":"1777472331-943600000","line":64,"new":null,"old":null}
+{"run_id":"1777472363-55406000","line":40,"new":null,"old":null}
+{"run_id":"1777472363-55406000","line":57,"new":null,"old":null}
+{"run_id":"1777472363-55406000","line":64,"new":null,"old":null}
+{"run_id":"1777472532-142179000","line":40,"new":null,"old":null}
+{"run_id":"1777472532-142179000","line":57,"new":null,"old":null}
+{"run_id":"1777472532-142179000","line":64,"new":null,"old":null}
+{"run_id":"1777472564-173196000","line":40,"new":null,"old":null}
+{"run_id":"1777472564-173196000","line":57,"new":null,"old":null}
+{"run_id":"1777472564-173196000","line":64,"new":null,"old":null}
+{"run_id":"1777472897-64890000","line":40,"new":null,"old":null}
+{"run_id":"1777472897-64890000","line":57,"new":null,"old":null}
+{"run_id":"1777472897-64890000","line":64,"new":null,"old":null}
+{"run_id":"1777472907-516160000","line":40,"new":null,"old":null}
+{"run_id":"1777472907-516160000","line":57,"new":null,"old":null}
+{"run_id":"1777472907-516160000","line":64,"new":null,"old":null}
+{"run_id":"1777472951-821503000","line":40,"new":null,"old":null}
+{"run_id":"1777472951-821503000","line":57,"new":null,"old":null}
+{"run_id":"1777472951-821503000","line":64,"new":null,"old":null}

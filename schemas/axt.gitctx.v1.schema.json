@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.gitctx.v1",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.gitctx.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "type": "object",
+      "required": ["repo", "root", "branch", "summary", "files", "commits", "next"],
+      "properties": {
+        "repo": { "type": "string" },
+        "root": { "type": "string" },
+        "branch": {
+          "type": "object",
+          "required": ["name", "upstream", "ahead", "behind"],
+          "properties": {
+            "name": { "type": ["string", "null"] },
+            "upstream": { "type": ["string", "null"] },
+            "ahead": { "type": "integer", "minimum": 0 },
+            "behind": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "changed",
+            "staged",
+            "unstaged",
+            "untracked",
+            "added",
+            "deleted",
+            "dirty",
+            "truncated"
+          ],
+          "properties": {
+            "changed": { "type": "integer", "minimum": 0 },
+            "staged": { "type": "integer", "minimum": 0 },
+            "unstaged": { "type": "integer", "minimum": 0 },
+            "untracked": { "type": "integer", "minimum": 0 },
+            "added": { "type": "integer", "minimum": 0 },
+            "deleted": { "type": "integer", "minimum": 0 },
+            "dirty": { "type": "boolean" },
+            "truncated": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "previous_path",
+              "status",
+              "index_status",
+              "worktree_status",
+              "additions",
+              "deletions",
+              "hunks",
+              "bytes",
+              "diff_inline",
+              "diff_truncated",
+              "diff"
+            ],
+            "properties": {
+              "path": { "type": "string" },
+              "previous_path": { "type": ["string", "null"] },
+              "status": { "$ref": "#/$defs/status" },
+              "index_status": { "anyOf": [{ "$ref": "#/$defs/status" }, { "type": "null" }] },
+              "worktree_status": { "anyOf": [{ "$ref": "#/$defs/status" }, { "type": "null" }] },
+              "additions": { "type": "integer", "minimum": 0 },
+              "deletions": { "type": "integer", "minimum": 0 },
+              "hunks": { "type": "integer", "minimum": 0 },
+              "bytes": { "type": "integer", "minimum": 0 },
+              "diff_inline": { "type": "boolean" },
+              "diff_truncated": { "type": "boolean" },
+              "diff": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "commits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hash", "subject", "author", "timestamp", "age"],
+            "properties": {
+              "hash": { "type": "string" },
+              "subject": { "type": "string" },
+              "author": { "type": "string" },
+              "timestamp": { "type": ["string", "null"] },
+              "age": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "next": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "modified",
+        "added",
+        "deleted",
+        "renamed",
+        "copied",
+        "unmerged",
+        "untracked",
+        "ignored",
+        "unknown"
+      ]
+    }
+  }
+}

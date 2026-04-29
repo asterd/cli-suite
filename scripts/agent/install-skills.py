@@ -20,6 +20,7 @@ SKILLS = (
     "axt-slice",
     "axt-ctxpack",
     "axt-bundle",
+    "axt-gitctx",
 )
 
 

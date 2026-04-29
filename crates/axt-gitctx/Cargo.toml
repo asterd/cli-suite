@@ -1,0 +1,44 @@
+[package]
+name = "axt-gitctx"
+description = "Local Git context for the axt Foundation CLI Suite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "axt-gitctx"
+path = "src/main.rs"
+
+[[bin]]
+name = "gitctx"
+path = "src/bin/gitctx.rs"
+required-features = ["aliases"]
+
+[features]
+default = []
+aliases = []
+
+[package.metadata.dist]
+dist = true
+
+[dependencies]
+axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
+axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
+anyhow.workspace = true
+camino.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+insta.workspace = true
+jsonschema.workspace = true
+tempfile.workspace = true

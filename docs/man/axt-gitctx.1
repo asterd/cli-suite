@@ -1,0 +1,52 @@
+.TH AXT-GITCTX 1
+.SH NAME
+axt-gitctx \- emit bounded local Git context
+.SH SYNOPSIS
+.B axt-gitctx
+[\fIROOT\fR] [--json|--agent] [--commits \fIN\fR] [--inline-diff-max-bytes \fIBYTES\fR]
+.SH DESCRIPTION
+.B axt-gitctx
+returns repository root, branch, upstream, ahead/behind counts, dirty state,
+changed files, diff stats, recent commits, and small inline diffs in one
+bounded local call.
+.SH OPTIONS
+.TP
+.B --commits N
+Recent commits to include. Default 5.
+.TP
+.B --inline-diff-max-bytes BYTES
+Maximum bytes for each inline diff. Default 12000.
+.TP
+.B --changed-only
+Omit recent commits.
+.TP
+.B --json
+Emit the axt.gitctx.v1 JSON envelope.
+.TP
+.B --agent
+Emit minified summary-first JSONL records.
+.TP
+.B --print-schema [human|json|agent]
+Print the selected output contract and exit.
+.TP
+.B --list-errors
+Print the standard axt error catalog as JSONL and exit.
+.TP
+.B --limit N
+Maximum agent records.
+.TP
+.B --max-bytes BYTES
+Maximum agent output bytes.
+.TP
+.B --strict
+Exit non-zero if output truncation is required.
+.SH EXIT STATUS
+Uses the standard axt exit-code catalog. Notable codes include 0 for success,
+3 for path_not_found, 6 for output_truncated_strict, 8 for io_error, and 12 for
+git_unavailable.
+.SH SEE ALSO
+.BR axt-peek (1),
+.BR axt-slice (1),
+.BR git-status (1),
+.BR git-diff (1),
+.BR git-log (1)

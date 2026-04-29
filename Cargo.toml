@@ -15,6 +15,7 @@ members = [
   "crates/axt-slice",
   "crates/axt-ctxpack",
   "crates/axt-bundle",
+  "crates/axt-gitctx",
 ]
 
 [workspace.package]
