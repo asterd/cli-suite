@@ -128,7 +128,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
 
     if let Some(format) = args.common.print_schema {
-        print_schema(format)?;
+        print_schema(format);
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -363,23 +363,10 @@ impl Renderable for BundleData {
     }
 }
 
-fn print_schema(format: SchemaFormat) -> anyhow::Result<()> {
+fn print_schema(format: SchemaFormat) {
     match format {
         SchemaFormat::Json => {
-            let schema = serde_json::json!({
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "title": "axt.bundle.v1",
-                "type": "object",
-                "required": ["schema", "ok", "data", "warnings", "errors"],
-                "properties": {
-                    "schema": { "const": "axt.bundle.v1" },
-                    "ok": { "type": "boolean" },
-                    "data": { "type": "object" },
-                    "warnings": { "type": "array" },
-                    "errors": { "type": "array" }
-                }
-            });
-            println!("{}", serde_json::to_string_pretty(&schema)?);
+            print!("{}", include_str!("../../../schemas/axt.bundle.v1.schema.json"));
         }
         SchemaFormat::Agent => println!(
             "schema=axt.bundle.agent.v1 records=axt.bundle.summary.v1,axt.bundle.manifest.v1,axt.bundle.git.v1,axt.bundle.file.v1,axt.bundle.warn.v1 first=summary"
@@ -388,7 +375,6 @@ fn print_schema(format: SchemaFormat) -> anyhow::Result<()> {
             println!("schema=axt.bundle.human.v1 sections=summary,manifests,git");
         }
     }
-    Ok(())
 }
 
 fn write_error_catalog(

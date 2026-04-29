@@ -1,60 +1,89 @@
 # axt-peek
 
 `axt-peek` returns a compact directory snapshot: paths, entry kind, size,
-language, git status, mtime, and a summary.
+content type, language, Git status, modified time, optional hash, warnings, and
+summary counts.
 
-## Examples
+## Usage
 
 ```bash
+axt-peek [OPTIONS] [PATHS]...
 axt-peek
 axt-peek crates/axt-peek --depth 3
 axt-peek fixtures/fs-small --json
 axt-peek fixtures/fs-small --agent --summary-only
-axt-peek . --changed
-axt-peek . --kind file --type code --agent
+axt-peek . --changed --kind file --type code
 ```
+
+`PATHS` defaults to `.` and may include files or directories.
+
+## Options
+
+| Option | Description |
+|---|---|
+| `PATHS...` | Roots to scan. Default `.`. |
+| `--depth <N>` | Maximum traversal depth. Default `2`. |
+| `--kind all|file|dir` | Filter entry kind. Default `all`. |
+| `--include-hidden` | Include dotfiles and hidden paths. |
+| `--no-ignore` | Disable ignore, gitignore, global gitignore, and git exclude filters. |
+| `--no-git` | Skip Git discovery and status lookup. |
+| `--changed` | Include only entries with non-clean Git status. |
+| `--changed-since <REF>` | Include files changed between `<REF>` and `HEAD`. |
+| `--type text|binary|image|archive|code|config|data` | Filter by content category. |
+| `--lang <LANG>` | Include only entries whose language matches exactly. |
+| `--hash none|blake3` | Compute no hash or BLAKE3 hashes. Default `none`. |
+| `--summary-only` | Emit only the summary record/section. |
+| `--sort name|size|mtime|git|type` | Sort output entries. Default `name`. |
+| `--reverse` | Reverse sort order. |
+| `--max-file-size <SIZE>` | Skip larger regular files. |
+| `--follow-symlinks` | Follow symlinks while walking. |
+| `--cross-fs` | Allow traversal across filesystem boundaries. |
+| `--json` | Emit the `axt.peek.v1` JSON envelope. |
+| `--agent` | Emit minified summary-first JSONL records. |
+| `--color auto|always|never` | Color policy for human output. |
+| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--list-errors` | Print the standard error catalog as JSONL and exit. |
+| `--limit <N>` | Maximum agent records. Default `200`. |
+| `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
+| `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
 ## Output
 
-Default output is human on TTY stdout and agent JSONL on non-TTY stdout.
-Explicit modes are `--json` and `--agent`.
+Human mode prints a compact table:
 
-`--json` emits the `axt.peek.v1` envelope. `--agent` emits summary-first JSONL
-with records:
+```text
+path        kind  bytes  lang  git    mtime
+Cargo.toml  file  2102   toml  clean  2026-04-26T18:02:11Z
+```
+
+JSON mode emits `axt.peek.v1`. Agent mode emits summary-first JSONL:
+
+```jsonl
+{"schema":"axt.peek.summary.v1","type":"summary","ok":true,"root":".","files":42,"dirs":8,"bytes":381204,"git":"dirty","modified":5,"untracked":2,"truncated":false,"next":["axt-outline src --agent"]}
+{"schema":"axt.peek.entry.v1","type":"file","p":"Cargo.toml","b":2102,"l":"toml","g":"clean"}
+{"schema":"axt.peek.warn.v1","type":"warn","code":"truncated","reason":"max_records","truncated":true}
+```
+
+Agent record schemas:
 
 - `axt.peek.summary.v1`
 - `axt.peek.entry.v1`
 - `axt.peek.warn.v1`
 
-## Flags
-
-- `PATHS...`: roots to scan. Default `.`.
-- `--depth <N>`: maximum traversal depth. Default `2`.
-- `--kind all|file|dir`: filter entry kind. Default `all`.
-- `--include-hidden`: include dotfiles and hidden paths.
-- `--no-ignore`: disable ignore-file handling.
-- `--no-git`: skip git discovery and status lookup.
-- `--changed`: include only entries with non-clean git status.
-- `--changed-since <REF>`: include files changed between `<REF>` and `HEAD`.
-- `--type <KIND>`: filter by `text`, `binary`, `image`, `archive`, `code`,
-  `config`, or `data`.
-- `--lang <LANG>`: include only entries whose language matches exactly.
-- `--hash none|blake3`: compute no hash or BLAKE3 hashes. Default `none`.
-- `--summary-only`: emit only the summary.
-- `--sort name|size|mtime|git|type`: sort output entries. Default `name`.
-- `--reverse`: reverse sort order.
-- `--max-file-size <SIZE>`: skip larger regular files.
-- `--follow-symlinks`: follow symlinks while walking.
-- `--cross-fs`: allow traversal across filesystem boundaries.
-- `--json`: emit the JSON envelope.
-- `--agent`: emit summary-first JSONL.
-- `--color auto|always|never`: color policy for human output.
-- `--limit <N>`, `--max-bytes <BYTES>`, `--strict`: agent output limits.
-- `--print-schema [human|json|agent]`: print schema reference.
-- `--list-errors`: print the standard error catalog as JSONL.
-
 ## Cross-Platform Notes
 
-Directory walking, metadata extraction, mtime output, and git status are
-supported on Linux, macOS, and Windows. Use `--no-git` for very large
-repositories when git status is not needed.
+Directory walking, metadata extraction, mtime output, and Git status are
+supported on Linux, macOS, and Windows. Symlink loops and permission failures
+are reported as warnings where possible. Use `--no-git` for very large
+repositories when Git status is not needed.
+
+## Error Codes
+
+Standard axt error codes are available through `--list-errors`. Common
+`axt-peek` failures map to:
+
+- `path_not_found`: an input path does not exist.
+- `permission_denied`: a root cannot be read.
+- `git_unavailable`: Git status was requested but unavailable.
+- `io_error`: filesystem or output serialization failed.
+- `output_truncated_strict`: output was truncated under `--strict`.

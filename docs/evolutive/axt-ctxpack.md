@@ -1,6 +1,8 @@
 # axt-ctxpack Evolution Brief
 
-Status: proposed. Requires spec approval before implementation.
+Status: implemented in `crates/axt-ctxpack`. This brief is retained as product
+rationale; the live contract is `docs/commands/ctxpack.md` plus the approved
+spec addendum.
 
 ## Purpose
 
@@ -72,9 +74,7 @@ axt-ctxpack --print-schema json
 
 - Human: compact grouped summary by pattern and file.
 - `--json`: `axt.ctxpack.v1` envelope.
-- `--json-data`: data payload only.
-- `--jsonl`: summary record, then one hit record per match.
-- `--agent`: ACF records with stable keys.
+- `--agent`: summary-first JSONL with stable keys.
 
 ## JSON Data Shape
 
@@ -114,7 +114,7 @@ axt-ctxpack --print-schema json
 
 ## Tests
 
-- CLI mode snapshots for human, JSON, JSONL, and ACF.
+- CLI mode snapshots for human, JSON, and agent output.
 - Regex parser tests for named patterns.
 - Fixture tests for repeated hits, overlapping patterns, no hits, hidden files,
   gitignore behavior, binary file skipping, and truncation.

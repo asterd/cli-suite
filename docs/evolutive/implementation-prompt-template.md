@@ -37,8 +37,9 @@ Project rules are binding:
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
 - Diagnostics on stderr; data on stdout.
-- Support all standard output modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support all standard output modes: human, `--json`, and `--agent`, plus
+  shared flags `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`,
+  and `--strict`. `--agent` is minified summary-first JSONL.
 - Keep schemas versioned under `axt.<command>.v1`.
 - Keep the optional unprefixed alias behind the `aliases` feature.
 - Use typed errors with `thiserror` in libraries. `anyhow` is allowed only at
@@ -78,7 +79,7 @@ After I confirm:
    - `scripts/agent/install-skills.py`
    - tests and fixtures needed for this scope
 3. Keep generated output compact and deterministic.
-4. Add snapshot tests for human, JSON, JSONL, and agent output.
+4. Add snapshot tests for human, JSON, and agent output.
 5. Add unit tests for parsing, truncation, errors, and cross-platform behavior.
 6. Run quality gates:
    - `cargo fmt --all --check`
@@ -202,7 +203,7 @@ Use small sessions. Do not implement a whole complex command in one pass.
 | `axt-slice` | Rust symbol extraction from one file | Imports, line fallback, more languages |
 | `axt-gitctx` | Status, branch, recent commits, diff stats | Inline small diffs, rename details, submodules |
 | `axt-plan` | Dry-run literal/regex plans | Structural matching, apply mode |
-| `axt-logsift` | Plain text and JSONL dedup/top errors | Stack traces, time windows, format presets |
+| `axt-logsift` | Plain text log and JSONL log ingestion with agent output | Stack traces, time windows, format presets |
 | `axt-manifest` | Cargo and package.json normalization | Pyproject, Go, Dockerfile, CI YAML |
 | `axt-repomap` | Topology summary from existing primitives | Symbol integration, ranking, larger monorepos |
 | `axt-impact` | Rust research prototype with fallback | LSP process management, more languages |

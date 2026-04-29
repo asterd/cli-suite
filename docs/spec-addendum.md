@@ -1,7 +1,7 @@
 # `axt` Foundation CLI Suite — Spec Addendum: Additional Commands
 
 **Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-ctxpack` (Phase 8).
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-ctxpack` (Phase 8), `axt-bundle` (Phase 9).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -43,7 +43,10 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 **Phase 8 (evolutive command):**
 - `axt-ctxpack` — bounded multi-pattern, multi-file local context search for coding agents.
 
-**Total surface**: 8 binaries after Phase 8.
+**Phase 9 (session warmup command):**
+- `axt-bundle` — compact session warmup bundle with shallow files, manifests, Git state, and next hints.
+
+**Total surface**: 9 binaries after Phase 9.
 
 ---
 
@@ -59,6 +62,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-test` | 6 | Run a project's test suite and emit normalized JSON plus agent JSONL for agents, regardless of framework. |
 | `axt-outline` | 7 | Emit compact local source outlines without function bodies. |
 | `axt-ctxpack` | 8 | Search local files for multiple named regex patterns with compact snippets and tree-sitter hit classification in one bounded call. |
+| `axt-bundle` | 9 | Emit a session warmup bundle with files, manifests, Git state, and next hints. |
 
 ---
 
@@ -178,7 +182,10 @@ This is the only command in the suite that **mutates external state by default**
 - `--dry-run` is supported on `free` and produces the same JSON/JSONL schema and agent JSONL keys with `freed: false` and an `action: simulated` flag.
 - `--confirm` requires interactive y/n if stdout is a TTY. Non-interactive (agent) calls bypass this — the agent is responsible for explicit consent in its own loop.
 - We refuse to kill PID 1 always. We refuse to kill the current process. We refuse to kill our own parent unless `--force-self` is passed (which prints a stderr warning).
-- We respect process trees: `--tree` propagates the signal to children (process group on Unix, Job Object on Windows).
+- We respect process trees: `--tree` discovers recursive child processes through
+  local process metadata and signals each descendant. Existing Windows
+  processes are terminated with `TerminateProcess`; they are not retroactively
+  attached to a Job Object.
 - The signal escalation (`term` → `kill` after `--grace`) is documented and configurable. Default 3s grace because dev servers usually shut down cleanly within that window.
 
 ### 11.3.8 Definition of done for v0.5
@@ -205,7 +212,7 @@ This is the only command in the suite that **mutates external state by default**
 
 ### 11.4.1 Purpose
 
-Run a project's test suite and emit normalized JSON plus agent JSONL, regardless of which framework is being used. The agent calls `axt-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, mocha, junit, rspec, deno test, bun test, etc.
+Run a project's test suite and emit normalized JSON plus agent JSONL for the supported framework set. The agent calls `axt-test`, gets back a known schema, and never has to learn the JSON shapes of jest, pytest, cargo test, go test, vitest, deno test, or bun test.
 
 ### 11.4.2 Why this exists
 
@@ -244,11 +251,10 @@ Order of detection:
 1. Explicit `--framework <name>`.
 2. `axt-test.toml` or `[tool.axt-test]` in `pyproject.toml` / `package.json#axt-test`.
 3. Package files inspected:
-   - `package.json#scripts.test` and `package.json#devDependencies` for jest, vitest, mocha, ava, jasmine, bun.
+   - `package.json#scripts.test` and `package.json#devDependencies` for jest, vitest, and bun.
    - `Cargo.toml` for `cargo test` (workspaces detected).
    - `go.mod` for `go test ./...`.
-   - `pyproject.toml` for pytest / unittest.
-   - `Gemfile` for rspec / minitest.
+   - `pyproject.toml` for pytest.
    - `deno.json` for `deno test`.
 4. If multiple frameworks detected (monorepo), `axt-test` runs each in turn and merges output, prefixing path with subproject. `--single` to refuse.
 
@@ -276,7 +282,7 @@ Human mode prints a compact table with only failures expanded; success cases are
 | `failure.stack` | Full stack if the framework provides it. May be `null`. |
 | `failure.actual` / `expected` / `diff` | Filled when the framework reports them (jest, vitest, rspec); `null` otherwise. |
 
-For frameworks without native JSON, we run the framework with our own reporter where supported (e.g., `mocha --reporter <axt-test-bundled-reporter>`), or parse text output as a fallback. The agent should not need to know which path was taken.
+For frameworks without stable native JSON in common workflows, the implementation uses deterministic fallback parsers covered by fixtures. Cargo currently uses stable text parsing because libtest JSON requires nightly-only flags.
 
 ### 11.4.7 Implementation strategy
 
@@ -291,7 +297,7 @@ trait TestFrontend {
 }
 ```
 
-`NormalizedEvent` is the union of summary/suite/case events. The streaming parser is critical: long test runs must produce records as they arrive, not after the run completes. (jest's stream-json reporter, cargo test's `--format json -Z unstable-options`, go test's `-json`, pytest with `--report-output-format=json` all support streaming.)
+`NormalizedEvent` is the union of summary/suite/case events. The streaming parser is critical: long test runs must produce failure records as they arrive where line-oriented/native event output is available. Agent mode emits an initial zero-count summary to satisfy summary-first streaming, then a final authoritative summary after all frameworks finish.
 
 Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `regex` for fallback text parsers; `tokio::process` for async invocation (already in workspace for `axt-run`).
 
@@ -307,7 +313,7 @@ Crates to consider: `serde_json::Deserializer::into_iter` for streaming JSON; `r
 - deno test
 
 **Will support in v0.7+** if requested:
-- mocha (with our bundled reporter)
+- mocha
 - rspec
 - ava
 - xunit (.NET)
@@ -522,6 +528,65 @@ Agent mode:
 - Full AST query language.
 - LSP-backed semantic ranking or cross-file symbol graphs.
 
+## 11.7 — `axt-bundle` (Phase 9)
+
+### 11.7.1 Purpose
+
+`axt-bundle` emits a compact session warmup bundle for coding agents: shallow
+file inventory, recognized local manifests, Git state when available, and
+dynamic next hints in one call.
+
+### 11.7.2 CLI surface
+
+```
+axt-bundle [ROOT]
+axt-bundle . --agent
+axt-bundle . --json
+
+  --depth <N>             file inventory traversal depth; default 2
+  --max-files <N>         maximum file records retained; default 40
+  --include-hidden
+  --no-ignore
+```
+
+Standard shared flags apply: `--json`, `--agent`, `--print-schema`,
+`--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+
+### 11.7.3 Scope
+
+- Read-only local command.
+- File and directory inventory through the shared ignore-aware filesystem
+  walker.
+- Manifest previews for `Cargo.toml`, `package.json`, `pyproject.toml`,
+  `go.mod`, `deno.json`, `bun.lock`, `pnpm-lock.yaml`, and `package-lock.json`.
+- Git root, branch, modified count, and untracked count when the root is inside
+  a readable worktree.
+- Next hints for `axt-peek`, `axt-outline`, `axt-test`, and changed-file
+  inspection when applicable.
+- Schema prefix `axt.bundle.v1`.
+
+### 11.7.4 Output contract
+
+JSON uses the `axt.bundle.v1` envelope. Agent JSONL records:
+
+- `axt.bundle.summary.v1`
+- `axt.bundle.manifest.v1`
+- `axt.bundle.git.v1`
+- `axt.bundle.file.v1`
+- `axt.bundle.warn.v1`
+
+The summary record is always first and includes `next` hints.
+
+### 11.7.5 Definition of done for v0.9
+
+1. New crate `crates/axt-bundle` and binary `axt-bundle`.
+2. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+3. File inventory, manifest previews, Git state, and next hints.
+4. Truncation through `--limit`, `--max-bytes`, and `--strict`.
+5. `docs/commands/bundle.md`, `docs/man/axt-bundle.1`, and
+   `docs/skills/axt-bundle/SKILL.md`.
+6. Tests for JSON envelope and summary-first agent output.
+
 ---
 
 ## Updated cross-platform matrix (additions to section 4)
@@ -531,8 +596,8 @@ Agent mode:
 | `axt-port`: list listening sockets | ✅ | ✅ | ✅ | |
 | `axt-port`: who-has-port | ✅ | ✅ | ✅ | |
 | `axt-port`: free port (TERM/KILL) | ✅ | ✅ | ✅ | |
-| `axt-port`: PID → cwd | ✅ via `/proc` | ⚠️ best-effort via `libproc` | ⚠️ requires elevation; field is `null` otherwise | |
-| `axt-port`: process tree kill | ✅ | ✅ | ✅ via Job Object | |
+| `axt-port`: PID → cwd | ✅ best effort | ✅ best effort | ⚠️ best effort; field is `null` when unavailable | via `sysinfo` and OS permissions |
+| `axt-port`: process tree kill | ✅ recursive descendants | ✅ recursive descendants | ✅ recursive descendants via process metadata + `TerminateProcess` | existing processes are not retroactively assigned to Job Objects |
 | `axt-test`: jest, vitest | ✅ | ✅ | ✅ | |
 | `axt-test`: pytest | ✅ | ✅ | ✅ | |
 | `axt-test`: cargo test | ✅ | ✅ | ✅ | |
@@ -552,6 +617,9 @@ Agent mode:
 | `axt-ctxpack`: UTF-8 path output | ✅ | ✅ | ⚠️ | non-UTF-8 paths are skipped with warnings |
 | `axt-ctxpack`: AST classification | ✅ | ✅ | ✅ | embedded tree-sitter grammars for Rust, TypeScript, JavaScript, Python, Go, Java, and PHP |
 | `axt-ctxpack`: heuristic fallback | ✅ | ✅ | ✅ | used only for unsupported languages or parse errors |
+| `axt-bundle`: file inventory | ✅ | ✅ | ✅ | shared ignore-aware walker |
+| `axt-bundle`: manifest previews | ✅ | ✅ | ✅ | UTF-8 text manifests only |
+| `axt-bundle`: Git state | ✅ | ✅ | ✅ | included only in readable local worktrees |
 
 ---
 
@@ -566,7 +634,7 @@ Steps:
 2. Cross-platform socket→PID mapping (the only platform-specific code; abstract behind a trait).
 3. CLI surface from 11.3.3.
 4. Renderers: human, JSON, agent.
-5. Process tree kill on Unix (process group) and Windows (Job Object).
+5. Recursive process tree signaling through local process metadata.
 6. Snapshot tests with a fixture that spawns a port-listener subprocess.
 7. Documentation.
 
@@ -618,6 +686,21 @@ Steps:
 7. Run all standard quality gates.
 
 Done criteria: see 11.6.5.
+
+### Milestone 9 — `axt-bundle` (target: 1–2 days)
+
+Build `axt-bundle` as a small session warmup command over existing primitives.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-bundle`.
+3. Implement shallow file inventory, manifest previews, Git state, and next hints.
+4. Implement renderers for the standard output modes.
+5. Add docs, man page, and skill.
+6. Add JSON envelope and summary-first agent tests.
+7. Run all standard quality gates.
+
+Done criteria: see 11.7.5.
 
 ---
 

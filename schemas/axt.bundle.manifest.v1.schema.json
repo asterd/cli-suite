@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.bundle.manifest.v1",
+  "type": "object",
+  "required": ["schema", "type", "p", "k", "b", "preview"],
+  "properties": {
+    "schema": { "const": "axt.bundle.manifest.v1" },
+    "type": { "const": "manifest" },
+    "p": { "type": "string" },
+    "k": { "type": "string" },
+    "b": { "type": "integer", "minimum": 0 },
+    "preview": { "type": "string" }
+  }
+}

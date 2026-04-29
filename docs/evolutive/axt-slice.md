@@ -55,7 +55,7 @@ Verify package-name availability again before publish.
 ```bash
 axt-slice src/lib.rs --symbol parse_config --json
 axt-slice src/lib.rs --line 120 --agent
-axt-slice src/lib.rs --symbol Parser::parse --include-imports --plain
+axt-slice src/lib.rs --symbol Parser::parse --include-imports
 ```
 
 ## Output Requirements

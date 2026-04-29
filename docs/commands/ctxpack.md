@@ -1,109 +1,151 @@
 # axt-ctxpack
 
-`axt-ctxpack` searches local files for multiple named regex patterns and returns compact, bounded context snippets plus tree-sitter hit classification in one call.
+`axt-ctxpack` searches local files for multiple named regex patterns and returns
+bounded snippets plus hit classification. It is designed to replace repeated
+`rg` plus line-range reads in agent workflows.
+
+## Usage
+
+```bash
+axt-ctxpack --pattern todo=TODO src --json
+axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --agent
+axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2
+axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --limit 50 --agent
+```
+
+At least one `--pattern <NAME=REGEX>` is required. `ROOT` defaults to `.`.
+
+## Options
+
+| Option | Description |
+|---|---|
+| `ROOT...` | Files or directories to search. Default `.`. |
+| `--pattern <NAME=REGEX>` | Named Rust regex. Repeatable and required. Names may contain ASCII letters, digits, `_`, and `-`. |
+| `--files <GLOB>` | Include glob. Repeatable. |
+| `--include <GLOB>` | Include glob. Repeatable; equivalent to `--files`. |
+| `--context <N>` | Context lines around each match. Default `0`. |
+| `--max-depth <N>` | Directory traversal depth. Default `16`. |
+| `--hidden` | Include hidden files. |
+| `--no-ignore` | Disable ignore, gitignore, global gitignore, and git exclude filters. |
+| `--json` | Emit the `axt.ctxpack.v1` JSON envelope. |
+| `--agent` | Emit minified summary-first JSONL records. |
+| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--list-errors` | Print the standard error catalog as JSONL and exit. |
+| `--limit <N>` | Maximum retained hits and maximum agent records. Default `200`. |
+| `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
+| `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
 ## Scope
 
-The command supports local UTF-8 text files. Directory traversal is gitignore-aware by default through the shared filesystem walker. Binary files and non-UTF-8 files are skipped with warnings.
+The command supports local UTF-8 text files. Directory traversal is
+gitignore-aware by default through the shared filesystem walker. Binary files,
+non-UTF-8 files, and non-UTF-8 paths are skipped with warnings where possible.
 
-For Rust, TypeScript, JavaScript, Python, Go, Java, and PHP, each hit is parsed with an embedded tree-sitter grammar and classified as `code`, `comment`, `string`, `test`, or `unknown`. Unsupported languages and parse errors fall back to documented line heuristics and set `classification_source` accordingly.
+For Rust, TypeScript, JavaScript, Python, Go, Java, and PHP, hits are classified
+through embedded tree-sitter grammars as `code`, `comment`, `string`, `test`, or
+`unknown`. Unsupported languages and parse errors fall back to line heuristics
+and set `classification_source` accordingly.
 
-`axt-ctxpack` is not semantic search, embedding search, an edit tool, or an AST query language.
+`axt-ctxpack` is not semantic search, embedding search, an edit tool, or an AST
+query language.
 
-## Examples
+## Output
 
-```bash
-axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' src --json
-axt-ctxpack --files 'crates/**/*.rs' --pattern public='pub fn' --context 2 --agent
-axt-ctxpack --pattern test='#[test]' --include '**/*.rs' --agent --limit 50
+Human mode groups hits by path/pattern and prints compact snippets:
+
+```text
+src/lib.rs:12:5 todo comment "TODO"
+  12:// TODO: tighten this
 ```
 
-## Flags
-
-- `ROOT...`: files or directories to search. Default: `.`.
-- `--pattern <NAME=REGEX>`: named regex to search for. Repeatable and required.
-- `--files <GLOB>`: include glob. Repeatable.
-- `--include <GLOB>`: include glob. Repeatable.
-- `--context <N>`: context lines around each match. Default: `0`.
-- `--max-depth <N>`: maximum directory traversal depth. Default: `16`.
-- `--hidden`: include hidden files.
-- `--no-ignore`: disable ignore, gitignore, global gitignore, and git exclude filters.
-- `--limit <N>`: maximum hit records retained and maximum line-oriented output records.
-- `--max-bytes <BYTES>`: maximum payload bytes for line-oriented output.
-- `--strict`: return exit 6 when line-oriented output truncation is required.
-- `--json`, `--agent`: standard output modes.
-- `--print-schema [human|json|agent]`: print the selected schema description.
-- `--list-errors`: emit the standard error catalog as JSONL.
-
-## JSON
-
-`--json` emits an `axt.ctxpack.v1` envelope:
+JSON mode emits `axt.ctxpack.v1`:
 
 ```json
 {
-  "root": ".",
-  "patterns": [{"name": "todo", "query": "TODO", "kind": "regex"}],
-  "summary": {
-    "roots": 1,
-    "files_scanned": 10,
-    "files_matched": 1,
-    "hits": 3,
-    "warnings": 0,
-    "bytes_scanned": 8192,
-    "truncated": false
+  "schema": "axt.ctxpack.v1",
+  "ok": true,
+  "data": {
+    "root": ".",
+    "patterns": [{"name": "todo", "query": "TODO", "kind": "regex"}],
+    "summary": {
+      "roots": 1,
+      "files_scanned": 10,
+      "files_matched": 1,
+      "hits": 3,
+      "warnings": 0,
+      "bytes_scanned": 8192,
+      "truncated": false
+    },
+    "hits": [
+      {
+        "pattern": "todo",
+        "path": "src/lib.rs",
+        "line": 12,
+        "column": 5,
+        "byte_range": {"start": 240, "end": 244},
+        "kind": "comment",
+        "classification_source": "ast",
+        "language": "rust",
+        "node_kind": "line_comment",
+        "enclosing_symbol": null,
+        "ast_path": ["line_comment", "source_file"],
+        "matched_text": "TODO",
+        "snippet": "12:// TODO: tighten this"
+      }
+    ],
+    "warnings": [],
+    "next": ["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]
   },
-  "hits": [
-    {
-      "pattern": "todo",
-      "path": "src/lib.rs",
-      "line": 12,
-      "column": 5,
-      "byte_range": {"start": 240, "end": 244},
-      "kind": "comment",
-      "classification_source": "ast",
-      "language": "rust",
-      "node_kind": "line_comment",
-      "enclosing_symbol": null,
-      "ast_path": ["line_comment", "source_file"],
-      "matched_text": "TODO",
-      "snippet": "12:// TODO: tighten this"
-    }
-  ],
   "warnings": [],
-  "next": ["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]
+  "errors": []
 }
 ```
 
-## Agent Mode
-
-The first record is always `axt.ctxpack.summary.v1`. Hit records use `axt.ctxpack.hit.v1`. Warning records use `axt.ctxpack.warn.v1`.
-
-Agent records use short keys for high-cardinality hit fields and omit `ast_path`.
-`ast_path` is available only in the JSON envelope.
+Agent mode emits summary-first JSONL. Hit records use short keys and omit
+`ast_path` to keep token cost low:
 
 ```jsonl
 {"schema":"axt.ctxpack.summary.v1","type":"summary","ok":true,"root":".","patterns":2,"files_scanned":10,"files_matched":1,"hits":3,"warnings":0,"bytes_scanned":8192,"truncated":false,"next":["axt-ctxpack src/lib.rs --pattern todo=TODO --context 2 --agent"]}
 {"schema":"axt.ctxpack.hit.v1","type":"hit","pat":"todo","p":"src/lib.rs","line":12,"col":5,"range":{"start":240,"end":244},"k":"comment","src":"ast","l":"rust","node":"line_comment","sym":null,"text":"TODO","snippet":"12:// TODO: tighten this"}
 ```
 
-## Error Codes
+Agent record schemas:
 
-- `usage_error` (2): a pattern, regex, or glob is invalid.
-- `path_not_found` (3): an input root does not exist.
-- `permission_denied` (4): a file or directory cannot be read.
-- `output_truncated_strict` (6): truncation was required under `--strict`.
-- `io_error` (8): filesystem or output error.
+- `axt.ctxpack.summary.v1`
+- `axt.ctxpack.hit.v1`
+- `axt.ctxpack.warn.v1`
+
+## Classification Fields
+
+| Field | Meaning |
+|---|---|
+| `kind` / `k` | `code`, `comment`, `string`, `test`, or `unknown`. |
+| `classification_source` / `src` | `ast`, `heuristic`, or `unknown`. |
+| `language` / `l` | Detected language when known. |
+| `node_kind` / `node` | Tree-sitter node kind when AST classification is available. |
+| `enclosing_symbol` / `sym` | Closest function/class/module-like symbol when detected. |
+| `ast_path` | JSON-only parser path for debugging classification. |
 
 ## Cross-Platform Notes
 
-| Feature | Linux | macOS | Windows | Notes |
-|---|---:|---:|---:|---|
-| Text regex search | yes | yes | yes | Uses Rust `regex`. |
-| Gitignore traversal | yes | yes | yes | Uses shared ignore-aware walker. |
-| UTF-8 path output | yes | yes | partial | Non-UTF-8 paths are skipped with warnings. |
-| AST classification | yes | yes | yes | Embedded tree-sitter grammars for Rust, TypeScript, JavaScript, Python, Go, Java, and PHP. |
-| Heuristic fallback | yes | yes | yes | Used only for unsupported languages or parse errors. |
+Regex search, gitignore-aware traversal, and embedded AST classification are
+supported on Linux, macOS, and Windows. Windows non-UTF-8 paths can be skipped
+with `path_not_utf8` warnings because public output uses UTF-8 paths.
 
 ## Performance
 
-The command reads each selected file once and stops retaining hits at `--limit`. Use `--context 0` for location-only searches and raise context only when snippets are needed.
+Each selected file is read once. The command stops retaining hits at `--limit`.
+Use `--context 0` for location-only searches and raise context only when
+snippets are needed.
+
+## Error Codes
+
+Standard axt error codes are available through `--list-errors`. Common
+`axt-ctxpack` failures map to:
+
+- `usage_error`: missing pattern, invalid `NAME=REGEX`, duplicate pattern name,
+  invalid regex, or invalid glob.
+- `path_not_found`: an input root does not exist.
+- `permission_denied`: a file or directory cannot be read.
+- `io_error`: filesystem or output serialization failed.
+- `output_truncated_strict`: output was truncated under `--strict`.

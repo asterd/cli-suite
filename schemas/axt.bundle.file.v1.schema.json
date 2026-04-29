@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.bundle.file.v1",
+  "type": "object",
+  "required": ["schema", "type", "p", "k", "b", "l"],
+  "properties": {
+    "schema": { "const": "axt.bundle.file.v1" },
+    "type": { "const": "file" },
+    "p": { "type": "string" },
+    "k": { "type": "string" },
+    "b": { "type": "integer", "minimum": 0 },
+    "l": { "type": ["string", "null"] }
+  }
+}

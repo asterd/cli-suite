@@ -78,7 +78,7 @@ Build decision: YES. Use `axt-ctxpack`; optional alias `ctxpack`.
 
 Market validity: high. Aider and Repomix validate symbol maps and code
 compression. However, there is still room for a standalone low-level command
-that returns only declarations/signatures/doc comments in stable JSON/ACF,
+that returns only declarations/signatures/doc comments in stable JSON/agent JSONL,
 without packaging entire repositories.
 
 Coverage and impact: high. It is one of the best token-saving commands because
@@ -126,7 +126,7 @@ already has `axt-test`, whose design is broader and more aligned with the suite.
 
 Coverage and impact: high, but already owned. The correct path is to harden
 `axt-test`: improve failure-only summaries, rerun metadata, parser coverage,
-and ACF next-step hints. A separate `axt-testdigest` would fragment behavior.
+and agent JSONL next-step hints. A separate `axt-testdigest` would fragment behavior.
 
 Build decision: NO as a new binary. Implement as `axt-test` evolutions. If a
 legacy alias is desired, make `testdigest` an optional alias or subcommand
@@ -136,7 +136,7 @@ mapping only after spec approval.
 
 Market validity: medium-high. Git itself has all raw data, and tools like
 Delta, Onefetch, and GitHub CLI solve adjacent presentation and hosting
-problems. The gap is a local, provider-neutral, bounded JSON/ACF worktree
+problems. The gap is a local, provider-neutral, bounded JSON/agent JSONL worktree
 context command for agents.
 
 Coverage and impact: high in daily agent workflows. It can replace `git
@@ -223,11 +223,11 @@ Every approved command must follow the suite contract:
 
 - Binary name must be `axt-<name>`.
 - Unprefixed alias must be opt-in through an `aliases` feature.
-- Four primary output modes are required: human, `--json`, `--jsonl`, and
-  `--agent`.
-- Shared flags are required: `--plain`, `--json-data`, `--print-schema`,
-  `--list-errors`, `--limit`, `--max-bytes`, `--strict`, `--color`, `--quiet`,
-  and `--verbose`.
+- Three primary output modes are required: human, `--json`, and `--agent`.
+  Agent output is minified summary-first JSONL.
+- Shared flags are required: `--print-schema`, `--list-errors`, `--limit`,
+  `--max-bytes`, and `--strict`. Commands may add focused command-specific
+  flags, but `--plain`, `--json-data`, and `--jsonl` are retired public flags.
 - Diagnostics go to stderr; data goes to stdout.
 - No network access in binaries.
 - No `unwrap()` or `expect()` in non-test code.

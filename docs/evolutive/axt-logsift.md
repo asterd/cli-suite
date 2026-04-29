@@ -56,7 +56,7 @@ Verify package-name availability again before publish.
 ```bash
 axt-logsift app.log --severity error --top 20 --json
 cat build.log | axt-logsift --stdin --agent
-axt-logsift ci.log --since 1h --dedup --jsonl
+axt-logsift ci.log --since 1h --dedup --agent
 ```
 
 ## Output Requirements

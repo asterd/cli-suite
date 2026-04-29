@@ -7,11 +7,11 @@ You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec
 1. **Stop at milestone boundaries.** Each session has a single target milestone. Do not start the next one without explicit instruction.
 2. **No `unwrap()` or `expect()` in non-test code.** Use typed errors via `thiserror` in libraries; `anyhow` is allowed only at the binary edge (`main.rs`).
 3. **No deviation from the spec without updating the spec first.** If you find an ambiguity or a real reason to change behavior, edit the relevant spec section, explain why in the commit message, then implement. Never silent-drift.
-4. **No new commands or binaries beyond the six in the spec** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`).
+4. **No new commands or binaries beyond the approved suite surface** (`axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-ctxpack`, `axt-bundle`) unless the relevant spec/addendum is updated first.
 5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
-8. **Four primary output modes always, even for stub commands**: `--json`, `--jsonl`, `--agent`, human (default). `--plain`, `--json-data`, `--print-schema`, and `--list-errors` are also standard shared flags.
+8. **Three primary output modes always**: human (default on TTY stdout), `--json`, and `--agent` (default on non-TTY stdout). `--agent` is minified summary-first JSONL. `--plain`, `--json-data`, and `--jsonl` are retired public flags; use human output, `jq .data`, and `--agent` respectively. `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict` are standard shared flags.
 9. **Cross-platform parity is the default.** When a feature degrades on Windows or macOS, document it in the per-command cross-platform matrix (`docs/commands/<cmd>.md`) and exit with code 9 (`feature_unsupported`) rather than fail silently.
 10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `axt-peek`, `axt-core`).
 
@@ -33,7 +33,7 @@ CI must pass on Linux, macOS, and Windows. If a test depends on platform-specifi
 - Prefer typed enum errors (`#[derive(thiserror::Error)]`) over string errors.
 - Prefer `serde` with `#[derive]` over hand-rolled JSON.
 - Prefer snapshot tests (`insta`) for output assertions.
-- Match ACF agent-mode key names and prefixes to the dictionary in `docs/agent-mode.md`. Add new keys only when no existing one fits, and document them.
+- Match agent JSONL key names and prefixes to the dictionary in `docs/agent-mode.md`. Add new keys only when no existing one fits, and document them.
 
 ## Files you may freely create
 

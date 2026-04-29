@@ -61,7 +61,7 @@ Use singular naming for consistency with one normalized manifest graph.
 ```bash
 axt-manifest --json
 axt-manifest --root . --include-ci --agent
-axt-manifest --ecosystem rust --json-data
+axt-manifest --ecosystem rust --json
 ```
 
 ## Output Requirements

@@ -32,7 +32,7 @@ Build decision: NO as a new binary. Extend `axt-test`.
 
 - Add `--failures-only` if current human/agent output is still too broad.
 - Add `--rerun-id <ID>` or stable failure IDs for framework-specific reruns.
-- Add `next` hints in JSON and ACF outputs:
+- Add `next` hints in JSON and agent JSONL outputs:
   `axt-test --rerun-id <ID> --include-output --agent`.
 - Improve parser tests for Cargo panic locations, Jest stack frames, Pytest
   assertion introspection, and Go JSON events.
@@ -74,7 +74,7 @@ Only add this after spec approval and installer updates.
 - Add fixture output for each supported runner.
 - Add stable failure ID tests.
 - Add rerun command rendering tests.
-- Add snapshots for failure-only human, JSON, JSONL, and ACF modes.
+- Add snapshots for failure-only human, JSON, and agent modes.
 - Add truncation tests for large stderr/stdout blocks.
 
 ## Skill Requirements

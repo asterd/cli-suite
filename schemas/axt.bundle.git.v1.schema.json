@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.bundle.git.v1",
+  "type": "object",
+  "required": ["schema", "type", "root", "branch", "modified", "untracked"],
+  "properties": {
+    "schema": { "const": "axt.bundle.git.v1" },
+    "type": { "const": "git" },
+    "root": { "type": "string" },
+    "branch": { "type": ["string", "null"] },
+    "modified": { "type": "integer", "minimum": 0 },
+    "untracked": { "type": "integer", "minimum": 0 }
+  }
+}

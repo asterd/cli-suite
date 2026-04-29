@@ -1,6 +1,8 @@
 # axt-outline Evolution Brief
 
-Status: proposed. Requires spec approval before implementation.
+Status: implemented in `crates/axt-outline`. This brief is retained as product
+rationale; the live contract is `docs/commands/outline.md` plus the approved
+spec addendum.
 
 ## Purpose
 
@@ -55,17 +57,18 @@ Verify package-name availability again before publish.
 ```bash
 axt-outline crates/axt-test/src --public-only --json
 axt-outline src/lib.rs --agent
-axt-outline . --lang rust --max-depth 4 --jsonl
+axt-outline . --lang rust --max-depth 4 --agent
 ```
 
 ## Output Requirements
 
-All standard output modes are mandatory. Agent mode should be compact enough to
-replace line-range reads:
+All standard output modes are mandatory: human, `--json`, and `--agent`. Agent
+mode is summary-first JSONL and should be compact enough to replace line-range
+reads:
 
-```text
-schema=axt.outline.agent.v1 ok=true mode=records files=2 symbols=14 truncated=false
-S path=src/lib.rs kind=fn visibility=pub name=parse_config line=42 signature="pub fn parse_config(input: &str) -> Result<Config, Error>"
+```jsonl
+{"schema":"axt.outline.summary.v1","type":"summary","ok":true,"root":".","files":2,"symbols":14,"warnings":0,"source_bytes":12000,"signature_bytes":900,"truncated":false,"next":["axt-slice src/lib.rs --symbol parse_config --agent"]}
+{"schema":"axt.outline.symbol.v1","type":"symbol","p":"src/lib.rs","l":"rust","k":"fn","vis":"pub","n":"parse_config","sig":"pub fn parse_config(input: &str) -> Result<Config, Error>","docs":"Parse the configuration text.","range":{"start_line":42,"end_line":57},"parent":null}
 ```
 
 ## JSON Data Shape

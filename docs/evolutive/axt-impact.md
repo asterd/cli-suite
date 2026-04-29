@@ -54,7 +54,7 @@ Verify package-name availability again before publish.
 ```bash
 axt-impact src/config.rs --symbol parse_config --json
 axt-impact --file src/config.rs --line 42 --agent
-axt-impact --symbol ConfigLoader::load --max-depth 2 --jsonl
+axt-impact --symbol ConfigLoader::load --max-depth 2 --agent
 ```
 
 ## Output Requirements

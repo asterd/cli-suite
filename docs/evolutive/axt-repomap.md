@@ -56,7 +56,7 @@ Verify package-name availability again before publish.
 ```bash
 axt-repomap --json
 axt-repomap . --agent --depth 3
-axt-repomap --include-git --include-tests --jsonl
+axt-repomap --include-git --include-tests --agent
 ```
 
 ## Output Requirements

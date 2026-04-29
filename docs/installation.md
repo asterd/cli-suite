@@ -9,6 +9,8 @@
 - `axt-port`
 - `axt-test`
 - `axt-outline`
+- `axt-ctxpack`
+- `axt-bundle`
 
 There are no `ax-*` aliases. Optional short aliases such as `peek` or `outline`
 exist only when explicitly installed with the `aliases` feature.
@@ -64,6 +66,8 @@ python3 scripts/install-local.py --command drift
 python3 scripts/install-local.py --command port
 python3 scripts/install-local.py --command test
 python3 scripts/install-local.py --command outline
+python3 scripts/install-local.py --command ctxpack
+python3 scripts/install-local.py --command bundle
 ```
 
 Install one command directly with Cargo:
@@ -92,6 +96,8 @@ python3 scripts/install-local.py --command peek --aliases
 | `axt-port` | `port` |
 | `axt-test` | `test` |
 | `axt-outline` | `outline` |
+| `axt-ctxpack` | `ctxpack` |
+| `axt-bundle` | none |
 
 Use canonical names in scripts, CI, and documentation. Use short aliases only
 for local interactive convenience or controlled agent environments.
@@ -107,6 +113,8 @@ for local interactive convenience or controlled agent environments.
 | `axt-port` | `cargo install --path crates/axt-port --locked` | `python3 scripts/install-local.py --command port` | `python3 scripts/install-local.py --command port --aliases` |
 | `axt-test` | `cargo install --path crates/axt-test --locked` | `python3 scripts/install-local.py --command test` | `python3 scripts/install-local.py --command test --aliases` |
 | `axt-outline` | `cargo install --path crates/axt-outline --locked` | `python3 scripts/install-local.py --command outline` | `python3 scripts/install-local.py --command outline --aliases` |
+| `axt-ctxpack` | `cargo install --path crates/axt-ctxpack --locked` | `python3 scripts/install-local.py --command ctxpack` | `python3 scripts/install-local.py --command ctxpack --aliases` |
+| `axt-bundle` | `cargo install --path crates/axt-bundle --locked` | `python3 scripts/install-local.py --command bundle` | none |
 
 ## Verification
 

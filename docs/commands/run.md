@@ -60,6 +60,15 @@ Command-specific agent JSONL keys:
 - `runs`: saved-run count.
 - `removed`: cleaned saved-run count.
 
+Agent record schemas:
+
+- `axt.run.summary.v1`
+- `axt.run.file.v1`
+- `axt.run.stream.v1`
+- `axt.run.list.v1`
+- `axt.run.clean.v1`
+- `axt.run.warn.v1`
+
 Error codes:
 
 - `command_failed` exits 11 when the child command exits non-zero.
@@ -67,8 +76,8 @@ Error codes:
 - `usage_error` exits 2 for invalid CLI/env/glob input.
 - `path_not_found` exits 3 for missing `--cwd` or saved run names.
 - `permission_denied` exits 4 for permission failures.
-- `io_error` exits 6 for filesystem or serialization failures.
-- `runtime_error` exits 8 for process execution or rendering failures.
+- `io_error` exits 8 for filesystem or serialization failures.
+- `runtime_error` exits 1 for process execution or rendering failures.
 
 ## Storage
 

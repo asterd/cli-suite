@@ -1,737 +1,652 @@
-# Temporary End-to-End Command Implementation Prompts
+# End-to-End Command Implementation Prompts
 
-This is a temporary copy-paste file. Delete it after use.
+This is a copy/paste prompt bank for future evolutive work. Each prompt is
+scoped to one command or one existing-command evolution and uses the current
+implemented suite contract:
 
-Each prompt is intended for a fresh implementation session. Run only one prompt
-at a time. Each session must implement exactly one command or one `axt-test`
-evolution end to end.
-
-Important: each prompt explicitly authorizes the agent to update
-`docs/spec.md` or `docs/spec-addendum.md` for the named command only, because
-the current project rules require spec approval before new binaries are added.
-
-## Prompt 1: `axt-outline`
-
-```text
-Implement `axt-outline` end to end for the `axt` Foundation CLI Suite.
-
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-outline` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
-
-Read first:
-- `/Users/ddurzo/.codex/RTK.md`
-- `docs/evolutive/market-analysis.md`
-- `docs/evolutive/axt-outline.md`
-- Existing command docs under `docs/commands/`
-- Existing skill files under `docs/skills/`
-- Existing command crates, especially `axt-peek` and `axt-test`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
-
-Goal:
-Build `axt-outline`, a local Rust single-binary command that emits compact
-source outlines: declarations, signatures, doc comments, symbol kinds,
-visibility, file paths, and source ranges, without function bodies.
-
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
-- Add `crates/axt-outline`.
-- Add workspace membership and package metadata.
-- Add binary `axt-outline`.
-- Add optional alias `outline` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
-- Use schema prefix `axt.outline.v1`.
-- Implement MVP support for Rust source files and directories.
-- Add graceful unsupported-language handling for non-Rust files.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
-- Add docs in `docs/commands/outline.md`.
-- Add man page `docs/man/axt-outline.1`.
-- Add skill `docs/skills/axt-outline/SKILL.md`.
-- Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for Rust symbols, visibility, doc comments, ranges,
-  parse errors, unsupported files, and truncation.
-
-Implementation constraints:
-- Prefix shell commands with `rtk`.
-- No `unwrap()` or `expect()` in non-test code.
-- No network calls in binaries.
+- Primary modes: human, `--json`, and `--agent`.
+- `--agent` is minified summary-first JSONL.
+- Shared flags: `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`,
+  and `--strict`.
+- Retired public flags: `--plain`, `--json-data`, and `--jsonl`.
+- No network calls, telemetry, `unwrap()`, or `expect()` in non-test code.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite patterns over new abstractions.
-- Use typed errors with `thiserror`; `anyhow` only at the binary edge.
-- Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Implement Rust MVP fully. Do not add TypeScript, Python, Go, Java, LSP, or
-semantic ranking in this session. Mention them as deferred scope in docs.
+Use one prompt per fresh implementation session. If the command is still only
+an evolutive proposal, the prompt explicitly requires a spec/addendum contract
+before code.
 
-Quality gates:
-Run and fix:
-- `cargo fmt --all --check`
-- `cargo clippy --workspace --all-targets -- -D warnings`
-- `cargo test --workspace`
-
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
-```
-
-## Prompt 2: `axt-ctxpack`
-
-```text
-Implement `axt-ctxpack` end to end for the `axt` Foundation CLI Suite.
-
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-ctxpack` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
-
-Read first:
-- `/Users/ddurzo/.codex/RTK.md`
-- `docs/evolutive/market-analysis.md`
-- `docs/evolutive/axt-ctxpack.md`
-- Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-core`, `axt-output`, and
-  `axt-fs`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
-
-Goal:
-Build `axt-ctxpack`, a local Rust single-binary command that performs
-multi-pattern, multi-file context search in one bounded call for coding agents.
-
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
-- Add `crates/axt-ctxpack`.
-- Add workspace membership and package metadata.
-- Add binary `axt-ctxpack`.
-- Add optional alias `ctxpack` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
-- Use schema prefix `axt.ctxpack.v1`.
-- Implement repeated `--pattern name=REGEX`.
-- Implement roots, include globs, gitignore-aware walking where existing suite
-  primitives allow it, context lines, and deterministic ordering.
-- Emit file, line, column, byte range when available, pattern name, matched
-  text, snippet, and basic kind: `code`, `comment`, `string`, `test`, or
-  `unknown`.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
-- Add docs in `docs/commands/ctxpack.md`.
-- Add man page `docs/man/axt-ctxpack.1`.
-- Add skill `docs/skills/axt-ctxpack/SKILL.md`.
-- Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for named patterns, overlapping hits, no hits, hidden
-  files, ignored files, binary skipping, snippets, and truncation.
-
-Implementation constraints:
-- Prefix shell commands with `rtk`.
-- No `unwrap()` or `expect()` in non-test code.
-- No network calls in binaries.
-- Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite patterns over new abstractions.
-- Use typed errors with `thiserror`; `anyhow` only at the binary edge.
-- Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
-
-Scope discipline:
-Implement regex/text search MVP fully. Do not implement semantic search,
-embeddings, edit application, or a full AST query language in this session.
-
-Quality gates:
-Run and fix:
-- `cargo fmt --all --check`
-- `cargo clippy --workspace --all-targets -- -D warnings`
-- `cargo test --workspace`
-
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
-```
-
-## Prompt 3: `axt-slice`
+## Prompt 1: `axt-slice`
 
 ```text
 Implement `axt-slice` end to end for the `axt` Foundation CLI Suite.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-slice` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-slice`. Do not implement any other new
+command. If `axt-slice` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-slice` contract to the addendum and
+keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-slice.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-core`, and `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- `docs/commands/outline.md`
+- Existing crates `axt-outline`, `axt-ctxpack`, `axt-core`, and `axt-output`
+- Existing skill files under `docs/skills/`
 
 Goal:
-Build `axt-slice`, a local Rust single-binary command that extracts source by
-symbol or enclosing line range, avoiding fragile manual `sed -n` reads.
+Build `axt-slice`, a local single-binary command that extracts source by symbol
+or enclosing line range, avoiding fragile manual line-range reads.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-slice`.
 - Add workspace membership and package metadata.
 - Add binary `axt-slice`.
 - Add optional alias `slice` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.slice.v1`.
-- Implement Rust source extraction by `--symbol <NAME>`.
-- Implement `--line <N>` as fallback that expands to the enclosing Rust symbol.
-- Include docs and attributes by default when they immediately belong to the
-  selected symbol.
-- Return ambiguity candidates instead of guessing when multiple symbols match.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Implement extraction by `--symbol <NAME>` from one file.
+- Implement `--line <N>` fallback that expands to the enclosing symbol.
+- Include docs and attributes by default.
+- Implement optional `--include-imports`, `--include-tests`,
+  `--before-symbol`, and `--after-symbol` when feasible for the implemented
+  languages.
+- Detect ambiguous symbols and return candidate records instead of guessing.
 - Add docs in `docs/commands/slice.md`.
 - Add man page `docs/man/axt-slice.1`.
 - Add skill `docs/skills/axt-slice/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for Rust functions, impl methods, structs, doc comments,
-  attributes, ambiguity, line fallback, CRLF input, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for exact extraction, ambiguous symbols, line fallback,
+  CRLF input, truncation, and binary/non-UTF-8 refusal.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite patterns over new abstractions.
+- Prefer existing tree-sitter and output patterns from `axt-outline` and
+  `axt-ctxpack`.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
+- Document cross-platform behavior.
 
-Scope discipline:
-Implement Rust-only symbol slicing fully. Do not implement workspace-wide
-resolution, LSP integration, import analysis, or non-Rust languages in this
-session.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 4: `axt-gitctx`
+## Prompt 2: `axt-gitctx`
 
 ```text
 Implement `axt-gitctx` end to end for the `axt` Foundation CLI Suite.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-gitctx` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-gitctx`. Do not implement any other new
+command. If `axt-gitctx` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-gitctx` contract to the addendum and
+keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-gitctx.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-git`, `axt-peek`, `axt-core`, and `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-git`, `axt-peek`, `axt-drift`, `axt-core`, and
+  `axt-output`
+- Existing command tests that create temporary Git repositories
 
 Goal:
-Build `axt-gitctx`, a local Rust single-binary command that returns compact
-worktree context for agents: branch, upstream, ahead/behind, changed files,
-diff stats, and recent commits.
+Build `axt-gitctx`, a local Git context command that returns branch, upstream,
+ahead/behind, dirty state, changed files, diff stats, recent commits, and small
+inline diffs in one bounded call.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-gitctx`.
 - Add workspace membership and package metadata.
 - Add binary `axt-gitctx`.
 - Add optional alias `gitctx` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.gitctx.v1`.
-- Return repository root, branch, upstream, ahead/behind, dirty state, changed
-  files with status/additions/deletions/hunk count where available, and recent
-  commits.
-- Include inline diffs only when under a strict byte budget.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Detect the current repository and return branch, upstream, ahead, behind, and
+  dirty state.
+- Return changed files with status, additions, deletions, hunk count, and size.
+- Include recent commits with hash, subject, author, and timestamp/relative age
+  where available.
+- Include inline diffs only within `--inline-diff-max-bytes`.
+- Never invoke network commands.
 - Add docs in `docs/commands/gitctx.md`.
 - Add man page `docs/man/axt-gitctx.1`.
 - Add skill `docs/skills/axt-gitctx/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixture tests using temporary git repositories.
-- Add snapshot tests for all output modes.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for clean, dirty, staged, untracked, renamed, deleted,
+  no-git, ahead/behind with local bare remotes, inline diff thresholds, and
+  truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
-- Do not call remote git operations.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite patterns and `axt-git` helpers.
+- Prefer `axt-git` and stable local Git data over shelling out broadly.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
+- Document Windows symlink/executable-bit limitations honestly.
 
-Scope discipline:
-Implement local worktree context fully. Do not implement pull request metadata,
-hosting-provider APIs, commit creation, or interactive diff viewing.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 5: `axt-plan`
+## Prompt 3: `axt-plan`
 
 ```text
-Implement `axt-plan` end to end for the `axt` Foundation CLI Suite.
+Implement the first end-to-end milestone for `axt-plan`.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-plan` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-plan` dry-run planning. Do not implement
+apply mode unless the approved spec already requires it for this milestone. If
+`axt-plan` is not yet approved in `docs/spec.md` or `docs/spec-addendum.md`,
+first add an `axt-plan` contract to the addendum and keep that spec change
+limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-plan.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-core`, `axt-output`, and `axt-fs`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-ctxpack`, `axt-fs`, `axt-core`, and `axt-output`
+- Existing tests for truncation and snapshot output
 
 Goal:
-Build `axt-plan`, a local Rust single-binary command that creates auditable
-dry-run edit plans for broad literal or regex replacements. It must preview
-changes safely and never write files in the first implementation.
+Build `axt-plan`, an auditable edit-plan command. The first milestone produces
+dry-run plans for literal and regex replacements without writing files.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-plan`.
 - Add workspace membership and package metadata.
 - Add binary `axt-plan`.
-- Add optional alias `plan-edit` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Add optional alias `plan-edit` behind the `aliases` feature if approved.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.plan.v1`.
 - Implement dry-run literal replacement.
 - Implement dry-run regex replacement.
-- Emit plan ID, summary, file entries, match counts, pre-change hashes, and
-  unified diffs.
-- Refuse binary files and ambiguous unsafe input.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Read local UTF-8 text files only; refuse binary and non-UTF-8 files.
+- Emit per-file match counts, hunks/diffs, pre-change hashes, plan checksum,
+  and apply preconditions.
+- Return no-match plans as successful, explicit empty plans.
 - Add docs in `docs/commands/plan.md`.
 - Add man page `docs/man/axt-plan.1`.
 - Add skill `docs/skills/axt-plan/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for literal replacement, regex replacement, no matches,
-  binary refusal, diff rendering, plan IDs, hashes, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for literal replacement, regex replacement, no-match,
+  binary refusal, non-UTF-8 refusal, plan checksum, diff rendering, and
+  truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
-- This first milestone must not write target files.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite patterns over new abstractions.
+- Do not write target files in this milestone.
+- Prefer deterministic diff output over clever patch generation.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
-- Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
+- Document apply mode as deferred unless implemented.
 
-Scope discipline:
-Implement dry-run planning fully. Do not implement `--apply`, ast-grep
-structural matching, backups, or atomic writes in this session.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 6: `axt-logsift`
+## Prompt 4: `axt-logsift`
 
 ```text
 Implement `axt-logsift` end to end for the `axt` Foundation CLI Suite.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-logsift` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-logsift`. Do not implement any other new
+command. If `axt-logsift` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-logsift` contract to the addendum and
+keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-logsift.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-core`, and `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-run`, `axt-core`, and `axt-output`
 
 Goal:
-Build `axt-logsift`, a local Rust single-binary command that triages large log
-files or stdin into compact deduplicated error groups, severity summaries, and
-representative snippets.
+Build `axt-logsift`, a bounded local log triage command that reads files or
+stdin and returns deduplicated error groups, stack traces, severity timelines,
+and representative snippets.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-logsift`.
 - Add workspace membership and package metadata.
 - Add binary `axt-logsift`.
 - Add optional alias `logsift` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.logsift.v1`.
-- Read from paths and stdin.
-- Parse plain text and JSONL log lines.
-- Strip ANSI sequences.
-- Detect severity where possible.
-- Deduplicate repeated messages into stable fingerprints.
-- Emit top groups, counts, first/last line, representative sample, and summary.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Read one or more local files and stdin through `--stdin`.
+- Detect plain text logs, JSONL logs, syslog-like timestamps, ANSI-colored
+  logs, CRLF logs, and common JavaScript, Python, Rust, Go, and JVM stack
+  traces.
+- Filter by severity and parseable time range.
+- Deduplicate repeated messages with counts and first/last occurrence.
+- Emit top N groups and representative snippets.
 - Add docs in `docs/commands/logsift.md`.
 - Add man page `docs/man/axt-logsift.1`.
 - Add skill `docs/skills/axt-logsift/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for plain logs, JSONL logs, ANSI stripping, CRLF logs,
-  dedup fingerprints, severity filtering, stdin, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for plain logs, JSONL logs, syslog timestamps, ANSI
+  stripping, CRLF logs, stack traces, dedup fingerprints, severity filters,
+  time filters, large-file streaming, and truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer streaming parsing; do not load huge logs unnecessarily.
+- Do not implement live tailing or remote ingestion in this milestone.
+- Use streaming reads for large files.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Implement offline triage fully. Do not implement live tailing, remote
-ingestion, OpenTelemetry trace reconstruction, or a full query language.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 7: `axt-manifest`
+## Prompt 5: `axt-manifest`
 
 ```text
 Implement `axt-manifest` end to end for the `axt` Foundation CLI Suite.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-manifest` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-manifest`. Do not implement any other new
+command. If `axt-manifest` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-manifest` contract to the addendum
+and keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-manifest.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-core`, and `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-bundle`, `axt-test`, `axt-fs`, `axt-core`, and
+  `axt-output`
 
 Goal:
-Build `axt-manifest`, a local Rust single-binary command that normalizes common
-project manifest files into one compact agent-first schema.
+Build `axt-manifest`, a local manifest normalization command for project
+configuration files.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-manifest`.
 - Add workspace membership and package metadata.
 - Add binary `axt-manifest`.
 - Add optional alias `manifest` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.manifest.v1`.
-- Implement MVP parsing for `Cargo.toml` and `package.json`.
-- Emit packages, dependencies, dev dependencies, scripts, workspace members,
-  runtime/tool hints where available, source file path, and unknown-section
-  summaries.
-- Add `--ecosystem rust|node|all`.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Detect and parse `Cargo.toml`, `package.json`, `tsconfig.json`,
+  `pyproject.toml`, `go.mod`, `Dockerfile`, and `.github/workflows/*.yml`.
+- Emit dependencies, dev dependencies, scripts/tasks, runtime versions, package
+  names, workspace members, and CI job names where available.
+- Preserve unknown sections as counts or summaries instead of silently dropping
+  them.
+- Add `--root <DIR>`, `--ecosystem <NAME>`, and `--include-ci` if approved in
+  the command contract.
 - Add docs in `docs/commands/manifest.md`.
 - Add man page `docs/man/axt-manifest.1`.
 - Add skill `docs/skills/axt-manifest/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for Cargo workspaces, package.json scripts, dependency
-  scopes, malformed manifests, missing manifests, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for each ecosystem, malformed manifests, multi-workspaces,
+  unknown section preservation, CI workflow parsing, and truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
-- Do not query package registries.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer structured parsers over ad hoc string parsing.
+- Do not resolve lockfiles or fetch package metadata.
+- Prefer structured parsers for JSON/TOML/YAML where dependencies already exist
+  or are approved.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Implement Cargo and package.json normalization fully. Do not implement
-pyproject, go.mod, Dockerfile, CI YAML, vulnerability checks, lockfile solving,
-or network metadata in this session.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 8: `axt-repomap`
+## Prompt 6: `axt-repomap`
 
 ```text
 Implement `axt-repomap` end to end for the `axt` Foundation CLI Suite.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-repomap` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-repomap`. Do not implement any other new
+command. If `axt-repomap` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-repomap` contract to the addendum and
+keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-repomap.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-git`, `axt-core`, and
-  `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-bundle`, `axt-peek`, `axt-outline`, `axt-test`,
+  `axt-git`, `axt-fs`, `axt-core`, and `axt-output`
 
 Goal:
-Build `axt-repomap`, a local Rust single-binary command that emits compact
-repository topology: layout, detected languages, build systems, entry points,
-test frameworks, manifest hints, and local git summary.
+Build `axt-repomap`, a compact repository topology command that summarizes
+layout, languages, build systems, entry points, tests, manifests, and recent
+local Git context.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-repomap`.
 - Add workspace membership and package metadata.
 - Add binary `axt-repomap`.
 - Add optional alias `repomap` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.repomap.v1`.
-- Detect repository root and summarize directories by role: `source`, `tests`,
-  `examples`, `docs`, `scripts`, `config`, `generated`, `vendor`, `unknown`.
-- Detect Rust and Node build/test markers.
-- Detect primary language by file counts and bytes.
-- Include entry point hints and local git state where available.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Detect repository root and workspace layout.
+- Summarize directories by role: `source`, `tests`, `examples`, `docs`,
+  `scripts`, `config`, `generated`, and `vendor`.
+- Include detected languages, build systems, test frameworks, manifests, entry
+  points, and recent local commits when Git is available.
+- Include `next` hints for `axt-outline`, `axt-test`, and `axt-gitctx`.
 - Add docs in `docs/commands/repomap.md`.
 - Add man page `docs/man/axt-repomap.1`.
 - Add skill `docs/skills/axt-repomap/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for repository root detection, role classification,
-  language summary, monorepo layout, no-git directories, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for multi-language repos, monorepos/workspaces, clean and
+  dirty Git fixtures, no-Git directories, role classification, executable-bit
+  platform behavior, and truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer existing suite primitives and data shapes.
+- Do not package full source contents or implement semantic ranking.
+- Prefer reusing existing internal data shapes over inventing incompatible
+  summaries.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Implement topology summary fully. Do not implement full repository packing,
-semantic ranking, embeddings, or remote repository support.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 9: `axt-impact`
+## Prompt 7: `axt-impact`
 
 ```text
-Implement `axt-impact` end to end for the `axt` Foundation CLI Suite as a
-bounded Rust-first MVP.
+Implement the research-track first milestone for `axt-impact`.
 
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-impact` command contract. Do not
-change unrelated spec sections. Do not implement any other new command.
+This session is scoped only to `axt-impact`. Do not implement any other new
+command. If `axt-impact` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-impact` contract to the addendum and
+keep that spec change limited to this command.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
+- `AGENTS.md`
+- `docs/agent-mode.md`
+- `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
 - `docs/evolutive/axt-impact.md`
 - Existing command docs under `docs/commands/`
-- Existing crates `axt-peek`, `axt-test`, `axt-git`, `axt-core`, and
-  `axt-output`
-- `docs/agent-mode.md`
-- `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- Existing crates `axt-outline`, `axt-ctxpack`, `axt-test`, `axt-git`,
+  `axt-core`, and `axt-output`
 
 Goal:
-Build `axt-impact`, a local Rust single-binary command that estimates the blast
-radius of changing a Rust symbol using deterministic local analysis first.
+Build a Rust-first `axt-impact` milestone that estimates the blast radius of a
+symbol change by returning call sites, references, nearby tests, suggested
+review files, engine confidence, and next hints.
 
-Required end-to-end deliverables:
-- Add the approved command contract to the spec/addendum.
+Required deliverables:
+- Add the approved command contract to `docs/spec-addendum.md` if missing.
 - Add `crates/axt-impact`.
 - Add workspace membership and package metadata.
 - Add binary `axt-impact`.
 - Add optional alias `impact` behind the `aliases` feature.
-- Support standard modes: human, `--plain`, `--json`, `--json-data`,
-  `--jsonl`, `--agent`, `--print-schema`, and `--list-errors`.
+- Support human, `--json`, and `--agent`.
+- Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
+  `--strict`.
 - Use schema prefix `axt.impact.v1`.
-- Implement Rust-first text/tree-sitter-style fallback analysis without
-  requiring LSP.
-- Accept `--file <PATH> --symbol <NAME>` and `--file <PATH> --line <N>`.
-- Return target, engine kind, confidence, call/reference sites, likely tests,
-  suggested review files, and next-step hints.
-- Add confidence labels: `high`, `medium`, `low`.
-- Add truncation through `--limit`, `--max-bytes`, and `--strict`.
+- Implement target selection by `--file <PATH> --line <N>` and
+  `--symbol <NAME>` where practical.
+- Use `rust-analyzer` only when available and local project configuration is
+  valid; never install it or fetch anything.
+- Implement deterministic local text/tree-sitter fallback with lower confidence.
+- Return call sites with file, line, kind, confidence, and snippet.
+- Suggest test files based on references, naming conventions, and local Git
+  history where available.
 - Add docs in `docs/commands/impact.md`.
 - Add man page `docs/man/axt-impact.1`.
 - Add skill `docs/skills/axt-impact/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
-- Add fixtures and snapshot tests for all output modes.
-- Add focused tests for symbol references, ambiguous symbols, line target
-  resolution, likely test detection, no references, and truncation.
+- Add fixtures and snapshot tests for human, JSON, and agent output.
+- Add focused tests for Rust fixture references, LSP-unavailable fallback,
+  ambiguous symbols, confidence scoring, timeouts, process failures, and
+  truncation.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
-- Do not require `rust-analyzer` in this first milestone.
 - Diagnostics go to stderr; data goes to stdout.
-- Prefer deterministic local analysis over fragile process orchestration.
+- Treat fallback results as incomplete and expose confidence clearly.
+- Keep LSP process lifecycle bounded by timeout and robust cleanup.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
 - Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Implement the Rust fallback MVP fully. Do not implement LSP process
-management, multi-language support, semantic call graphs, or build-system
-execution in this session. Document those as deferred.
+Before editing, reply with:
+- Deliverables for this milestone.
+- Files/crates you expect to modify.
+- Output schemas and agent records.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 10: `axt-test` Digest Evolution
+## Prompt 8: `axt-test` Failure Digest Evolution
 
 ```text
-Implement the `axt-test` digest evolution end to end.
+Implement the `axt-test` failure digest evolution.
 
-Do not create a new `axt-testdigest` binary. This session evolves the existing
-`axt-test` command only.
-
-You are authorized in this session to update `docs/spec.md` or
-`docs/spec-addendum.md` only for the `axt-test` digest/failure-summary
-contract. Do not change unrelated spec sections. Do not implement any other new
-command.
+This session modifies only the existing `axt-test` command. Do not create a new
+`testdigest` binary. If the digest behavior is not yet approved in
+`docs/spec.md` or `docs/spec-addendum.md`, first add an `axt-test` evolution
+contract to the addendum and keep that spec change limited to this behavior.
 
 Read first:
 - `/Users/ddurzo/.codex/RTK.md`
-- `docs/evolutive/market-analysis.md`
-- `docs/evolutive/axt-test-evolution.md`
-- `docs/commands/test.md`
-- `docs/skills/axt-test/SKILL.md`
-- Existing crate `crates/axt-test`
+- `AGENTS.md`
 - `docs/agent-mode.md`
 - `docs/error-catalog.md`
-- `docs/agent-prompts.md` section 6
+- `docs/commands/test.md`
+- `docs/evolutive/axt-test-evolution.md`
+- Existing crate `crates/axt-test`
+- Existing `axt-test` fixtures and snapshots
 
 Goal:
-Improve `axt-test` so it behaves like a compact test digest for coding agents:
-stable failure IDs, failure-only output, rerun hints, and sharper parser tests.
+Improve `axt-test` failure digest behavior so agents get stable failure IDs,
+focused rerun hints, and compact failure-first output without learning
+framework-specific result formats.
 
-Required end-to-end deliverables:
-- Add the approved digest contract to the spec/addendum or command docs as
-  appropriate.
-- Add `--failures-only`.
-- Add stable failure IDs to JSON, JSONL, and agent output.
-- Add rerun hints in JSON and ACF output.
-- Add `--rerun-id <ID>` if it can be implemented cleanly for at least the
-  currently supported framework mappings. If not, document the exact limitation
-  and implement stable hints only.
+Required deliverables:
+- Update the approved `axt-test` contract in `docs/spec-addendum.md` if needed.
+- Keep all existing `axt.test.v1` compatibility unless a schema bump is
+  explicitly approved.
+- Add stable failure IDs, for example
+  `<framework>:<path-or-suite>:<test-name>`.
+- Add `--rerun-id <ID>` or an approved equivalent if feasible across supported
+  frameworks.
+- Add `next` hints in JSON and agent JSONL outputs:
+  `axt-test --rerun-id <ID> --include-output --agent`.
+- Improve parser tests for Cargo panic locations, Jest stack frames, Pytest
+  assertion introspection, and Go JSON events.
+- Ensure `command_failed` still represents failing tests, not parser failure.
 - Update `docs/commands/test.md`.
 - Update `docs/skills/axt-test/SKILL.md`.
-- Add or update man page `docs/man/axt-test.1`.
-- Add fixtures and snapshot tests for failure-only output in all modes.
-- Add parser coverage for Cargo, Go, Jest, Vitest, Pytest, Bun, and Deno where
-  existing fixtures make that practical.
-- Add truncation tests for large failure output.
+- Add snapshots for failure-only human, JSON, and agent modes.
+- Add truncation tests for large stderr/stdout blocks.
 
 Implementation constraints:
 - Prefix shell commands with `rtk`.
 - No `unwrap()` or `expect()` in non-test code.
 - No network calls in binaries.
 - Diagnostics go to stderr; data goes to stdout.
-- Preserve existing `axt.test.v1` compatibility unless the spec explicitly
-  requires a new version.
-- Prefer additive fields over breaking output changes.
+- Do not add a standalone `testdigest` binary or alias unless explicitly
+  approved.
+- Preserve streaming `--agent` behavior: initial summary first, failure records
+  as available, final authoritative summary last.
 - Use typed errors with `thiserror`; `anyhow` only at the binary edge.
-- Keep output deterministic and compact.
-- Cross-platform behavior must be documented.
 
-Scope discipline:
-Do not create `axt-testdigest`. Do not add new test frameworks. Do not rewrite
-the whole runner architecture unless necessary for the digest behavior.
+Before editing, reply with:
+- Deliverables for this evolution.
+- Files you expect to modify.
+- Output/schema changes and compatibility impact.
+- Tests to add.
+- Ambiguities or risks.
 
-Quality gates:
-Run and fix:
+Wait for approval before editing files.
+
+After approval, implement and run:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 
-Final response:
-Use the status report template from `docs/agent-prompts.md` section 6. Include
-files changed, tests run, any spec deviations, and next recommended milestone.
+Final response must use the status report template in `docs/agent-prompts.md`.
 ```
+
+## Recommended Order
+
+1. `axt-slice`
+2. `axt-gitctx`
+3. `axt-test` failure digest evolution
+4. `axt-plan`
+5. `axt-logsift`
+6. `axt-manifest`
+7. `axt-repomap`
+8. `axt-impact`

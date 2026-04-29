@@ -56,7 +56,7 @@ Verify package-name availability again before publish.
 ```bash
 axt-gitctx --json
 axt-gitctx --agent --commits 5 --inline-diff-max-bytes 12000
-axt-gitctx --changed-only --jsonl
+axt-gitctx --changed-only --agent
 ```
 
 ## Output Requirements

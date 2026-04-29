@@ -1,25 +1,43 @@
 # axt-doc
 
-`axt-doc` diagnoses local development environment problems without making network calls.
+`axt-doc` diagnoses local development environment problems without network
+calls. It resolves commands, checks PATH health, and summarizes secret-like or
+suspicious environment variables.
 
-## CLI
+## Usage
 
 ```bash
-axt-doc [FLAGS] which <CMD> [--timeout <DURATION>]
-axt-doc [FLAGS] <CMD>
-axt-doc [FLAGS] path
-axt-doc [FLAGS] env
-axt-doc [FLAGS] all <CMD> [--timeout <DURATION>]
+axt-doc [OPTIONS] which <CMD> [--timeout <DURATION>]
+axt-doc [OPTIONS] <CMD>
+axt-doc [OPTIONS] path
+axt-doc [OPTIONS] env
+axt-doc [OPTIONS] all <CMD> [--timeout <DURATION>]
 ```
 
-Shared flags are available before the subcommand: `--json`, `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, `--strict`, and `--show-secrets`.
+Passing `axt-doc <CMD>` without a subcommand is shorthand for
+`axt-doc all <CMD>`.
 
-`axt-doc all <CMD>` combines `which`, `path`, and `env` in one response. Passing
-`axt-doc <CMD>` without a subcommand is shorthand for `axt-doc all <CMD>`.
+## Options
+
+| Option | Description |
+|---|---|
+| `which <CMD>` | Resolve a command on `PATH` and optionally probe its version. |
+| `path` | Report duplicate, missing, and suspicious PATH entries. |
+| `env` | Report secret-like and suspicious environment variables. |
+| `all <CMD>` | Combine `which`, `path`, and `env` in one response. |
+| `--timeout <DURATION>` | Version probe timeout where supported. |
+| `--show-secrets` | Show secret-like values. Default is redacted. Always warns on stderr. |
+| `--json` | Emit the `axt.doc.v1` JSON envelope. |
+| `--agent` | Emit minified summary-first JSONL records. |
+| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--list-errors` | Print the standard error catalog as JSONL and exit. |
+| `--limit <N>` | Maximum agent records. Default `200`. |
+| `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
+| `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
 ## Output
 
-JSON mode emits the `axt.doc.v1` envelope:
+JSON mode emits `axt.doc.v1`:
 
 ```json
 {
@@ -35,9 +53,9 @@ JSON mode emits the `axt.doc.v1` envelope:
 }
 ```
 
-Agent mode emits summary-first JSONL records beginning with
-`axt.doc.summary.v1`, then detail records for command matches, PATH entries,
-secret-like variables, and suspicious variables.
+Agent mode emits summary-first JSONL beginning with `axt.doc.summary.v1`,
+followed by command matches, PATH entries, secret-like variables, suspicious
+variables, and warnings.
 
 ## Secret Handling
 
@@ -52,15 +70,27 @@ Secret-like environment variable names are detected case-insensitively:
 - `*_PRIVATE*`
 - `*_AUTH*`
 
-Values are redacted as `<redacted>` unless `--show-secrets` is passed. `--show-secrets` always prints a warning to stderr, regardless of output mode.
+Values are redacted as `<redacted>` unless `--show-secrets` is passed.
 
-## Cross-Platform Matrix
+## Cross-Platform Notes
 
 | Feature | Linux | macOS | Windows | Notes |
-| --- | --- | --- | --- | --- |
+|---|---:|---:|---:|---|
 | PATH duplicate detection | Yes | Yes | Yes | Canonical paths are used when available. |
 | Missing PATH directories | Yes | Yes | Yes | Non-existent entries are reported. |
-| Broken symlink detection | Yes | Yes | Best effort | Windows symlink metadata depends on permissions and filesystem support. |
-| Command resolution | Yes | Yes | Yes | Uses platform command resolution; PATHEXT is honored on Windows. |
-| Version manager attribution | Best effort | Best effort | Best effort | Path-pattern based for Homebrew, mise, asdf, rustup, cargo, pyenv, rbenv, volta, nvm, Scoop, Chocolatey, and winget; local manager queries are used when available. |
+| Broken symlink detection | Yes | Yes | Best effort | Windows metadata depends on permissions and filesystem support. |
+| Command resolution | Yes | Yes | Yes | PATHEXT is honored on Windows. |
+| Version manager attribution | Best effort | Best effort | Best effort | Path-pattern based for Homebrew, mise, asdf, rustup, cargo, pyenv, rbenv, volta, nvm, Scoop, Chocolatey, and winget. |
 | Version probing | Yes | Yes | Yes | Runs `<CMD> --version` with a timeout and records failure without failing the command. |
+
+## Error Codes
+
+Standard axt error codes are available through `--list-errors`. Common
+`axt-doc` failures map to:
+
+- `usage_error`: missing command or invalid arguments.
+- `path_not_found`: command or PATH target cannot be resolved.
+- `permission_denied`: metadata or version probing was denied.
+- `timeout`: version probing exceeded the timeout.
+- `io_error`: filesystem, process IO, or output serialization failed.
+- `output_truncated_strict`: output was truncated under `--strict`.

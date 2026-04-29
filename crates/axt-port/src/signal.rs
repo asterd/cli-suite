@@ -289,10 +289,18 @@ fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
 }
 
 fn tree_pids(root: u32) -> BTreeSet<u32> {
+    tree_pids_from(root, &process_parents())
+}
+
+fn tree_pids_from(root: u32, parents: &[(u32, u32)]) -> BTreeSet<u32> {
     let mut pids = BTreeSet::from([root]);
-    for (pid, parent) in process_parents() {
-        if parent == root {
-            pids.insert(pid);
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for (pid, parent) in parents {
+            if pids.contains(parent) && pids.insert(*pid) {
+                changed = true;
+            }
         }
     }
     pids
@@ -322,4 +330,20 @@ fn process_parents() -> Vec<(u32, u32)> {
             Some((Pid::as_u32(*pid), parent.as_u32()))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tree_pids_from;
+
+    #[test]
+    fn tree_pids_include_nested_descendants() {
+        let parents = vec![(20, 10), (30, 20), (40, 30), (50, 99)];
+        let pids = tree_pids_from(10, &parents);
+        assert!(pids.contains(&10));
+        assert!(pids.contains(&20));
+        assert!(pids.contains(&30));
+        assert!(pids.contains(&40));
+        assert!(!pids.contains(&50));
+    }
 }
