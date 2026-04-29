@@ -41,12 +41,12 @@ jobs:
             suffix=".exe"
           fi
           for bin in \
-            ax-peek peek \
-            ax-run run \
-            ax-doc doc \
-            ax-drift drift \
-            ax-port port \
-            ax-test test
+            axt-peek peek \
+            axt-run run \
+            axt-doc doc \
+            axt-drift drift \
+            axt-port port \
+            axt-test test
           do
             "target/debug/$bin$suffix" --version
           done
