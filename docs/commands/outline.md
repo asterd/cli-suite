@@ -114,8 +114,8 @@ Agent record schemas:
 
 `axt-outline` is declaration-oriented. It does not emit function bodies, resolve
 cross-file references, start LSP servers, or compute semantic importance. Use
-`axt-ctxpack` to search code context and future `axt-slice` work to extract a
-selected symbol body.
+`axt-ctxpack` to search code context and `axt-slice` to extract a selected
+symbol body.
 
 ## Cross-Platform Notes
 

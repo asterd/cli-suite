@@ -1,6 +1,6 @@
 ---
 name: axt-suite
-description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository warmup, command execution, environment, filesystem drift, port, test, source-outline, and context-pack inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
+description: Use the axt Foundation CLI Suite commands for compact, schema-versioned local repository warmup, command execution, environment, filesystem drift, port, test, source-outline, source-slice, context-pack, Git-context, and log-diagnosis inspection. Trigger when an agent needs stable low-token CLI output from a local workspace.
 license: MIT OR Apache-2.0
 ---
 
@@ -134,6 +134,50 @@ axt-outline app --lang typescript --agent
 
 Use it before opening large supported source files when symbol-level context is enough.
 
+### `axt-slice`
+
+Use to extract exact source for a selected symbol or enclosing line.
+
+```bash
+axt-slice src/lib.rs --symbol process_request --agent
+axt-slice src/lib.rs --line 150 --json
+```
+
+Use it after `axt-outline` when you need the selected implementation body.
+
+### `axt-ctxpack`
+
+Use to search local files for multiple named patterns with compact snippets.
+
+```bash
+axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' crates --agent
+axt-ctxpack --pattern route='app\\.route' src --json
+```
+
+Use it when `rg` output would be too large or when named hit groups help the agent.
+
+### `axt-gitctx`
+
+Use to inspect local Git branch, status, recent commits, and bounded diffs.
+
+```bash
+axt-gitctx . --agent
+axt-gitctx --changed-only --json
+```
+
+It is read-only and never runs fetch, pull, push, or remote API calls.
+
+### `axt-logdx`
+
+Use to diagnose large local logs and command outputs.
+
+```bash
+axt-logdx target/test.log --severity error --top 20 --agent
+cat build.log | axt-logdx --stdin --agent
+```
+
+Use returned fingerprints, snippets, line numbers, and timeline buckets to narrow follow-up reads.
+
 ## Installation Reference
 
 Install all commands from a local checkout:
@@ -154,4 +198,4 @@ Install optional aliases:
 cargo install --path crates/axt-peek --locked --features aliases
 ```
 
-Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-ctxpack`, and `axt-bundle`.
+Canonical names are `axt-peek`, `axt-run`, `axt-doc`, `axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-slice`, `axt-ctxpack`, `axt-bundle`, `axt-gitctx`, and `axt-logdx`.

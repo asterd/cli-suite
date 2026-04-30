@@ -18,8 +18,11 @@ requests from the binaries.
 | `axt-port` | Inspect local port holders and optionally free ports. | [docs/commands/port.md](docs/commands/port.md) |
 | `axt-test` | Run and normalize test output across supported frameworks. | [docs/commands/test.md](docs/commands/test.md) |
 | `axt-outline` | Emit compact source outlines without function bodies. | [docs/commands/outline.md](docs/commands/outline.md) |
+| `axt-slice` | Extract exact source by symbol or enclosing line. | [docs/commands/slice.md](docs/commands/slice.md) |
 | `axt-ctxpack` | Search multiple named patterns with compact snippets and AST classification. | [docs/commands/ctxpack.md](docs/commands/ctxpack.md) |
 | `axt-bundle` | Emit a session warmup bundle with files, manifests, Git state, and next hints. | [docs/commands/bundle.md](docs/commands/bundle.md) |
+| `axt-gitctx` | Emit bounded local Git branch, status, commit, and diff context. | [docs/commands/gitctx.md](docs/commands/gitctx.md) |
+| `axt-logdx` | Diagnose large local logs with grouped failures, stack traces, timelines, and snippets. | [docs/commands/logdx.md](docs/commands/logdx.md) |
 
 ## Output Contract
 
@@ -50,7 +53,10 @@ Diagnostics go to stderr; data goes to stdout. `--plain`, `--json-data`, and
 axt-bundle . --agent
 axt-peek . --changed --json
 axt-outline crates/axt-test/src --agent
+axt-slice crates/axt-test/src/main.rs --symbol main --agent
 axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' crates --agent
+axt-gitctx . --changed-only --agent
+axt-logdx target/test.log --severity error --top 20 --agent
 axt-test --framework cargo --agent
 axt-port free 3000 --dry-run --agent
 ```
@@ -98,8 +104,11 @@ See [docs/installation.md](docs/installation.md) for the full install matrix.
 | `axt-port` | Yes | Yes | Yes | Process metadata and cwd are best effort where OS permissions restrict access. |
 | `axt-test` | Yes | Yes | Yes | Requires local framework toolchains. Nothing is downloaded. |
 | `axt-outline` | Yes | Yes | Yes | Uses embedded tree-sitter grammars. |
+| `axt-slice` | Yes | Yes | Yes | Uses embedded tree-sitter grammars for supported source files. |
 | `axt-ctxpack` | Yes | Yes | Yes | Embedded tree-sitter where supported, heuristic fallback otherwise. |
 | `axt-bundle` | Yes | Yes | Yes | Git state is included only inside a readable worktree. |
+| `axt-gitctx` | Yes | Yes | Yes | Uses local Git data only; no fetch, pull, push, or remote API calls. |
+| `axt-logdx` | Yes | Yes | Yes | UTF-8-ish byte logs are decoded lossily when needed; parsing is deterministic and bounded. |
 
 When a feature is unavailable on a platform, commands return
 `feature_unsupported` with exit code `9` rather than silently fabricating data.
@@ -141,12 +150,13 @@ rg "reqwest|ureq|hyper|isahc" crates Cargo.toml
 - `axt-run`, `axt-test`, and `axt-drift run` execute local commands you provide.
 - `axt-port free` can terminate local processes; start with `--dry-run`.
 - `axt-run` and `axt-drift` may write local artifacts below `.axt/`.
+- `axt-logdx` reads local logs that may contain secrets; review snippets before sharing output.
 
 Security policy and disclosure guidance live in [SECURITY.md](SECURITY.md).
 
 ## Roadmap
 
-Implemented suite surface is the nine commands listed above. Proposed future
+Implemented suite surface is the twelve commands listed above. Proposed future
 commands and follow-up work live in [docs/evolutive/](docs/evolutive/) and must
 be promoted into the spec/addendum before implementation. Current high-priority
 follow-ups are:

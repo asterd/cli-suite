@@ -107,20 +107,23 @@ python3 scripts/release/scoop-manifest.py \
 ```
 
 Repeat for the other binaries (`axt-run`, `axt-doc`, `axt-drift`, `axt-port`,
-`axt-test`) by swapping the `--sha256-file` and `--output` arguments to match
-each binary name. Open a pull request against `ddurzo/scoop-axt` with the
-generated manifests only if the automated workflow cannot reach the bucket.
+`axt-test`, `axt-outline`, `axt-slice`, `axt-ctxpack`, `axt-bundle`,
+`axt-gitctx`, `axt-logdx`) by swapping the `--sha256-file` and `--output`
+arguments to match each binary name. Open a pull request against
+`ddurzo/scoop-axt` with the generated manifests only if the automated workflow
+cannot reach the bucket.
 
 ## Smoke Tests
 
 Run each install from a clean machine or VM and verify `--version` and
 `--help` for every shipped binary: `axt-peek`, `axt-run`, `axt-doc`,
-`axt-drift`, `axt-port`, and `axt-test`.
+`axt-drift`, `axt-port`, `axt-test`, `axt-outline`, `axt-slice`,
+`axt-ctxpack`, `axt-bundle`, `axt-gitctx`, and `axt-logdx`.
 
-Use this helper after each install so all six binaries are exercised:
+Use this helper after each install so all shipped binaries are exercised:
 
 ```bash
-for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test axt-outline axt-slice axt-ctxpack axt-bundle axt-gitctx axt-logdx; do
   "$bin" --version
   "$bin" --help >/dev/null
 done
@@ -129,7 +132,7 @@ done
 Linux or macOS shell installer (one binary per installer URL — repeat for each):
 
 ```bash
-for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test axt-outline axt-slice axt-ctxpack axt-bundle axt-gitctx axt-logdx; do
   curl --proto '=https' --tlsv1.2 -LsSf \
     "https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/${bin}-installer.sh" | sh
 done
@@ -138,7 +141,7 @@ done
 macOS or Linux Homebrew:
 
 ```bash
-for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test axt-outline axt-slice axt-ctxpack axt-bundle axt-gitctx axt-logdx; do
   brew install "ddurzo/axt/${bin}"
 done
 ```
@@ -146,7 +149,7 @@ done
 Windows PowerShell:
 
 ```powershell
-$bins = @('axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test')
+$bins = @('axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test','axt-outline','axt-slice','axt-ctxpack','axt-bundle','axt-gitctx','axt-logdx')
 foreach ($bin in $bins) {
   powershell -ExecutionPolicy Bypass -c "irm https://github.com/ddurzo/axt/releases/download/v0.1.0-rc1/$bin-installer.ps1 | iex"
 }
@@ -156,7 +159,7 @@ Windows Scoop:
 
 ```powershell
 scoop bucket add axt https://github.com/ddurzo/scoop-axt
-foreach ($bin in 'axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test') {
+foreach ($bin in 'axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test','axt-outline','axt-slice','axt-ctxpack','axt-bundle','axt-gitctx','axt-logdx') {
   scoop install $bin
 }
 ```
@@ -164,7 +167,7 @@ foreach ($bin in 'axt-peek','axt-run','axt-doc','axt-drift','axt-port','axt-test
 Cargo:
 
 ```bash
-for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test; do
+for bin in axt-peek axt-run axt-doc axt-drift axt-port axt-test axt-outline axt-slice axt-ctxpack axt-bundle axt-gitctx axt-logdx; do
   cargo install "$bin" --version 0.1.0-rc1
 done
 ```

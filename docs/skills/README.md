@@ -13,8 +13,11 @@ and compatible tools.
 | `axt-port` | Local port inspection and cleanup. |
 | `axt-test` | Normalized test runner output. |
 | `axt-outline` | Source symbol outlines. |
+| `axt-slice` | Exact source extraction by symbol or line. |
 | `axt-ctxpack` | Search/read context packs. |
 | `axt-bundle` | Session warmup bundle. |
+| `axt-gitctx` | Local Git branch, status, commit, and diff context. |
+| `axt-logdx` | Offline local log diagnosis and grouping. |
 
 ## Install
 

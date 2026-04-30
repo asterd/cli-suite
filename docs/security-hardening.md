@@ -21,11 +21,11 @@ remaining hardening work required before a stable public release.
 | Risk class | Applicability | Mitigation |
 |---|---|---|
 | Injection | CLI args, shell mode, env files, glob filters. | Direct argv execution by default; shell execution requires `--shell`; structured output uses serializers. |
-| Sensitive data exposure | Environment diagnostics and command output capture. | `axt-doc` redaction by default; saved run artifacts are local and explicit; docs warn about mutating/captured data. |
+| Sensitive data exposure | Environment diagnostics, command output capture, and local log diagnosis. | `axt-doc` redaction by default; saved run artifacts are local and explicit; `axt-logdx` docs warn that snippets may contain secrets. |
 | Broken access control | Process inspection and signaling. | OS permissions are respected; permission failures become typed errors; dangerous PIDs are refused. |
 | Security misconfiguration | Install aliases and release artifacts. | Aliases are opt-in; CI verifies alias targets; release follow-up packages docs/skills as explicit artifacts. |
 | Vulnerable dependencies | Rust dependency supply chain. | CI runs `cargo audit` and `cargo deny check advisories`. |
-| Logging and monitoring exposure | Captured stdout/stderr from child commands. | Capturing is configurable; saved logs are local under `.axt/runs`; no remote reporting exists. |
+| Logging and monitoring exposure | Captured stdout/stderr from child commands and local log snippets. | Capturing is configurable; saved logs are local under `.axt/runs`; `axt-logdx` is local-only and does not ingest remote logs; no remote reporting exists. |
 | SSRF / remote network abuse | Not a network tool. | No binary performs remote network calls. `axt-port` rejects remote host:port syntax. |
 
 ## Remaining Work Before Stable Release
@@ -33,7 +33,7 @@ remaining hardening work required before a stable public release.
 | Gap | Resolution |
 |---|---|
 | Cross-platform destructive behavior needs broader validation. | Add OS-specific smoke tests for `axt-port free` on Linux, macOS, and Windows CI using owned fixture processes. |
-| Parser fuzzing is not yet present. | Add property/fuzz tests for duration parsing, agent JSONL streaming, env-file parsing, and path normalization. |
+| Parser fuzzing is partial. | `axt-logdx` has property tests for arbitrary bytes and log-like lines; add property/fuzz tests for duration parsing, agent JSONL streaming, env-file parsing, and path normalization. |
 | Release artifacts need end-to-end install checks. | After tagging, verify shell, PowerShell, Homebrew, Scoop, and Cargo installs on clean hosts. |
 | `axt-test` framework reporter coverage is still best effort for some ecosystems. | Prefer native machine formats where stable; keep fallback parsing deterministic and covered by fixtures. |
 | Unsafe process-control blocks need platform audit. | Review Unix `pre_exec`/signals and Windows Job Object/TerminateProcess blocks with platform maintainers before v1.0. |
