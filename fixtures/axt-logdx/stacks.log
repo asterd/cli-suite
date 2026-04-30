@@ -1,0 +1,14 @@
+2026-04-28T10:00:00Z ERROR javascript crash
+    at Object.run (/app/index.js:10:2)
+    at main (/app/index.js:20:1)
+2026-04-28T10:01:00Z ERROR python crash
+Traceback (most recent call last):
+  File "app.py", line 3, in <module>
+RuntimeError: boom
+2026-04-28T10:02:00Z ERROR go crash
+goroutine 1 [running]:
+main.main()
+	/app/main.go:12 +0x20
+2026-04-28T10:03:00Z ERROR jvm crash
+java.lang.RuntimeException: boom
+	at com.example.App.main(App.java:10)

@@ -253,14 +253,14 @@ After approval, implement and run:
 Final response must use the status report template in `docs/agent-prompts.md`.
 ```
 
-## Prompt 4: `axt-logsift`
+## Prompt 4: `axt-logdx`
 
 ```text
-Implement `axt-logsift` end to end for the `axt` Foundation CLI Suite.
+Implement `axt-logdx` end to end for the `axt` Foundation CLI Suite.
 
-This session is scoped only to `axt-logsift`. Do not implement any other new
-command. If `axt-logsift` is not yet approved in `docs/spec.md` or
-`docs/spec-addendum.md`, first add an `axt-logsift` contract to the addendum and
+This session is scoped only to `axt-logdx`. Do not implement any other new
+command. If `axt-logdx` is not yet approved in `docs/spec.md` or
+`docs/spec-addendum.md`, first add an `axt-logdx` contract to the addendum and
 keep that spec change limited to this command.
 
 Read first:
@@ -269,25 +269,25 @@ Read first:
 - `docs/agent-mode.md`
 - `docs/error-catalog.md`
 - `docs/evolutive/market-analysis.md`
-- `docs/evolutive/axt-logsift.md`
+- `docs/evolutive/axt-logdx.md`
 - Existing command docs under `docs/commands/`
 - Existing crates `axt-run`, `axt-core`, and `axt-output`
 
 Goal:
-Build `axt-logsift`, a bounded local log triage command that reads files or
+Build `axt-logdx`, a bounded local log triage command that reads files or
 stdin and returns deduplicated error groups, stack traces, severity timelines,
 and representative snippets.
 
 Required deliverables:
 - Add the approved command contract to `docs/spec-addendum.md` if missing.
-- Add `crates/axt-logsift`.
+- Add `crates/axt-logdx`.
 - Add workspace membership and package metadata.
-- Add binary `axt-logsift`.
-- Add optional alias `logsift` behind the `aliases` feature.
+- Add binary `axt-logdx`.
+- Add optional alias `logdx` behind the `aliases` feature.
 - Support human, `--json`, and `--agent`.
 - Support `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
   `--strict`.
-- Use schema prefix `axt.logsift.v1`.
+- Use schema prefix `axt.logdx.v1`.
 - Read one or more local files and stdin through `--stdin`.
 - Detect plain text logs, JSONL logs, syslog-like timestamps, ANSI-colored
   logs, CRLF logs, and common JavaScript, Python, Rust, Go, and JVM stack
@@ -295,9 +295,9 @@ Required deliverables:
 - Filter by severity and parseable time range.
 - Deduplicate repeated messages with counts and first/last occurrence.
 - Emit top N groups and representative snippets.
-- Add docs in `docs/commands/logsift.md`.
-- Add man page `docs/man/axt-logsift.1`.
-- Add skill `docs/skills/axt-logsift/SKILL.md`.
+- Add docs in `docs/commands/logdx.md`.
+- Add man page `docs/man/axt-logdx.1`.
+- Add skill `docs/skills/axt-logdx/SKILL.md`.
 - Update `scripts/agent/install-skills.py`.
 - Add fixtures and snapshot tests for human, JSON, and agent output.
 - Add focused tests for plain logs, JSONL logs, syslog timestamps, ANSI
@@ -646,7 +646,7 @@ Final response must use the status report template in `docs/agent-prompts.md`.
 2. `axt-gitctx`
 3. `axt-test` failure digest evolution
 4. `axt-plan`
-5. `axt-logsift`
+5. `axt-logdx`
 6. `axt-manifest`
 7. `axt-repomap`
 8. `axt-impact`

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "axt.logdx.v1",
+  "type": "object",
+  "required": ["schema", "ok", "data", "warnings", "errors"],
+  "properties": {
+    "schema": { "const": "axt.logdx.v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "type": "object",
+      "required": ["sources", "summary", "groups", "timeline", "warnings", "next"],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "lines", "bytes"],
+            "properties": {
+              "path": { "type": "string" },
+              "lines": { "type": "integer", "minimum": 0 },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": ["lines", "groups", "errors", "warnings", "bytes_scanned", "truncated"],
+          "properties": {
+            "lines": { "type": "integer", "minimum": 0 },
+            "groups": { "type": "integer", "minimum": 0 },
+            "errors": { "type": "integer", "minimum": 0 },
+            "warnings": { "type": "integer", "minimum": 0 },
+            "bytes_scanned": { "type": "integer", "minimum": 0 },
+            "truncated": { "type": "boolean" }
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fingerprint", "severity", "count", "first", "last", "message", "stack", "snippets"],
+            "properties": {
+              "fingerprint": { "type": "string" },
+              "severity": { "enum": ["trace", "debug", "info", "warn", "error", "fatal"] },
+              "count": { "type": "integer", "minimum": 1 },
+              "first": { "$ref": "#/$defs/occurrence" },
+              "last": { "$ref": "#/$defs/occurrence" },
+              "message": { "type": "string" },
+              "stack": { "type": "array", "items": { "type": "string" } },
+              "snippets": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["bucket", "trace", "debug", "info", "warn", "error", "fatal"],
+            "properties": {
+              "bucket": { "type": "string" },
+              "trace": { "type": "integer", "minimum": 0 },
+              "debug": { "type": "integer", "minimum": 0 },
+              "info": { "type": "integer", "minimum": 0 },
+              "warn": { "type": "integer", "minimum": 0 },
+              "error": { "type": "integer", "minimum": 0 },
+              "fatal": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "warnings": { "type": "array" },
+        "next": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "warnings": { "type": "array" },
+    "errors": { "type": "array" }
+  },
+  "$defs": {
+    "occurrence": {
+      "type": "object",
+      "required": ["source", "line", "timestamp"],
+      "properties": {
+        "source": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "timestamp": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

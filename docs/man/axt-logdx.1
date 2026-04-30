@@ -1,0 +1,57 @@
+.TH AXT-LOGDX 1
+.SH NAME
+axt-logdx \- diagnose local logs with bounded grouped output
+.SH SYNOPSIS
+.B axt-logdx
+[\fIPATH...\fR] [--stdin] [--severity \fILEVEL\fR] [--since \fIRFC3339\fR] [--until \fIRFC3339\fR] [--top \fIN\fR] [--json|--agent]
+.SH DESCRIPTION
+.B axt-logdx
+reads local log files or explicit standard input and emits deduplicated failure
+groups, common stack traces, severity timelines, and representative snippets.
+It uses bounded in-memory aggregation and emits warnings when high-cardinality
+logs require approximate top-group retention.
+Invalid UTF-8 input is decoded lossily instead of aborting the scan.
+.SH OPTIONS
+.TP
+.B --stdin
+Read log data from standard input.
+.TP
+.BI --severity " LEVEL"
+Minimum severity to retain: trace, debug, info, warn, error, or fatal.
+.TP
+.BI --since " RFC3339"
+Include records at or after this timestamp.
+.TP
+.BI --until " RFC3339"
+Include records at or before this timestamp.
+.TP
+.BI --top " N"
+Maximum retained failure groups. Default 20.
+.TP
+.B --json
+Emit the axt.logdx.v1 JSON envelope.
+.TP
+.B --agent
+Emit minified summary-first JSONL.
+.TP
+.B --print-schema
+Print the selected output contract and exit.
+.TP
+.B --list-errors
+Print the standard error catalog as JSONL and exit.
+.TP
+.BI --limit " N"
+Maximum agent records and retained groups.
+.TP
+.BI --max-bytes " BYTES"
+Maximum agent output bytes.
+.TP
+.B --strict
+Exit non-zero if truncation is required.
+.SH EXIT STATUS
+Uses the standard axt error catalog. Run
+.B axt-logdx --list-errors
+for codes and meanings.
+.SH SEE ALSO
+.BR axt-run (1),
+.BR axt-ctxpack (1)

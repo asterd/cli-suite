@@ -101,9 +101,9 @@ Domanda costante: "se cambio `parse_config()`, cosa si rompe?". Oggi l'agente fa
 
 `sed -i` è pericoloso: la sostituzione regex può corrompere file silenziosamente, a differenza di un Edit con validazione di unicità e diff chiaro. `plan-edit --pattern '...' --replacement '...' --lang rust` (basato su ast-grep) fa il **piano**: JSON con tutte le occorrenze, contesto, e un diff proposto, **senza scrivere nulla**. L'agente legge il piano, decide, poi `plan-edit --apply <plan-id>` esegue atomicamente con backup. Risolve sia il problema di sicurezza sia quello del "cambiamento parziale" che lascia il repo rotto.
 
-### 10. `logsift` — triage di log/output enormi
+### 10. `logdx` — triage di log/output enormi
 
-Quando l'agente debugga, riceve in input file di log da decine di MB o output di build verbosi. `logsift app.log --since 1h --severity error+ --dedup --top 20` autodetecta il formato (syslog, JSON, log4j, nginx), deduplica linee ripetute con conteggio, estrae stack trace come blocchi unici, e restituisce timeline + top errori. Una guida pratica recente di Claude Code mostra come una pipeline simile (parser universale auto-detect formato, filtro per range temporale, frequenza degli errori, preset per errori/auth/slow request) sia esattamente lo strumento che serve quando "qualcosa è rotto". Niente in Rust con questa specifica forma agent-friendly esiste ancora.
+Quando l'agente debugga, riceve in input file di log da decine di MB o output di build verbosi. `logdx app.log --since 1h --severity error+ --dedup --top 20` autodetecta il formato (syslog, JSON, log4j, nginx), deduplica linee ripetute con conteggio, estrae stack trace come blocchi unici, e restituisce timeline + top errori. Una guida pratica recente di Claude Code mostra come una pipeline simile (parser universale auto-detect formato, filtro per range temporale, frequenza degli errori, preset per errori/auth/slow request) sia esattamente lo strumento che serve quando "qualcosa è rotto". Niente in Rust con questa specifica forma agent-friendly esiste ancora.
 
 ---
 

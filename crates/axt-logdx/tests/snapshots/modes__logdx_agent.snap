@@ -1,0 +1,10 @@
+---
+source: crates/axt-logdx/tests/modes.rs
+expression: "String::from_utf8(agent.get_output().stdout.clone())?"
+---
+{"schema":"axt.logdx.summary.v1","type":"summary","ok":true,"sources":1,"lines":8,"groups":3,"errors":3,"warnings":0,"bytes_scanned":330,"truncated":false,"next":["axt-logdx ../../fixtures/axt-logdx/plain.log --severity error --top 20 --agent"]}
+{"schema":"axt.logdx.group.v1","type":"group","fp":"blake3:e666bfc1f7b63bd5","sev":"error","count":2,"first":{"p":"../../fixtures/axt-logdx/plain.log","line":3,"ts":"2026-04-28T10:00:03Z"},"last":{"p":"../../fixtures/axt-logdx/plain.log","line":4,"ts":"2026-04-28T10:00:04Z"},"msg":"#-#-#T#:#:#Z ERROR connection refused for request #","stack":[],"snip":["2026-04-28T10:00:03Z ERROR connection refused for request 100","2026-04-28T10:00:04Z ERROR connection refused for request 101"]}
+{"schema":"axt.logdx.group.v1","type":"group","fp":"blake3:0dca815eec584849","sev":"fatal","count":1,"first":{"p":"../../fixtures/axt-logdx/plain.log","line":5,"ts":"2026-04-28T10:01:00Z"},"last":{"p":"../../fixtures/axt-logdx/plain.log","line":5,"ts":"2026-04-28T10:01:00Z"},"msg":"#-#-#T#:#:#Z FATAL worker panic at src/main.rs:#","stack":["stack backtrace:"],"snip":["2026-04-28T10:01:00Z FATAL worker panic at src/main.rs:12"]}
+{"schema":"axt.logdx.group.v1","type":"group","fp":"blake3:45a84364d70eca05","sev":"warn","count":1,"first":{"p":"../../fixtures/axt-logdx/plain.log","line":2,"ts":"2026-04-28T10:00:02Z"},"last":{"p":"../../fixtures/axt-logdx/plain.log","line":2,"ts":"2026-04-28T10:00:02Z"},"msg":"#-#-#T#:#:#Z WARN cache miss for user #","stack":[],"snip":["2026-04-28T10:00:02Z WARN cache miss for user 42"]}
+{"schema":"axt.logdx.timeline.v1","type":"timeline","bucket":"2026-04-28T10:00:00Z","trace":0,"debug":0,"info":0,"warn":1,"error":2,"fatal":0}
+{"schema":"axt.logdx.timeline.v1","type":"timeline","bucket":"2026-04-28T10:01:00Z","trace":0,"debug":0,"info":0,"warn":0,"error":0,"fatal":1}

@@ -1,0 +1,18 @@
+---
+source: crates/axt-logdx/tests/modes.rs
+expression: "String::from_utf8(human.get_output().stdout.clone())?"
+---
+sources=1 lines=8 groups=3 errors=3 warnings=0 bytes_scanned=330 truncated=false
+blake3:e666bfc1f7b63bd5 count=2 severity=error first=../../fixtures/axt-logdx/plain.log:3 last=../../fixtures/axt-logdx/plain.log:4
+  message: #-#-#T#:#:#Z ERROR connection refused for request #
+  sample: 2026-04-28T10:00:03Z ERROR connection refused for request 100
+  sample: 2026-04-28T10:00:04Z ERROR connection refused for request 101
+blake3:0dca815eec584849 count=1 severity=fatal first=../../fixtures/axt-logdx/plain.log:5 last=../../fixtures/axt-logdx/plain.log:5
+  message: #-#-#T#:#:#Z FATAL worker panic at src/main.rs:#
+  stack: stack backtrace:
+  sample: 2026-04-28T10:01:00Z FATAL worker panic at src/main.rs:12
+blake3:45a84364d70eca05 count=1 severity=warn first=../../fixtures/axt-logdx/plain.log:2 last=../../fixtures/axt-logdx/plain.log:2
+  message: #-#-#T#:#:#Z WARN cache miss for user #
+  sample: 2026-04-28T10:00:02Z WARN cache miss for user 42
+timeline 2026-04-28T10:00:00Z trace=0 debug=0 info=0 warn=1 error=2 fatal=0
+timeline 2026-04-28T10:01:00Z trace=0 debug=0 info=0 warn=0 error=0 fatal=1

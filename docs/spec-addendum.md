@@ -1,7 +1,7 @@
 # `axt` Foundation CLI Suite — Spec Addendum: Additional Commands
 
 **Status**: Addendum to `axt-spec-v2.md`. Apply on top of the v2 spec.
-**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-slice` (Phase 8A), `axt-ctxpack` (Phase 8), `axt-bundle` (Phase 9).
+**Adds**: `axt-port` (Phase 5), `axt-test` (Phase 6), `axt-outline` (Phase 7), `axt-slice` (Phase 8A), `axt-ctxpack` (Phase 8), `axt-bundle` (Phase 9), `axt-logdx` (Phase 11).
 **Modifies**: Section 0 (TL;DR), section 2.2 (binary names), section 4 (cross-platform matrix), section 14 (implementation plan).
 
 ---
@@ -49,7 +49,10 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 **Phase 9 (session warmup command):**
 - `axt-bundle` — compact session warmup bundle with shallow files, manifests, Git state, and next hints.
 
-**Total surface**: 10 binaries after Phase 9.
+**Phase 11 (evolutive command):**
+- `axt-logdx` — bounded offline log diagnosis with deduplicated failures, stack traces, timelines, and snippets.
+
+**Total surface**: 11 binaries after Phase 11.
 
 ---
 
@@ -67,6 +70,7 @@ Build a small suite of single-binary CLI tools, written in Rust, designed to be 
 | `axt-slice` | 8A | Extract local source by symbol or enclosing line with embedded tree-sitter parsers. |
 | `axt-ctxpack` | 8 | Search local files for multiple named regex patterns with compact snippets and tree-sitter hit classification in one bounded call. |
 | `axt-bundle` | 9 | Emit a session warmup bundle with files, manifests, Git state, and next hints. |
+| `axt-logdx` | 11 | Diagnose local logs and command outputs with deduplicated failure groups, stack traces, timelines, and snippets. |
 
 ---
 
@@ -802,6 +806,110 @@ Agent mode:
 
 ---
 
+## 11.9 — `axt-logdx` (Phase 11)
+
+### 11.9.1 Purpose
+
+`axt-logdx` performs bounded offline diagnosis of local logs and command
+outputs. It reads files or explicit stdin, extracts likely failures, groups
+repeated messages, preserves representative stack traces and snippets, and
+emits a compact severity timeline for coding agents.
+
+This command is distinct from a live log viewer or general observability tool.
+It is local-only, read-only, deterministic, and optimized for post-mortem
+triage of logs that are too large to paste into an agent context.
+
+### 11.9.2 CLI surface
+
+```text
+axt-logdx [PATH...]
+axt-logdx app.log --severity error --top 20 --json
+cat build.log | axt-logdx --stdin --agent
+
+  PATH...                 local log files to read
+  --stdin                 read log data from stdin
+  --severity <LEVEL>      minimum severity: trace, debug, info, warn, error, fatal
+  --since <TIME>          include records at or after a parseable RFC3339 timestamp
+  --until <TIME>          include records at or before a parseable RFC3339 timestamp
+  --top <N>               retained failure groups; default 20
+```
+
+Standard shared flags apply: `--json`, `--agent`, `--print-schema`,
+`--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+
+### 11.9.3 Scope
+
+- Read one or more local UTF-8-ish files and stdin through `--stdin`.
+- Detect plain text logs, JSONL logs, syslog-like timestamps, ANSI-colored
+  logs, CRLF logs, and common JavaScript, Python, Rust, Go, and JVM stack
+  traces through conservative line heuristics.
+- Filter by minimum severity and parseable RFC3339 time range. Unparseable
+  timestamps remain eligible unless a time filter is active.
+- Deduplicate repeated failure messages with deterministic fingerprints,
+  counts, first and last occurrence metadata, and representative snippets.
+- Emit a compact severity timeline for parseable timestamps.
+- Enforce bounded retained output through `--top`, `--limit`, `--max-bytes`,
+  and `--strict`.
+- Optional alias binary `logdx` behind the `aliases` feature.
+- Schema prefix `axt.logdx.v1`.
+- Never tail live logs, ingest remote logs, or make network calls.
+
+### 11.9.4 Output contract
+
+JSON uses the `axt.logdx.v1` envelope. JSON data includes:
+
+```json
+{
+  "sources": [{"path": "app.log", "lines": 120000, "bytes": 9000000}],
+  "summary": {"lines": 120000, "groups": 12, "errors": 44, "warnings": 3, "bytes_scanned": 9000000, "truncated": false},
+  "groups": [
+    {"fingerprint": "blake3:...", "severity": "error", "count": 18, "first": {"source": "app.log", "line": 120, "timestamp": "2026-04-28T10:00:00Z"}, "last": {"source": "app.log", "line": 8801, "timestamp": "2026-04-28T10:03:00Z"}, "message": "connection refused", "stack": ["..."], "snippets": ["..."]}
+  ],
+  "timeline": [{"bucket": "2026-04-28T10:00:00Z", "trace": 0, "debug": 0, "info": 0, "warn": 1, "error": 4, "fatal": 0}],
+  "warnings": [],
+  "next": ["axt-logdx app.log --severity error --top 20 --agent"]
+}
+```
+
+Agent JSONL records:
+
+- `axt.logdx.summary.v1`
+- `axt.logdx.group.v1`
+- `axt.logdx.timeline.v1`
+- `axt.logdx.warn.v1`
+
+Agent mode:
+
+```jsonl
+{"schema":"axt.logdx.summary.v1","type":"summary","ok":true,"sources":1,"lines":120000,"groups":12,"errors":44,"warnings":3,"bytes_scanned":9000000,"truncated":false,"next":["axt-logdx app.log --severity error --top 20 --agent"]}
+{"schema":"axt.logdx.group.v1","type":"group","fp":"blake3:...","sev":"error","count":18,"first":{"p":"app.log","line":120,"ts":"2026-04-28T10:00:00Z"},"last":{"p":"app.log","line":8801,"ts":"2026-04-28T10:03:00Z"},"msg":"connection refused","stack":["..."],"snip":["..."]}
+{"schema":"axt.logdx.timeline.v1","type":"timeline","bucket":"2026-04-28T10:00:00Z","trace":0,"debug":0,"info":0,"warn":1,"error":4,"fatal":0}
+```
+
+### 11.9.5 Definition of done for v0.11
+
+1. New crate `crates/axt-logdx` and binary `axt-logdx`.
+2. Optional alias `logdx` behind the `aliases` feature.
+3. Standard output modes, schemas, `--print-schema`, and `--list-errors`.
+4. File and stdin input, severity/time filtering, ANSI stripping, CRLF handling,
+   JSONL/plain/syslog parsing, stack trace capture, deduplication, snippets,
+   timelines, truncation, and deterministic ordering.
+5. `docs/commands/logdx.md`, `docs/man/axt-logdx.1`, and
+   `docs/skills/axt-logdx/SKILL.md`.
+6. Fixture and snapshot tests for human, JSON, and agent output plus focused
+   tests for plain logs, JSONL logs, syslog timestamps, ANSI stripping, CRLF
+   logs, stack traces, dedup fingerprints, severity filters, time filters,
+   large-file streaming, and truncation.
+
+### 11.9.6 Deferred scope
+
+- Live tailing.
+- Remote ingestion.
+- OpenTelemetry trace graph reconstruction.
+- A full query language.
+
+---
+
 ## Updated cross-platform matrix (additions to section 4)
 
 | Capability | Linux | macOS | Windows | Notes |
@@ -836,6 +944,9 @@ Agent mode:
 | `axt-gitctx`: Git discovery/status/log/diff | ✅ | ✅ | ✅ | requires local Git executable for detailed context; no network commands |
 | `axt-gitctx`: symlink and executable-bit diffs | ✅ | ✅ | ⚠️ | Windows mode details depend on Git configuration and filesystem support |
 | `axt-gitctx`: ahead/behind | ✅ | ✅ | ✅ | local refs only; no fetch or remote network access |
+| `axt-logdx`: file and stdin input | ✅ | ✅ | ✅ | UTF-8-ish text logs only |
+| `axt-logdx`: CRLF logs and ANSI stripping | ✅ | ✅ | ✅ | normalized before parsing |
+| `axt-logdx`: timestamp and stack heuristics | ✅ | ✅ | ✅ | deterministic best-effort parsing |
 
 ---
 
@@ -954,6 +1065,23 @@ Steps:
 
 Done criteria: see 11.8.5.
 
+### Milestone 11 — `axt-logdx` (target: 3–5 days)
+
+Build `axt-logdx` as a bounded local log diagnosis command. Do not add live
+tailing, remote ingestion, or other new binaries in this milestone.
+
+Steps:
+1. Add the command contract in this addendum.
+2. New crate `crates/axt-logdx`.
+3. Implement file/stdin streaming, severity/time parsing, stack trace capture,
+   deduplication, snippets, timeline, and output truncation.
+4. Implement renderers for every standard output mode.
+5. Add schema, docs, man page, and skill.
+6. Add fixtures, snapshots, and focused tests.
+7. Run all standard quality gates.
+
+Done criteria: see 11.9.5.
+
 ---
 
 ## Decisions deferred (additions to section 15)
@@ -961,7 +1089,7 @@ Done criteria: see 11.8.5.
 These commands were considered for the suite and explicitly rejected. Future maintainers should not relitigate without new evidence:
 
 - **`axt-watch`** (file watcher with JSONL events). Reason: `watchexec` is mature and widely installed; agents are session-based and rarely benefit from continuous watching; the unique value-add (JSONL events) is small.
-- **`axt-log`** (log analyzer with error extraction). Reason: `lnav` and `goaccess` cover this for humans; for agents, `axt-run --tail-bytes` already extracts errors from the run we just executed, which is the common case. Standalone log post-mortem is a niche.
+- **`axt-log`** (general log analyzer with error extraction). Reason: `lnav` and `goaccess` cover broad human log analysis; for agents, `axt-run --tail-bytes` covers the run we just executed. `axt-logdx` is the approved narrower offline diagnostic command with bounded agent-first output.
 - **`axt-net`** (network diagnostic structured). Reason: `curl --json` plus `jc dig` already give structured network output; nothing meaningful to add.
 - **`axt-deps`** (cross-package-manager dependency analyzer). Reason: Each ecosystem has tools that already produce JSON (`npm ls --json`, `pnpm why`, `cargo metadata`, `pip show --format=json`); a unifying layer would either lose fidelity or be enormous. Better to let agents call the native tools.
 - **`axt-git`** (git status/log/diff agent-friendly). Reason: `gix` is complex; `axt-peek --changed` and `--changed-since` cover the high-frequency cases; `git status --porcelain=v2` is stable and parsable. Insufficient new value to justify another binary.

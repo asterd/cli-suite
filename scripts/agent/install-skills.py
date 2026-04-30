@@ -21,6 +21,7 @@ SKILLS = (
     "axt-ctxpack",
     "axt-bundle",
     "axt-gitctx",
+    "axt-logdx",
 )
 
 

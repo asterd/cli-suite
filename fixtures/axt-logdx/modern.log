@@ -1,0 +1,5 @@
+{"log":"2026-04-28T10:00:00Z ERROR docker failure id=123\n","stream":"stderr","time":"2026-04-28T10:00:01Z"}
+ts=2026-04-28T10:00:02Z level=error msg="logfmt failure" user=42
+2026-04-28T10:00:03Z stderr F ERROR kubernetes pod failed request=abc123
+2026/04/28 10:00:04 [error] 123#0: *1 connect() failed while connecting to upstream
+[Tue Apr 28 10:00:05 2026] [core:error] [pid 123] apache request failed

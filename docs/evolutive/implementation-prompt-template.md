@@ -203,7 +203,7 @@ Use small sessions. Do not implement a whole complex command in one pass.
 | `axt-slice` | Rust symbol extraction from one file | Imports, line fallback, more languages |
 | `axt-gitctx` | Status, branch, recent commits, diff stats | Inline small diffs, rename details, submodules |
 | `axt-plan` | Dry-run literal/regex plans | Structural matching, apply mode |
-| `axt-logsift` | Plain text log and JSONL log ingestion with agent output | Stack traces, time windows, format presets |
+| `axt-logdx` | Plain text log and JSONL log ingestion with agent output | Stack traces, time windows, format presets |
 | `axt-manifest` | Cargo and package.json normalization | Pyproject, Go, Dockerfile, CI YAML |
 | `axt-repomap` | Topology summary from existing primitives | Symbol integration, ranking, larger monorepos |
 | `axt-impact` | Rust research prototype with fallback | LSP process management, more languages |

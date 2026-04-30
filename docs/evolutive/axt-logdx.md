@@ -1,10 +1,10 @@
-# axt-logsift Evolution Brief
+# axt-logdx Evolution Brief
 
 Status: proposed. Requires spec approval before implementation.
 
 ## Purpose
 
-`axt-logsift` triages large logs and command outputs. It returns deduplicated
+`axt-logdx` triages large logs and command outputs. It returns deduplicated
 errors, stack traces, severity timelines, and top repeated failure groups within
 strict output budgets.
 
@@ -27,10 +27,10 @@ Build decision: YES.
 
 ## Naming
 
-- Binary: `axt-logsift`
-- Optional alias: `logsift`
-- Crate: `crates/axt-logsift`
-- Schema prefix: `axt.logsift.v1`
+- Binary: `axt-logdx`
+- Optional alias: `logdx`
+- Crate: `crates/axt-logdx`
+- Schema prefix: `axt.logdx.v1`
 
 Verify package-name availability again before publish.
 
@@ -54,30 +54,31 @@ Verify package-name availability again before publish.
 ## CLI Sketch
 
 ```bash
-axt-logsift app.log --severity error --top 20 --json
-cat build.log | axt-logsift --stdin --agent
-axt-logsift ci.log --since 1h --dedup --agent
+axt-logdx app.log --severity error --top 20 --json
+cat build.log | axt-logdx --stdin --agent
+axt-logdx ci.log --since 2026-04-28T10:00:00Z --agent
 ```
 
 ## Output Requirements
 
 ```json
 {
-  "source": "app.log",
-  "summary": {"lines": 120000, "groups": 12, "errors": 44, "truncated": false},
+  "sources": [{"path": "app.log", "lines": 120000, "bytes": 9000000}],
+  "summary": {"lines": 120000, "groups": 12, "errors": 44, "warnings": 0, "bytes_scanned": 9000000, "truncated": false},
   "groups": [
     {
-      "fingerprint": "sha256:...",
+      "fingerprint": "blake3:...",
       "severity": "error",
       "count": 18,
-      "first_line": 120,
-      "last_line": 8801,
+      "first": {"source": "app.log", "line": 120, "timestamp": "2026-04-28T10:00:00Z"},
+      "last": {"source": "app.log", "line": 8801, "timestamp": "2026-04-28T10:03:00Z"},
       "message": "connection refused",
-      "sample": "..."
+      "stack": [],
+      "snippets": ["..."]
     }
   ],
-  "timeline": [{"bucket": "2026-04-28T10:00:00Z", "error": 4}],
-  "next": ["axt-logsift app.log --fingerprint sha256:... --context 20 --agent"]
+  "timeline": [{"bucket": "2026-04-28T10:00:00Z", "trace": 0, "debug": 0, "info": 0, "warn": 0, "error": 4, "fatal": 0}],
+  "next": ["axt-logdx app.log --severity error --top 20 --agent"]
 }
 ```
 
@@ -101,7 +102,7 @@ axt-logsift ci.log --since 1h --dedup --agent
 
 ## Skill Requirements
 
-Create `docs/skills/axt-logsift/SKILL.md` with rules:
+Create `docs/skills/axt-logdx/SKILL.md` with rules:
 
 - Use for logs larger than a few hundred lines.
 - Start with `--top 20 --agent`.

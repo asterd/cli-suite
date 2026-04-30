@@ -55,7 +55,7 @@ Sources checked:
 | `manifests` | `axt-manifest` | `manifest` | Medium | Useful normalized project config, but parsing breadth is large. | YES, later |
 | `impact` | `axt-impact` | `impact` | High | High value but highest complexity due LSP integration. | YES, research first |
 | `plan-edit` | `axt-plan` | `plan-edit` | Medium-high | Valuable safety layer; crowded by ast-grep, but agent workflow is distinct. | YES |
-| `logsift` | `axt-logsift` | `logsift` | Medium-high | Strong debugging value; manageable if scoped to offline triage. | YES |
+| `logdx` | `axt-logdx` | `logdx` | Medium-high | Strong debugging value; manageable if scoped to offline triage. | YES |
 
 ## Command Evaluations
 
@@ -189,7 +189,7 @@ Build decision: YES. Use `axt-plan`; optional alias `plan-edit`. The shorter
 binary name leaves room for future planned actions beyond edits, while the
 alias preserves user intent.
 
-### 10. `logsift`
+### 10. `logdx`
 
 Market validity: medium-high. Many log tools exist, but most optimize for
 interactive viewing, ingestion, or dashboards. A local offline triage command
@@ -200,7 +200,7 @@ Coverage and impact: medium-high. It helps when build, test, service, and CI
 logs exceed useful model context. MVP should prioritize plain text, JSONL,
 syslog-like lines, and common stack traces before adding deeper format support.
 
-Build decision: YES. Use `axt-logsift`; optional alias `logsift`.
+Build decision: YES. Use `axt-logdx`; optional alias `logdx`.
 
 ## Recommended Implementation Order
 
@@ -209,7 +209,7 @@ Build decision: YES. Use `axt-logsift`; optional alias `logsift`.
 3. `axt-slice`
 4. `axt-gitctx`
 5. `axt-plan`
-6. `axt-logsift`
+6. `axt-logdx`
 7. `axt-manifest`
 8. `axt-repomap`
 9. `axt-impact`
