@@ -19,6 +19,9 @@ pub enum TestError {
         source: std::io::Error,
     },
 
+    #[error("framework command `{command}` exceeded max duration of {duration_ms} ms")]
+    Timeout { command: String, duration_ms: u64 },
+
     #[error("failed to read test output: {0}")]
     Io(String),
 

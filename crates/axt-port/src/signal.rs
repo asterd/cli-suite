@@ -48,6 +48,27 @@ pub async fn free_holder(
             ),
         ));
     }
+    let pids = if tree {
+        tree_pids(holder.pid)
+    } else {
+        BTreeSet::from([holder.pid])
+    };
+    let targets = match open_signal_targets(&pids) {
+        Ok(targets) => targets,
+        Err(err) => {
+            let result = if err.kind() == io::ErrorKind::PermissionDenied {
+                FreeResult::PermissionDenied
+            } else {
+                FreeResult::Failed
+            };
+            return Ok(attempt(
+                holder,
+                AttemptMeta::new(signal, FreeAction::Refused, result, false, started)
+                    .with_error(result.as_str(), err.to_string()),
+            ));
+        }
+    };
+
     if confirm && io::stdout().is_terminal() && !confirmed(holder)? {
         return Ok(attempt(
             holder,
@@ -62,14 +83,9 @@ pub async fn free_holder(
         ));
     }
 
-    let pids = if tree {
-        tree_pids(holder.pid)
-    } else {
-        BTreeSet::from([holder.pid])
-    };
     let mut signal_result = Ok(());
-    for pid in &pids {
-        signal_result = send_signal(*pid, signal);
+    for target in &targets {
+        signal_result = target.send(signal);
         if signal_result.is_err() {
             break;
         }
@@ -110,8 +126,8 @@ pub async fn free_holder(
         ));
     }
 
-    for pid in &pids {
-        let _ignored = send_signal(*pid, SignalArg::Kill);
+    for target in &targets {
+        let _ignored = target.send(SignalArg::Kill);
     }
     tokio::time::sleep(Duration::from_millis(100)).await;
     let held_after_kill = holder_still_present(holder)?;
@@ -237,8 +253,111 @@ fn holder_still_present(holder: &PortHolder) -> Result<bool> {
     Ok(!holders.is_empty())
 }
 
+fn open_signal_targets(pids: &BTreeSet<u32>) -> io::Result<Vec<SignalTarget>> {
+    pids.iter().map(|pid| SignalTarget::open(*pid)).collect()
+}
+
+struct SignalTarget {
+    pid: u32,
+    platform: PlatformSignalTarget,
+}
+
+impl SignalTarget {
+    fn open(pid: u32) -> io::Result<Self> {
+        Ok(Self {
+            pid,
+            platform: PlatformSignalTarget::open(pid)?,
+        })
+    }
+
+    fn send(&self, signal: SignalArg) -> io::Result<()> {
+        self.platform.send(self.pid, signal)
+    }
+}
+
+#[cfg(target_os = "linux")]
+enum PlatformSignalTarget {
+    PidFd(std::os::fd::OwnedFd),
+    Pid,
+}
+
+#[cfg(target_os = "linux")]
+impl PlatformSignalTarget {
+    fn open(pid: u32) -> io::Result<Self> {
+        use std::os::fd::{FromRawFd, OwnedFd};
+
+        let raw_pid = i32::try_from(pid)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "pid out of range"))?;
+        // SAFETY: `pidfd_open` is called with a numeric PID and flags=0. A
+        // non-negative return value is a new owned file descriptor.
+        let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, raw_pid, 0) };
+        if fd >= 0 {
+            let fd_i32 =
+                i32::try_from(fd).map_err(|_| io::Error::other("pidfd value out of range"))?;
+            // SAFETY: `fd_i32` is the live descriptor returned by pidfd_open
+            // above and ownership is transferred to `OwnedFd`.
+            return Ok(Self::PidFd(unsafe { OwnedFd::from_raw_fd(fd_i32) }));
+        }
+        let err = io::Error::last_os_error();
+        if matches!(err.raw_os_error(), Some(libc::ENOSYS | libc::EINVAL)) {
+            return Ok(Self::Pid);
+        }
+        Err(err)
+    }
+
+    fn send(&self, pid: u32, signal: SignalArg) -> io::Result<()> {
+        use std::os::fd::AsRawFd;
+
+        match self {
+            Self::PidFd(fd) => {
+                let sig = signal_number(signal);
+                // SAFETY: `fd` is a live pidfd owned by this target. Null
+                // siginfo and flags=0 match the pidfd_send_signal contract.
+                let result = unsafe {
+                    libc::syscall(
+                        libc::SYS_pidfd_send_signal,
+                        fd.as_raw_fd(),
+                        sig,
+                        std::ptr::null::<libc::siginfo_t>(),
+                        0,
+                    )
+                };
+                if result == 0 {
+                    Ok(())
+                } else {
+                    Err(io::Error::last_os_error())
+                }
+            }
+            Self::Pid => send_signal_pid(pid, signal),
+        }
+    }
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+struct PlatformSignalTarget;
+
+#[cfg(all(unix, not(target_os = "linux")))]
+impl PlatformSignalTarget {
+    fn open(_pid: u32) -> io::Result<Self> {
+        Ok(Self)
+    }
+
+    fn send(&self, pid: u32, signal: SignalArg) -> io::Result<()> {
+        send_signal_pid(pid, signal)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn signal_number(signal: SignalArg) -> i32 {
+    match signal {
+        SignalArg::Term => libc::SIGTERM,
+        SignalArg::Kill => libc::SIGKILL,
+        SignalArg::Int => libc::SIGINT,
+    }
+}
+
 #[cfg(unix)]
-fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
+fn send_signal_pid(pid: u32, signal: SignalArg) -> io::Result<()> {
     use nix::{
         sys::signal::{kill, Signal},
         unistd::Pid,
@@ -261,31 +380,51 @@ fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
 }
 
 #[cfg(windows)]
-fn send_signal(pid: u32, signal: SignalArg) -> io::Result<()> {
-    use windows_sys::Win32::{
-        Foundation::{CloseHandle, FALSE},
-        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
-    };
+struct PlatformSignalTarget(windows_sys::Win32::Foundation::HANDLE);
 
-    let exit_code: u32 = match signal {
-        SignalArg::Kill | SignalArg::Term => 1,
-        SignalArg::Int => 0xC000_013A,
-    };
+#[cfg(windows)]
+impl Drop for PlatformSignalTarget {
+    fn drop(&mut self) {
+        // SAFETY: the handle is returned by OpenProcess and owned by this type.
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
 
-    // SAFETY: We open the process with the minimum rights needed to terminate it,
-    // check the returned handle for null, and always close it before returning.
-    unsafe {
-        let handle = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+#[cfg(windows)]
+impl PlatformSignalTarget {
+    fn open(pid: u32) -> io::Result<Self> {
+        use windows_sys::Win32::{
+            Foundation::FALSE,
+            System::Threading::{OpenProcess, PROCESS_TERMINATE},
+        };
+
+        // SAFETY: We request only PROCESS_TERMINATE, pass no inheritable handle,
+        // and check for a null return value before storing the handle.
+        let handle = unsafe { OpenProcess(PROCESS_TERMINATE, FALSE, pid) };
         if handle.is_null() {
             return Err(io::Error::last_os_error());
         }
-        let result = TerminateProcess(handle, exit_code);
-        CloseHandle(handle);
+        Ok(Self(handle))
+    }
+
+    fn send(&self, _pid: u32, signal: SignalArg) -> io::Result<()> {
+        use windows_sys::Win32::System::Threading::TerminateProcess;
+
+        let exit_code: u32 = match signal {
+            SignalArg::Kill | SignalArg::Term => 1,
+            SignalArg::Int => 0xC000_013A,
+        };
+
+        // SAFETY: the stored handle is live for the original process object and
+        // was opened with PROCESS_TERMINATE.
+        let result = unsafe { TerminateProcess(self.0, exit_code) };
         if result == 0 {
             return Err(io::Error::last_os_error());
         }
+        Ok(())
     }
-    Ok(())
 }
 
 fn tree_pids(root: u32) -> BTreeSet<u32> {

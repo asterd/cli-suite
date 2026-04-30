@@ -490,7 +490,11 @@ fn synthetic_untracked_diff(repo_root: &Utf8Path, path: &str) -> Result<String, 
             });
         }
     };
-    let mut diff = format!("diff --git a/{path} b/{path}\nnew file mode 100644\n--- /dev/null\n+++ b/{path}\n");
+    let diff_path_a = quote_diff_path(&format!("a/{path}"));
+    let diff_path_b = quote_diff_path(&format!("b/{path}"));
+    let mut diff = format!(
+        "diff --git {diff_path_a} {diff_path_b}\nnew file mode 100644\n--- /dev/null\n+++ {diff_path_b}\n"
+    );
     if !text.is_empty() {
         diff.push_str("@@ -0,0 +1");
         let count = text.lines().count();
@@ -506,6 +510,28 @@ fn synthetic_untracked_diff(repo_root: &Utf8Path, path: &str) -> Result<String, 
         }
     }
     Ok(diff)
+}
+
+fn quote_diff_path(path: &str) -> String {
+    let mut quoted = String::from("\"");
+    for byte in path.bytes() {
+        match byte {
+            b'\n' => quoted.push_str("\\n"),
+            b'\r' => quoted.push_str("\\r"),
+            b'\t' => quoted.push_str("\\t"),
+            b'\\' => quoted.push_str("\\\\"),
+            b'"' => quoted.push_str("\\\""),
+            0x20..=0x7e => quoted.push(char::from(byte)),
+            other => {
+                quoted.push('\\');
+                quoted.push(char::from(b'0' + ((other >> 6) & 0o7)));
+                quoted.push(char::from(b'0' + ((other >> 3) & 0o7)));
+                quoted.push(char::from(b'0' + (other & 0o7)));
+            }
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 fn file_size(repo_root: &Utf8Path, path: &str) -> Result<u64, GitctxError> {

@@ -1,4 +1,4 @@
-use std::{io::BufRead, path::Path, process::Command};
+use std::{path::Path, process::Command};
 
 use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::Value;
@@ -38,11 +38,6 @@ pub trait TestFrontend {
     fn name(&self) -> &'static str;
     fn command_name(&self) -> &'static str;
     fn build_command(&self, executable: &Path, opts: &TestOptions) -> Command;
-    fn parse_reader(
-        &self,
-        stdout: &mut dyn BufRead,
-        stderr: &mut dyn BufRead,
-    ) -> Vec<NormalizedEvent>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -142,17 +137,6 @@ impl TestFrontend for Frontend {
         command
     }
 
-    fn parse_reader(
-        &self,
-        stdout: &mut dyn BufRead,
-        stderr: &mut dyn BufRead,
-    ) -> Vec<NormalizedEvent> {
-        let mut out = String::new();
-        let mut err = String::new();
-        let _read_out = stdout.read_to_string(&mut out);
-        let _read_err = stderr.read_to_string(&mut err);
-        parse_output(self.framework, &out, &err)
-    }
 }
 
 pub fn parse_output(framework: FrameworkArg, stdout: &str, stderr: &str) -> Vec<NormalizedEvent> {

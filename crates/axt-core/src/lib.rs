@@ -16,6 +16,7 @@ use std::{env, fmt, io::IsTerminal, path::PathBuf, str::FromStr};
 pub use anstream::ColorChoice;
 use camino::Utf8PathBuf;
 use clap::{ArgGroup, Args, ValueEnum};
+use regex::{Regex, RegexBuilder};
 use serde::Serialize;
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -42,6 +43,10 @@ pub enum CoreError {
     /// A string did not match a supported output mode.
     #[error("unknown output mode: {0}")]
     UnknownOutputMode(String),
+
+    /// A user-provided regex exceeded the configured pattern length.
+    #[error("regex pattern exceeds maximum length of {max_len} bytes")]
+    RegexTooLong { max_len: usize },
 }
 
 /// Output modes shared by all binaries.
@@ -173,6 +178,137 @@ pub struct OutputLimits {
     pub max_bytes: usize,
     /// Treat truncation as a non-zero error.
     pub strict: bool,
+}
+
+/// Bounded byte tail optimized for chunked stream capture.
+#[derive(Debug, Clone)]
+pub struct BoundedTailBuffer {
+    max: usize,
+    bytes: Vec<u8>,
+    start: usize,
+    len: usize,
+}
+
+impl BoundedTailBuffer {
+    /// Create a buffer retaining at most `max` trailing bytes.
+    #[must_use]
+    pub fn new(max: usize) -> Self {
+        Self {
+            max,
+            bytes: vec![0; max],
+            start: 0,
+            len: 0,
+        }
+    }
+
+    /// Push a chunk, retaining only the newest `max` bytes.
+    pub fn push(&mut self, chunk: &[u8]) {
+        if self.max == 0 || chunk.is_empty() {
+            return;
+        }
+        if chunk.len() >= self.max {
+            let keep = &chunk[chunk.len() - self.max..];
+            self.bytes.copy_from_slice(keep);
+            self.start = 0;
+            self.len = self.max;
+            return;
+        }
+        for byte in chunk {
+            let write_at = (self.start + self.len) % self.max;
+            self.bytes[write_at] = *byte;
+            if self.len < self.max {
+                self.len += 1;
+            } else {
+                self.start = (self.start + 1) % self.max;
+            }
+        }
+    }
+
+    /// Return retained bytes in chronological order.
+    #[must_use]
+    pub fn bytes(&self) -> Vec<u8> {
+        if self.len == 0 {
+            return Vec::new();
+        }
+        let mut out = Vec::with_capacity(self.len);
+        let first = self.len.min(self.max - self.start);
+        out.extend_from_slice(&self.bytes[self.start..self.start + first]);
+        if first < self.len {
+            out.extend_from_slice(&self.bytes[..self.len - first]);
+        }
+        out
+    }
+
+    /// Return retained bytes decoded lossily and split into lines.
+    #[must_use]
+    pub fn lines(&self) -> Vec<String> {
+        String::from_utf8_lossy(&self.bytes())
+            .lines()
+            .map(ToOwned::to_owned)
+            .collect()
+    }
+
+    /// Return retained bytes decoded lossily as one string.
+    #[must_use]
+    pub fn text_lossy(&self) -> String {
+        String::from_utf8_lossy(&self.bytes()).into_owned()
+    }
+}
+
+/// Limits used when compiling user-provided regex patterns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserRegexLimits {
+    /// Maximum pattern length in bytes before compilation is refused.
+    pub max_pattern_len: usize,
+    /// Regex heap size limit.
+    pub size_limit: usize,
+    /// Lazy DFA cache size limit.
+    pub dfa_size_limit: usize,
+}
+
+impl UserRegexLimits {
+    /// Conservative default for CLI search patterns.
+    pub const DEFAULT_MAX_PATTERN_LEN: usize = 16 * 1024;
+    /// Default compiled regex heap cap.
+    pub const DEFAULT_SIZE_LIMIT: usize = 10 * 1024 * 1024;
+    /// Default lazy DFA cache cap.
+    pub const DEFAULT_DFA_SIZE_LIMIT: usize = 10 * 1024 * 1024;
+}
+
+impl Default for UserRegexLimits {
+    fn default() -> Self {
+        Self {
+            max_pattern_len: Self::DEFAULT_MAX_PATTERN_LEN,
+            size_limit: Self::DEFAULT_SIZE_LIMIT,
+            dfa_size_limit: Self::DEFAULT_DFA_SIZE_LIMIT,
+        }
+    }
+}
+
+/// Compile a user-provided regex with explicit resource limits.
+pub fn compile_user_regex(pattern: &str, limits: UserRegexLimits) -> Result<Regex, UserRegexError> {
+    if pattern.len() > limits.max_pattern_len {
+        return Err(CoreError::RegexTooLong {
+            max_len: limits.max_pattern_len,
+        }
+        .into());
+    }
+    RegexBuilder::new(pattern)
+        .size_limit(limits.size_limit)
+        .dfa_size_limit(limits.dfa_size_limit)
+        .build()
+        .map_err(UserRegexError::Regex)
+}
+
+/// Error returned by [`compile_user_regex`].
+#[derive(Debug, Error)]
+pub enum UserRegexError {
+    /// Shared core error.
+    #[error("{0}")]
+    Core(#[from] CoreError),
+    /// Regex parser or compiler error.
+    #[error("{0}")]
+    Regex(#[from] regex::Error),
 }
 
 impl OutputLimits {
@@ -819,6 +955,40 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn bounded_tail_buffer_keeps_latest_bytes_across_chunks() {
+        let mut buffer = BoundedTailBuffer::new(5);
+        buffer.push(b"abc");
+        buffer.push(b"def");
+        assert_eq!(buffer.bytes(), b"bcdef");
+
+        buffer.push(b"ghijkl");
+        assert_eq!(buffer.bytes(), b"hijkl");
+    }
+
+    #[test]
+    fn bounded_tail_buffer_returns_lossy_lines() {
+        let mut buffer = BoundedTailBuffer::new(9);
+        buffer.push(b"one\ntwo\nthree");
+        assert_eq!(buffer.lines(), vec!["two".to_owned(), "three".to_owned()]);
+    }
+
+    #[test]
+    fn compile_user_regex_rejects_overlong_patterns() {
+        let result = compile_user_regex(
+            "abcdef",
+            UserRegexLimits {
+                max_pattern_len: 3,
+                ..UserRegexLimits::default()
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Err(UserRegexError::Core(CoreError::RegexTooLong { max_len: 3 }))
+        ));
     }
 
     #[test]

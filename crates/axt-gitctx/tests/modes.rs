@@ -274,6 +274,40 @@ fn next_hints_quote_paths_for_shell_reuse() -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn synthetic_untracked_diff_quotes_newline_paths() -> Result<(), Box<dyn std::error::Error>> {
+    let (_temp, root) = initialized_repo()?;
+    fs::write(root.join("line\nbreak.txt"), "new\n")?;
+
+    let stdout = run_axt_gitctx(
+        &root,
+        &[
+            "--json",
+            "--commits",
+            "0",
+            "--inline-diff-max-bytes",
+            "10000",
+        ],
+    )?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    let files = value["data"]["files"]
+        .as_array()
+        .ok_or_else(|| io::Error::other("files was not an array"))?;
+    let file = files
+        .iter()
+        .find(|file| file["path"] == "line\nbreak.txt")
+        .ok_or_else(|| io::Error::other("missing newline path"))?;
+    let diff = file["diff"]
+        .as_str()
+        .ok_or_else(|| io::Error::other("missing inline diff"))?;
+
+    assert!(diff.contains("diff --git \"a/line\\nbreak.txt\" \"b/line\\nbreak.txt\""));
+    assert!(diff.contains("+++ \"b/line\\nbreak.txt\""));
+    assert!(!diff.contains("+++ b/line\nbreak.txt"));
+    Ok(())
+}
+
 #[test]
 fn print_schema_and_list_errors_work() -> Result<(), Box<dyn std::error::Error>> {
     let schema = Command::cargo_bin("axt-gitctx")?

@@ -2,12 +2,13 @@ use std::{
     collections::BTreeSet,
     io::{BufRead, BufReader, Read, Write},
     path::Path,
-    process::{ExitStatus, Stdio},
+    process::{Child, ExitStatus, Stdio},
+    sync::mpsc,
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
-use axt_core::CommandContext;
+use axt_core::{BoundedTailBuffer, CommandContext};
 use axt_output::{AgentJsonlWriter, RenderContext};
 use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{json, Value};
@@ -86,7 +87,13 @@ fn run_tests(args: &Args, ctx: &CommandContext) -> Result<TestData> {
         let frontend = Frontend::new(project.framework);
         let executable = resolve_tool(frontend.command_name())?;
         let opts = TestOptions::from_run(project.root.clone(), &args.run, files);
-        let (status, events) = invoke_frontend(frontend, &executable, &opts)?;
+        let (status, events) = invoke_frontend(
+            frontend,
+            &executable,
+            &opts,
+            effective_max_duration(args, ctx),
+            ctx.limits.max_bytes,
+        )?;
         for event in events {
             match event {
                 NormalizedEvent::Suite(suite) => suites.push(prefix_suite(&ctx.cwd, suite)),
@@ -185,6 +192,7 @@ pub fn run_agent_streaming(
             args.run.include_output,
             failures_only,
             &mut state,
+            effective_max_duration(args, ctx),
         )?;
         let project_failed = state
             .cases
@@ -276,10 +284,19 @@ fn framework_failed_case(frontend: Frontend, status: ExitStatus) -> TestCase {
     }
 }
 
+fn effective_max_duration(args: &Args, ctx: &CommandContext) -> Option<Duration> {
+    args.run
+        .max_duration
+        .map(|duration| duration.0)
+        .or_else(|| ctx.limits.strict.then_some(Duration::from_secs(30 * 60)))
+}
+
 fn invoke_frontend(
     frontend: Frontend,
     executable: &Path,
     opts: &TestOptions,
+    max_duration: Option<Duration>,
+    max_stderr_bytes: usize,
 ) -> Result<(ExitStatus, Vec<NormalizedEvent>)> {
     let mut child = frontend
         .build_command(executable, opts)
@@ -298,17 +315,79 @@ fn invoke_frontend(
         .stderr
         .take()
         .ok_or_else(|| TestError::Io("framework stderr pipe missing".to_owned()))?;
-    let mut stdout = BufReader::new(stdout);
-    let mut stderr = BufReader::new(stderr);
-    let events = frontend.parse_reader(&mut stdout, &mut stderr);
-    let status = child.wait().map_err(|source| TestError::Command {
-        command: frontend.command_name().to_owned(),
-        source,
-    })?;
+    let stdout_handle = thread::spawn(move || {
+        let mut text = String::new();
+        BufReader::new(stdout)
+            .read_to_string(&mut text)
+            .map(|_bytes| text)
+    });
+    let stderr_handle = thread::spawn(move || read_bounded_text(stderr, max_stderr_bytes));
+    let status = wait_for_child(&mut child, frontend.command_name(), max_duration)?;
+    let stdout_text = stdout_handle
+        .join()
+        .map_err(|_err| TestError::Io("framework stdout reader panicked".to_owned()))?
+        .map_err(|err| TestError::Io(err.to_string()))?;
+    let stderr_text = stderr_handle
+        .join()
+        .map_err(|_err| TestError::Io("framework stderr reader panicked".to_owned()))?
+        .map_err(|err| TestError::Io(err.to_string()))?;
+    let events = parse_output(frontend.framework(), &stdout_text, &stderr_text);
     Ok((status, events))
 }
 
-#[allow(clippy::too_many_arguments)]
+fn wait_for_child(
+    child: &mut Child,
+    command: &str,
+    max_duration: Option<Duration>,
+) -> Result<ExitStatus> {
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().map_err(|source| TestError::Command {
+            command: command.to_owned(),
+            source,
+        })? {
+            return Ok(status);
+        }
+        if let Some(max_duration) = max_duration {
+            if started.elapsed() >= max_duration {
+                terminate_timed_out_child(child, command, max_duration)?;
+            }
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn terminate_timed_out_child(
+    child: &mut Child,
+    command: &str,
+    max_duration: Duration,
+) -> Result<()> {
+    let _kill_result = child.kill();
+    let _wait_result = child.wait();
+    Err(TestError::Timeout {
+        command: command.to_owned(),
+        duration_ms: duration_ms(max_duration),
+    })
+}
+
+fn read_bounded_text(
+    reader: impl Read,
+    max_bytes: usize,
+) -> std::result::Result<String, std::io::Error> {
+    let mut tail = BoundedTailBuffer::new(max_bytes);
+    let mut reader = BufReader::new(reader);
+    let mut buffer = [0; 8192];
+    loop {
+        let bytes = reader.read(&mut buffer)?;
+        if bytes == 0 {
+            break;
+        }
+        tail.push(&buffer[..bytes]);
+    }
+    Ok(tail.text_lossy())
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn invoke_frontend_streaming<W: Write + ?Sized>(
     frontend: Frontend,
     executable: &Path,
@@ -318,6 +397,7 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
     include_output: bool,
     failures_only: bool,
     state: &mut StreamingState,
+    max_duration: Option<Duration>,
 ) -> Result<ExitStatus> {
     let mut child = frontend
         .build_command(executable, opts)
@@ -336,41 +416,81 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
         .stderr
         .take()
         .ok_or_else(|| TestError::Io("framework stderr pipe missing".to_owned()))?;
-    let stderr_handle = thread::spawn(move || {
-        let mut text = String::new();
-        let mut reader = BufReader::new(stderr);
-        reader.read_to_string(&mut text).map(|_bytes| text)
+    let max_stderr_bytes = ctx.limits.max_bytes;
+    let stderr_handle = thread::spawn(move || read_bounded_text(stderr, max_stderr_bytes));
+    let (line_tx, line_rx) = mpsc::channel();
+    let stdout_handle = thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        loop {
+            let mut line = String::new();
+            match reader.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_bytes) => {
+                    if line_tx.send(Ok(line)).is_err() {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    let _sent = line_tx.send(Err(err));
+                    break;
+                }
+            }
+        }
     });
 
     let mut stdout_text = String::new();
     let mut saw_events = false;
-    let mut reader = BufReader::new(stdout);
+    let started = Instant::now();
+    let mut status = None;
     loop {
-        let mut line = String::new();
-        let bytes = reader
-            .read_line(&mut line)
-            .map_err(|err| TestError::Io(err.to_string()))?;
-        if bytes == 0 {
-            break;
+        if status.is_none() {
+            status = child.try_wait().map_err(|source| TestError::Command {
+                command: frontend.command_name().to_owned(),
+                source,
+            })?;
         }
-        stdout_text.push_str(&line);
-        for event in parse_stdout_line(frontend.framework(), &line) {
-            saw_events = true;
-            handle_streamed_event(
-                event,
-                ctx,
-                writer,
-                include_output,
-                failures_only,
-                state,
-            )?;
+        if status.is_none() {
+            if let Some(max_duration) = max_duration {
+                if started.elapsed() >= max_duration {
+                    terminate_timed_out_child(&mut child, frontend.command_name(), max_duration)?;
+                    status = child.try_wait().map_err(|source| TestError::Command {
+                        command: frontend.command_name().to_owned(),
+                        source,
+                    })?;
+                }
+            }
+        }
+        match line_rx.recv_timeout(Duration::from_millis(10)) {
+            Ok(Ok(line)) => {
+                stdout_text.push_str(&line);
+                for event in parse_stdout_line(frontend.framework(), &line) {
+                    saw_events = true;
+                    handle_streamed_event(
+                        event,
+                        ctx,
+                        writer,
+                        include_output,
+                        failures_only,
+                        state,
+                    )?;
+                }
+            }
+            Ok(Err(err)) => return Err(TestError::Io(err.to_string())),
+            Err(mpsc::RecvTimeoutError::Timeout) if status.is_none() => {}
+            Err(mpsc::RecvTimeoutError::Timeout | mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
 
-    let status = child.wait().map_err(|source| TestError::Command {
-        command: frontend.command_name().to_owned(),
-        source,
-    })?;
+    stdout_handle
+        .join()
+        .map_err(|_err| TestError::Io("framework stdout reader panicked".to_owned()))?;
+    let status = match status {
+        Some(status) => status,
+        None => child.wait().map_err(|source| TestError::Command {
+            command: frontend.command_name().to_owned(),
+            source,
+        })?,
+    };
     let stderr_text = stderr_handle
         .join()
         .map_err(|_err| TestError::Io("framework stderr reader panicked".to_owned()))?
@@ -588,6 +708,10 @@ fn counts(cases: &[TestCase]) -> (usize, usize, usize, usize) {
 
 fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+fn duration_ms(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
 fn summary_record(data: &TestData) -> Value {

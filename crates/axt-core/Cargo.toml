@@ -20,6 +20,7 @@ test-support = []
 anstream.workspace = true
 camino.workspace = true
 clap.workspace = true
+regex.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 time.workspace = true

@@ -1,3 +1,5 @@
+use std::{str::FromStr, time::Duration};
+
 use camino::Utf8PathBuf;
 use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 
@@ -56,6 +58,9 @@ pub struct RunArgs {
     #[arg(long)]
     pub rerun_failed: bool,
 
+    #[arg(long, value_name = "DURATION")]
+    pub max_duration: Option<DurationArg>,
+
     #[arg(long = "include-output", default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub include_output: bool,
 
@@ -67,6 +72,38 @@ pub struct RunArgs {
 
     #[arg(last = true)]
     pub framework_flags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DurationArg(pub Duration);
+
+impl FromStr for DurationArg {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        parse_duration(value).map(Self)
+    }
+}
+
+fn parse_duration(value: &str) -> Result<Duration, String> {
+    let split = value
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(value.len());
+    if split == 0 {
+        return Err(format!("missing numeric value: {value}"));
+    }
+    let amount = value[..split]
+        .parse::<u64>()
+        .map_err(|_| format!("invalid duration amount: {}", &value[..split]))?;
+    let unit = &value[split..];
+    let millis = match unit {
+        "ms" => amount,
+        "s" | "" => amount.saturating_mul(1_000),
+        "m" => amount.saturating_mul(60_000),
+        "h" => amount.saturating_mul(3_600_000),
+        other => return Err(format!("unsupported duration unit: {other}")),
+    };
+    Ok(Duration::from_millis(millis))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -92,5 +129,17 @@ impl FrameworkArg {
             Self::Bun => "bun",
             Self::Deno => "deno",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_duration_units() {
+        assert_eq!(parse_duration("250ms"), Ok(Duration::from_millis(250)));
+        assert_eq!(parse_duration("2s"), Ok(Duration::from_secs(2)));
+        assert_eq!(parse_duration("3m"), Ok(Duration::from_secs(180)));
     }
 }

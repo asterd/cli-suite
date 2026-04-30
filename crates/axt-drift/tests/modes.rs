@@ -38,6 +38,11 @@ fn mark_uses_default_name_and_writes_jsonl_snapshot() -> Result<(), Box<dyn std:
     assert_eq!(value["data"]["operation"], "mark");
     assert_eq!(value["data"]["name"], "default");
     assert!(temp.path().join(".axt/drift/default.jsonl").exists());
+    let temp_files = fs::read_dir(temp.path().join(".axt/drift"))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
+        .count();
+    assert_eq!(temp_files, 0);
     Ok(())
 }
 
@@ -73,6 +78,42 @@ fn diff_reports_created_modified_deleted_sorted_by_size_delta(
     assert_eq!(changes[1]["action"], "deleted");
     assert_eq!(changes[2]["path"], "created.txt");
     assert_eq!(changes[2]["action"], "created");
+    Ok(())
+}
+
+#[test]
+fn diff_streaming_merge_handles_global_path_order() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    fs::create_dir(temp.path().join("a"))?;
+    fs::write(temp.path().join("a.txt"), "root before\n")?;
+    fs::write(temp.path().join("a").join("b.txt"), "nested before\n")?;
+    mark(temp.path(), "ordered")?;
+
+    fs::write(temp.path().join("a.txt"), "root after with more bytes\n")?;
+    fs::remove_file(temp.path().join("a").join("b.txt"))?;
+    fs::write(temp.path().join("a-new.txt"), "created\n")?;
+
+    let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
+        .current_dir(temp.path())
+        .args(["--json", "diff", "--since", "ordered"])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    let changes = value["data"]["changes"]
+        .as_array()
+        .ok_or_else(|| io::Error::other("changes is not an array"))?;
+
+    assert!(changes
+        .iter()
+        .any(|change| change["path"] == "a.txt" && change["action"] == "modified"));
+    assert!(changes
+        .iter()
+        .any(|change| change["path"] == "a/b.txt" && change["action"] == "deleted"));
+    assert!(changes
+        .iter()
+        .any(|change| change["path"] == "a-new.txt" && change["action"] == "created"));
     Ok(())
 }
 

@@ -76,6 +76,7 @@ fn exit_code_for_ctxpack_error(err: &CtxpackError) -> u8 {
         | CtxpackError::InvalidPatternShape { .. }
         | CtxpackError::InvalidPatternName(_)
         | CtxpackError::DuplicatePatternName(_)
+        | CtxpackError::RegexTooLong { .. }
         | CtxpackError::InvalidRegex { .. }
         | CtxpackError::InvalidGlob { .. } => ErrorCode::UsageError.exit_code(),
         CtxpackError::Output(axt_output::OutputError::TruncatedStrict) => {

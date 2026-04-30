@@ -262,6 +262,23 @@ fn jsonl_failures_are_flushed_before_process_exit() -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn max_duration_terminates_hung_framework() -> Result<(), Box<dyn std::error::Error>> {
+    let tools = FakeTools::with_npm(npm_hangs_without_output())?;
+    let assert = Command::cargo_bin("axt-test")?
+        .env("AXT_OUTPUT", "human")
+        .current_dir(fixture_path("jest"))
+        .env("PATH", tools.path_value()?)
+        .args(["--json", "--framework", "jest", "--max-duration", "100ms"])
+        .assert()
+        .failure()
+        .code(5);
+    let stderr = String::from_utf8(assert.get_output().stderr.clone())?;
+    assert!(stderr.contains("exceeded max duration"));
+    Ok(())
+}
+
 struct FakeTools {
     _dir: TempDir,
     bin: PathBuf,
@@ -375,6 +392,14 @@ printf '{"schema":"axt.test.fixture.v1","type":"case","status":"failed","name":"
 sleep 5
 printf '{"schema":"axt.test.fixture.v1","type":"case","status":"passed","name":"passes late","suite":"checkout flow","file":"tests/checkout.test.ts","line":10,"duration_ms":11}\n'
 exit 1
+"#
+}
+
+#[cfg(unix)]
+fn npm_hangs_without_output() -> &'static str {
+    r#"#!/bin/sh
+sleep 5
+exit 0
 "#
 }
 

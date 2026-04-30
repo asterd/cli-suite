@@ -98,6 +98,7 @@ fn exit_code_for_test_error(err: &TestError) -> u8 {
         {
             ErrorCode::PermissionDenied.exit_code()
         }
+        TestError::Timeout { .. } => ErrorCode::Timeout.exit_code(),
         TestError::Output(axt_output::OutputError::TruncatedStrict) => {
             ErrorCode::OutputTruncatedStrict.exit_code()
         }

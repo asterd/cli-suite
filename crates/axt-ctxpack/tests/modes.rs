@@ -392,3 +392,23 @@ fn invalid_pattern_is_usage_error() -> Result<(), Box<dyn std::error::Error>> {
         .code(2);
     Ok(())
 }
+
+#[test]
+fn overlong_regex_is_usage_error() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("sample.txt");
+    fs::write(&file, "TODO")?;
+    let pattern = format!("too_big={}", "a".repeat(16 * 1024 + 1));
+
+    Command::cargo_bin("axt-ctxpack")?
+        .env("AXT_OUTPUT", "human")
+        .args([
+            "--json",
+            "--pattern",
+            &pattern,
+            file.to_string_lossy().as_ref(),
+        ])
+        .assert()
+        .code(2);
+    Ok(())
+}

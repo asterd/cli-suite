@@ -8,7 +8,10 @@ use crate::{
     error::{DriftError, Result},
     model::{DriftData, DriftOperation, RunCommand},
     output::DriftOutput,
-    snapshot::{list_marks, mark_path, reset_marks, Snapshot},
+    snapshot::{
+        diff_captured_snapshots, diff_snapshot_files, list_marks, mark_path, reset_marks,
+        CapturedSnapshot,
+    },
 };
 
 pub async fn run(args: &Args, ctx: &CommandContext) -> Result<DriftOutput> {
@@ -30,9 +33,9 @@ pub async fn run(args: &Args, ctx: &CommandContext) -> Result<DriftOutput> {
 }
 
 fn mark_snapshot(root: &camino::Utf8Path, name: &str, hash: bool) -> Result<DriftData> {
-    let snapshot = Snapshot::capture(root, hash)?;
+    let snapshot = CapturedSnapshot::capture(root, hash)?;
     let path = mark_path(root, name)?;
-    snapshot.write(&path)?;
+    snapshot.persist_to(&path)?;
     Ok(base_data(
         DriftOperation::Mark,
         hash,
@@ -47,8 +50,7 @@ fn diff_snapshot(root: &camino::Utf8Path, name: &str, hash: bool) -> Result<Drif
     if !path.exists() {
         return Err(DriftError::MarkNotFound(name.to_owned()));
     }
-    let before = Snapshot::read(&path)?;
-    let after = Snapshot::capture(root, hash)?;
+    let after = CapturedSnapshot::capture(root, hash)?;
     let mut data = base_data(
         DriftOperation::Diff,
         hash,
@@ -56,7 +58,7 @@ fn diff_snapshot(root: &camino::Utf8Path, name: &str, hash: bool) -> Result<Drif
         Some(&path),
         after.len(),
     );
-    data.changes = before.diff(&after);
+    data.changes = diff_snapshot_files(&path, &after)?;
     Ok(data)
 }
 
@@ -67,7 +69,7 @@ async fn run_command(
     command: &[String],
 ) -> Result<DriftData> {
     let (program, args) = command.split_first().ok_or(DriftError::MissingCommand)?;
-    let before = Snapshot::capture(root, hash)?;
+    let before = CapturedSnapshot::capture(root, hash)?;
     let started = Instant::now();
     let status = TokioCommand::new(program)
         .args(args)
@@ -76,9 +78,9 @@ async fn run_command(
         .await
         .map_err(DriftError::Execute)?;
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let after = Snapshot::capture(root, hash)?;
+    let after = CapturedSnapshot::capture(root, hash)?;
     let path = mark_path(root, name)?;
-    before.write(&path)?;
+    before.persist_to(&path)?;
     let mut data = base_data(
         DriftOperation::Run,
         hash,
@@ -86,7 +88,7 @@ async fn run_command(
         Some(&path),
         after.len(),
     );
-    data.changes = before.diff(&after);
+    data.changes = diff_captured_snapshots(&before, &after)?;
     data.command = Some(RunCommand {
         program: program.clone(),
         args: args.to_vec(),

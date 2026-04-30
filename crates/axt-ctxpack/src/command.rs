@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, fs};
 
-use axt_core::CommandContext;
+use axt_core::{compile_user_regex, CommandContext, CoreError, UserRegexError, UserRegexLimits};
 use axt_fs::{ContentKind, FsWarningCode, WalkOptions};
 use camino::{Utf8Path, Utf8PathBuf};
 use globset::{Glob, GlobSet, GlobSetBuilder};
@@ -144,10 +144,23 @@ fn compile_patterns(values: &[String]) -> Result<Vec<CompiledPattern>> {
         if !names.insert(name.to_owned()) {
             return Err(CtxpackError::DuplicatePatternName(name.to_owned()));
         }
-        let regex = Regex::new(query).map_err(|source| CtxpackError::InvalidRegex {
-            name: name.to_owned(),
-            source,
-        })?;
+        let regex =
+            compile_user_regex(query, UserRegexLimits::default()).map_err(|source| match source {
+                UserRegexError::Core(CoreError::RegexTooLong { max_len }) => {
+                    CtxpackError::RegexTooLong {
+                        name: name.to_owned(),
+                        max_len,
+                    }
+                }
+                UserRegexError::Core(err) => CtxpackError::InvalidRegex {
+                    name: name.to_owned(),
+                    source: regex::Error::Syntax(err.to_string()),
+                },
+                UserRegexError::Regex(source) => CtxpackError::InvalidRegex {
+                    name: name.to_owned(),
+                    source,
+                },
+            })?;
         patterns.push(CompiledPattern {
             spec: SearchPattern {
                 name: name.to_owned(),

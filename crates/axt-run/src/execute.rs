@@ -1,10 +1,10 @@
 use std::{
-    collections::VecDeque,
     io::IsTerminal,
     process::Stdio,
     time::{Duration, Instant},
 };
 
+use axt_core::BoundedTailBuffer;
 use camino::{Utf8Path, Utf8PathBuf};
 use tokio::{
     io::AsyncReadExt,
@@ -380,7 +380,7 @@ async fn capture_stream(
     let mut written = 0_u64;
     let mut lines = 0_usize;
     let mut truncated = false;
-    let mut tail = TailBuffer::new(tail_bytes);
+    let mut tail = BoundedTailBuffer::new(tail_bytes);
     let mut buffer = [0; 8192];
     loop {
         let read = stream.read(&mut buffer).await.map_err(RunError::Execute)?;
@@ -411,41 +411,6 @@ async fn capture_stream(
         log: None,
         tail: tail.lines(),
     })
-}
-
-#[derive(Debug)]
-struct TailBuffer {
-    max: usize,
-    bytes: VecDeque<u8>,
-}
-
-impl TailBuffer {
-    fn new(max: usize) -> Self {
-        Self {
-            max,
-            bytes: VecDeque::new(),
-        }
-    }
-
-    fn push(&mut self, chunk: &[u8]) {
-        if self.max == 0 {
-            return;
-        }
-        for byte in chunk {
-            self.bytes.push_back(*byte);
-            while self.bytes.len() > self.max {
-                self.bytes.pop_front();
-            }
-        }
-    }
-
-    fn lines(self) -> Vec<String> {
-        let bytes = self.bytes.into_iter().collect::<Vec<_>>();
-        String::from_utf8_lossy(&bytes)
-            .lines()
-            .map(ToOwned::to_owned)
-            .collect()
-    }
 }
 
 fn watch_options(args: &RunArgs) -> WatchOptions {

@@ -24,6 +24,9 @@ pub enum CtxpackError {
         source: regex::Error,
     },
 
+    #[error("regex for pattern {name} exceeds maximum length of {max_len} bytes")]
+    RegexTooLong { name: String, max_len: usize },
+
     #[error("invalid include glob {glob}: {source}")]
     InvalidGlob {
         glob: String,
