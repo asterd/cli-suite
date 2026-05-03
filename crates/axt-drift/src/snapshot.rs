@@ -221,7 +221,7 @@ fn collect_records(root: &Utf8Path, hash: bool) -> Result<Vec<SnapshotRecord>> {
                 .unwrap_or_else(|| std::io::Error::other("failed to read entry metadata")),
         })?;
         records.push(SnapshotRecord {
-            path: rel.to_string(),
+            path: relative_snapshot_path(rel),
             size: metadata.len(),
             mtime_ns: metadata.modified().ok().and_then(system_time_ns),
             hash: if hash { Some(hash_file(&path)?) } else { None },
@@ -509,6 +509,10 @@ fn is_internal_axt_path(path: &Utf8Path) -> bool {
     path.components()
         .next()
         .is_some_and(|component| component.as_str() == ".axt")
+}
+
+fn relative_snapshot_path(path: &Utf8Path) -> String {
+    path.as_str().replace('\\', "/")
 }
 
 fn record_changed(before: &SnapshotRecord, after: &SnapshotRecord) -> bool {
