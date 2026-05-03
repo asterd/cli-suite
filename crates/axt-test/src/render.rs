@@ -202,7 +202,7 @@ fn selected_cases(data: &TestData, top_failures: usize, failures_only: bool) -> 
 }
 
 fn case_record(case: &TestCase, include_output: bool) -> Value {
-    json!({
+    let mut record = json!({
         "schema": "axt.test.case.v1",
         "type": "case",
         "framework": case.framework,
@@ -215,7 +215,11 @@ fn case_record(case: &TestCase, include_output: bool) -> Value {
         "failure": case.failure,
         "stdout": if include_output || case.status == TestStatus::Failed { case.stdout.clone() } else { None },
         "stderr": if include_output || case.status == TestStatus::Failed { case.stderr.clone() } else { None }
-    })
+    });
+    if !case.parser_defaulted_fields.is_empty() {
+        record["parser_defaulted_fields"] = json!(case.parser_defaulted_fields);
+    }
+    record
 }
 
 fn errors(output: &TestOutput) -> Vec<OutputDiagnostic> {

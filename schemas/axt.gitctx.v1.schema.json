@@ -8,10 +8,31 @@
     "ok": { "type": "boolean" },
     "data": {
       "type": "object",
-      "required": ["repo", "root", "branch", "summary", "files", "commits", "next"],
+      "required": ["repo", "root", "git", "branch", "summary", "files", "commits", "next"],
       "properties": {
         "repo": { "type": "string" },
         "root": { "type": "string" },
+        "git": {
+          "type": "object",
+          "required": ["shallow", "submodules"],
+          "properties": {
+            "shallow": { "type": "boolean" },
+            "submodules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["path", "status", "head"],
+                "properties": {
+                  "path": { "type": "string" },
+                  "status": { "$ref": "#/$defs/status" },
+                  "head": { "type": ["string", "null"] }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "branch": {
           "type": "object",
           "required": ["name", "upstream", "ahead", "behind"],
@@ -109,10 +130,12 @@
       "type": "string",
       "enum": [
         "modified",
+        "clean",
         "added",
         "deleted",
         "renamed",
         "copied",
+        "mixed",
         "unmerged",
         "untracked",
         "ignored",

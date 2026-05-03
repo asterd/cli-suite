@@ -11,13 +11,20 @@
     clippy::struct_excessive_bools
 )]
 
-use std::{env, fmt, io::IsTerminal, path::PathBuf, str::FromStr};
+use std::{
+    env, fmt, fs,
+    io::{self, IsTerminal, Write},
+    path::PathBuf,
+    str::FromStr,
+    time::Duration,
+};
 
 pub use anstream::ColorChoice;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::{ArgGroup, Args, ValueEnum};
 use regex::{Regex, RegexBuilder};
 use serde::Serialize;
+use tempfile::NamedTempFile;
 use thiserror::Error;
 use time::OffsetDateTime;
 
@@ -160,6 +167,39 @@ pub struct OutputModeFlags {
     /// Emit JSONL agent output (summary record first, detail records after).
     #[arg(long)]
     pub agent: bool,
+}
+
+/// Clap value parser for human-friendly durations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DurationArg(pub Duration);
+
+impl FromStr for DurationArg {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        parse_duration(value).map(Self)
+    }
+}
+
+fn parse_duration(value: &str) -> Result<Duration, String> {
+    let split = value
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(value.len());
+    if split == 0 {
+        return Err(format!("missing numeric value: {value}"));
+    }
+    let amount = value[..split]
+        .parse::<u64>()
+        .map_err(|_| format!("invalid duration amount: {}", &value[..split]))?;
+    let unit = &value[split..];
+    let millis = match unit {
+        "ms" => amount,
+        "s" | "" => amount.saturating_mul(1_000),
+        "m" => amount.saturating_mul(60_000),
+        "h" => amount.saturating_mul(3_600_000),
+        other => return Err(format!("unsupported duration unit: {other}")),
+    };
+    Ok(Duration::from_millis(millis))
 }
 
 impl OutputModeFlags {
@@ -385,6 +425,10 @@ pub struct CommonArgs {
     #[command(flatten)]
     pub limits: OutputLimitFlags,
 
+    /// Maximum wall-clock duration for commands that support bounded execution.
+    #[arg(long, value_name = "DURATION")]
+    pub max_duration: Option<DurationArg>,
+
     /// Print this command's output schema and exit.
     #[arg(long, value_name = "FORMAT", num_args = 0..=1, default_missing_value = "json")]
     pub print_schema: Option<SchemaFormat>,
@@ -416,6 +460,35 @@ impl CommonArgs {
     pub fn limits(&self) -> OutputLimits {
         OutputLimits::from(&self.limits)
     }
+
+    /// Resolve the selected wall-clock duration bound, if any.
+    #[must_use]
+    pub fn max_duration(&self) -> Option<Duration> {
+        self.max_duration.map(|duration| duration.0)
+    }
+}
+
+/// Atomically write bytes to a file and fsync durable data before publishing it.
+pub fn write_atomic(path: &Utf8Path, bytes: &[u8]) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
+    let mut file = NamedTempFile::new_in(parent)?;
+    file.write_all(bytes)?;
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|err| err.error)?;
+    sync_parent_dir(parent)
+}
+
+#[cfg(unix)]
+fn sync_parent_dir(parent: &Utf8Path) -> io::Result<()> {
+    fs::File::open(parent)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_parent_dir(_parent: &Utf8Path) -> io::Result<()> {
+    Ok(())
 }
 
 /// Standard error codes shared by all commands.
@@ -743,6 +816,8 @@ pub struct CommandContext {
     pub color: ColorChoice,
     /// Resolved configuration.
     pub config: ResolvedConfig,
+    /// Shared wall-clock duration bound.
+    pub max_duration: Option<Duration>,
     /// Clock for timestamp-producing operations.
     pub clock: Box<dyn Clock>,
 }
@@ -756,6 +831,7 @@ impl CommandContext {
         limits: OutputLimits,
         color: ColorChoice,
         config: ResolvedConfig,
+        max_duration: Option<Duration>,
         clock: Box<dyn Clock>,
     ) -> Self {
         Self {
@@ -764,6 +840,7 @@ impl CommandContext {
             limits,
             color,
             config,
+            max_duration,
             clock,
         }
     }
@@ -777,6 +854,7 @@ impl CommandContext {
             common.limits(),
             resolve_color_choice(stdout_is_terminal()),
             ResolvedConfig::default(),
+            common.max_duration(),
             clock,
         ))
     }

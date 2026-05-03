@@ -1,5 +1,6 @@
 use std::{fs, time::Duration};
 
+use axt_core::write_atomic;
 use camino::{Utf8Path, Utf8PathBuf};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
@@ -53,7 +54,7 @@ pub fn write_artifacts(paths: &RunPaths, data: &RunData, agent_summary: &str) ->
     };
     write_json(&paths.meta, &stored)?;
     write_json(&paths.changed, &data.changed)?;
-    fs::write(&paths.summary, agent_summary).map_err(|source| RunError::Io {
+    write_atomic(&paths.summary, agent_summary.as_bytes()).map_err(|source| RunError::Io {
         path: paths.summary.clone(),
         source,
     })?;
@@ -151,7 +152,7 @@ fn resolve_run_dir(root: &Utf8Path, name: &str) -> Result<Utf8PathBuf> {
 fn write_json<T: serde::Serialize>(path: &Utf8Path, value: &T) -> Result<()> {
     let mut bytes = serde_json::to_vec_pretty(value)?;
     bytes.push(b'\n');
-    fs::write(path, bytes).map_err(|source| RunError::Io {
+    write_atomic(path, &bytes).map_err(|source| RunError::Io {
         path: path.to_owned(),
         source,
     })

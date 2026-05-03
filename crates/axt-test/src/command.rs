@@ -26,6 +26,8 @@ struct StreamingState {
     suites: Vec<TestSuite>,
     cases: Vec<TestCase>,
     failures_left: usize,
+    emitted_cases: usize,
+    truncated: bool,
 }
 
 impl StreamingState {
@@ -34,6 +36,8 @@ impl StreamingState {
             suites: Vec::new(),
             cases: Vec::new(),
             failures_left: top_failures,
+            emitted_cases: 0,
+            truncated: false,
         }
     }
 }
@@ -123,9 +127,11 @@ fn run_tests(args: &Args, ctx: &CommandContext) -> Result<TestData> {
                 }),
                 stdout: None,
                 stderr: None,
+                parser_defaulted_fields: Vec::new(),
             });
         }
     }
+    fail_on_parser_defaults(&cases, ctx)?;
 
     if suites.is_empty() {
         suites = suites_from_cases(&cases);
@@ -203,9 +209,10 @@ pub fn run_agent_streaming(
             write_case(
                 &mut writer,
                 &case,
+                ctx,
                 args.run.include_output,
                 failures_only,
-                &mut state.failures_left,
+                &mut state,
             )?;
             state.cases.push(case);
         }
@@ -230,8 +237,9 @@ pub fn run_agent_streaming(
         todo,
         duration_ms: elapsed_ms(started),
         started: started_text,
-        truncated: false,
+        truncated: state.truncated,
     };
+    fail_on_parser_defaults(&data.cases, ctx)?;
     writer.write_record(&summary_record(&data))?;
     let _summary = writer.finish("axt.test.warn.v1")?;
     Ok(data.ok())
@@ -281,13 +289,12 @@ fn framework_failed_case(frontend: Frontend, status: ExitStatus) -> TestCase {
         }),
         stdout: None,
         stderr: None,
+        parser_defaulted_fields: Vec::new(),
     }
 }
 
-fn effective_max_duration(args: &Args, ctx: &CommandContext) -> Option<Duration> {
-    args.run
-        .max_duration
-        .map(|duration| duration.0)
+fn effective_max_duration(_args: &Args, ctx: &CommandContext) -> Option<Duration> {
+    ctx.max_duration
         .or_else(|| ctx.limits.strict.then_some(Duration::from_secs(30 * 60)))
 }
 
@@ -296,7 +303,7 @@ fn invoke_frontend(
     executable: &Path,
     opts: &TestOptions,
     max_duration: Option<Duration>,
-    max_stderr_bytes: usize,
+    max_output_bytes: usize,
 ) -> Result<(ExitStatus, Vec<NormalizedEvent>)> {
     let mut child = frontend
         .build_command(executable, opts)
@@ -315,13 +322,14 @@ fn invoke_frontend(
         .stderr
         .take()
         .ok_or_else(|| TestError::Io("framework stderr pipe missing".to_owned()))?;
-    let stdout_handle = thread::spawn(move || {
-        let mut text = String::new();
-        BufReader::new(stdout)
-            .read_to_string(&mut text)
-            .map(|_bytes| text)
+    let stdout_handle = thread::spawn(move || read_bounded_text(stdout, max_output_bytes));
+    let framework_name = frontend.name().to_owned();
+    let stderr_handle = thread::spawn(move || {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            read_bounded_text(stderr, max_output_bytes)
+        }))
+        .map_err(|payload| panic_message(payload.as_ref()))
     });
-    let stderr_handle = thread::spawn(move || read_bounded_text(stderr, max_stderr_bytes));
     let status = wait_for_child(&mut child, frontend.command_name(), max_duration)?;
     let stdout_text = stdout_handle
         .join()
@@ -330,6 +338,10 @@ fn invoke_frontend(
     let stderr_text = stderr_handle
         .join()
         .map_err(|_err| TestError::Io("framework stderr reader panicked".to_owned()))?
+        .map_err(|message| TestError::ParserPanic {
+            framework: framework_name,
+            message,
+        })?
         .map_err(|err| TestError::Io(err.to_string()))?;
     let events = parse_output(frontend.framework(), &stdout_text, &stderr_text);
     Ok((status, events))
@@ -417,7 +429,13 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
         .take()
         .ok_or_else(|| TestError::Io("framework stderr pipe missing".to_owned()))?;
     let max_stderr_bytes = ctx.limits.max_bytes;
-    let stderr_handle = thread::spawn(move || read_bounded_text(stderr, max_stderr_bytes));
+    let framework_name = frontend.name().to_owned();
+    let stderr_handle = thread::spawn(move || {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            read_bounded_text(stderr, max_stderr_bytes)
+        }))
+        .map_err(|payload| panic_message(payload.as_ref()))
+    });
     let (line_tx, line_rx) = mpsc::channel();
     let stdout_handle = thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
@@ -438,7 +456,7 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
         }
     });
 
-    let mut stdout_text = String::new();
+    let mut stdout_tail = BoundedTailBuffer::new(ctx.limits.max_bytes);
     let mut saw_events = false;
     let started = Instant::now();
     let mut status = None;
@@ -462,7 +480,7 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
         }
         match line_rx.recv_timeout(Duration::from_millis(10)) {
             Ok(Ok(line)) => {
-                stdout_text.push_str(&line);
+                stdout_tail.push(line.as_bytes());
                 for event in parse_stdout_line(frontend.framework(), &line) {
                     saw_events = true;
                     handle_streamed_event(
@@ -494,9 +512,14 @@ fn invoke_frontend_streaming<W: Write + ?Sized>(
     let stderr_text = stderr_handle
         .join()
         .map_err(|_err| TestError::Io("framework stderr reader panicked".to_owned()))?
+        .map_err(|message| TestError::ParserPanic {
+            framework: framework_name,
+            message,
+        })?
         .map_err(|err| TestError::Io(err.to_string()))?;
 
     if !saw_events {
+        let stdout_text = stdout_tail.text_lossy();
         for event in parse_output(frontend.framework(), &stdout_text, &stderr_text) {
             handle_streamed_event(
                 event,
@@ -528,9 +551,10 @@ fn handle_streamed_event<W: Write + ?Sized>(
             write_case(
                 writer,
                 &case,
+                ctx,
                 include_output,
                 failures_only,
-                &mut state.failures_left,
+                state,
             )?;
             state.cases.push(case);
         }
@@ -542,22 +566,54 @@ fn handle_streamed_event<W: Write + ?Sized>(
 fn write_case<W: Write + ?Sized>(
     writer: &mut AgentJsonlWriter<'_, W>,
     case: &TestCase,
+    ctx: &CommandContext,
     include_output: bool,
     failures_only: bool,
-    failures_left: &mut usize,
+    state: &mut StreamingState,
 ) -> Result<()> {
     if failures_only && case.status != TestStatus::Failed {
         return Ok(());
     }
     if case.status == TestStatus::Failed {
-        if *failures_left == 0 {
+        if state.failures_left == 0 {
             return Ok(());
         }
-        *failures_left -= 1;
+        state.failures_left -= 1;
+    }
+    if state.emitted_cases >= ctx.limits.max_records {
+        state.truncated = true;
+        return Ok(());
     }
     writer.write_record(&case_record(case, include_output))?;
     writer.flush()?;
+    state.emitted_cases += 1;
     Ok(())
+}
+
+fn fail_on_parser_defaults(cases: &[TestCase], ctx: &CommandContext) -> Result<()> {
+    if !ctx.limits.strict {
+        return Ok(());
+    }
+    let Some(case) = cases
+        .iter()
+        .find(|case| !case.parser_defaulted_fields.is_empty())
+    else {
+        return Ok(());
+    };
+    Err(TestError::ParserDefaulted {
+        framework: case.framework.clone(),
+        fields: case.parser_defaulted_fields.join(","),
+    })
+}
+
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<String>() {
+        return message.clone();
+    }
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        return (*message).to_owned();
+    }
+    "unknown panic payload".to_owned()
 }
 
 fn failures_only(args: &Args, ctx: &CommandContext) -> bool {
@@ -757,7 +813,7 @@ fn suite_record(suite: &TestSuite) -> Value {
 }
 
 fn case_record(case: &TestCase, include_output: bool) -> Value {
-    json!({
+    let mut record = json!({
         "schema": "axt.test.case.v1",
         "type": "case",
         "framework": case.framework,
@@ -770,7 +826,11 @@ fn case_record(case: &TestCase, include_output: bool) -> Value {
         "failure": case.failure,
         "stdout": if include_output || case.status == TestStatus::Failed { case.stdout.clone() } else { None },
         "stderr": if include_output || case.status == TestStatus::Failed { case.stderr.clone() } else { None }
-    })
+    });
+    if !case.parser_defaulted_fields.is_empty() {
+        record["parser_defaulted_fields"] = json!(case.parser_defaulted_fields);
+    }
+    record
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]

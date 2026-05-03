@@ -102,7 +102,10 @@ fn exit_code_for_test_error(err: &TestError) -> u8 {
         TestError::Output(axt_output::OutputError::TruncatedStrict) => {
             ErrorCode::OutputTruncatedStrict.exit_code()
         }
-        TestError::Output(_) | TestError::Io(_) => ErrorCode::IoError.exit_code(),
+        TestError::Output(_) | TestError::Io(_) | TestError::ParserPanic { .. } => {
+            ErrorCode::IoError.exit_code()
+        }
+        TestError::ParserDefaulted { .. } => ErrorCode::SchemaViolation.exit_code(),
         TestError::GitUnavailable | TestError::Git(_) => ErrorCode::GitUnavailable.exit_code(),
         TestError::Command { .. } => ErrorCode::CommandFailed.exit_code(),
     }

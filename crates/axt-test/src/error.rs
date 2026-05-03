@@ -25,6 +25,12 @@ pub enum TestError {
     #[error("failed to read test output: {0}")]
     Io(String),
 
+    #[error("test parser panic for {framework}: {message}")]
+    ParserPanic { framework: String, message: String },
+
+    #[error("test parser defaulted fields for {framework}: {fields}")]
+    ParserDefaulted { framework: String, fields: String },
+
     #[error(transparent)]
     Output(#[from] axt_output::OutputError),
 

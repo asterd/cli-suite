@@ -23,6 +23,7 @@ use crate::{
 pub struct RunRequest<'a> {
     pub args: &'a RunArgs,
     pub base_cwd: &'a Utf8Path,
+    pub max_duration: Option<Duration>,
 }
 
 pub async fn run_command(request: RunRequest<'_>) -> Result<RunData> {
@@ -74,8 +75,12 @@ pub async fn run_command(request: RunRequest<'_>) -> Result<RunData> {
     ));
 
     let started = Instant::now();
-    let (exit, timed_out) =
-        wait_with_timeout(&mut child, request.args.timeout.map(|arg| arg.0)).await?;
+    let timeout = request
+        .args
+        .timeout
+        .map(|arg| arg.0)
+        .or(request.max_duration);
+    let (exit, timed_out) = wait_with_timeout(&mut child, timeout).await?;
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
 
     let mut stdout_summary = stdout_task
@@ -403,6 +408,9 @@ async fn capture_stream(
                 truncated = true;
             }
         }
+    }
+    if let Some(file) = &file {
+        file.sync_all().await.map_err(RunError::Execute)?;
     }
     Ok(StreamSummary {
         bytes,

@@ -8,6 +8,8 @@ use crate::{
     model::{NormalizedEvent, TestCase, TestFailure, TestStatus, TestSuite},
 };
 
+const PARSE_ERROR_SENTINEL: &str = "<axt-test:parse-error>";
+
 #[derive(Debug, Clone)]
 pub struct TestOptions {
     pub root: Utf8PathBuf,
@@ -168,6 +170,7 @@ pub fn parse_output(framework: FrameworkArg, stdout: &str, stderr: &str) -> Vec<
             failure: Some(failure(first_line(stderr))),
             stdout: None,
             stderr: Some(stderr.to_owned()),
+            parser_defaulted_fields: Vec::new(),
         }));
     }
     events
@@ -324,7 +327,7 @@ fn parse_generic_suite(framework: FrameworkArg, value: &Value, events: &mut Vec<
             failed,
             skipped,
             todo,
-            duration_ms: duration_ms_from_value(value),
+            duration_ms: duration_ms_from_value(value, &mut Vec::new()),
         }));
     }
 }
@@ -355,6 +358,7 @@ fn parse_go_line(line: &str, events: &mut Vec<NormalizedEvent>) {
         failure: (status == TestStatus::Failed).then(|| failure(test)),
         stdout: None,
         stderr: None,
+        parser_defaulted_fields: Vec::new(),
     }));
 }
 
@@ -383,11 +387,13 @@ fn parse_cargo_text_line(line: &str, events: &mut Vec<NormalizedEvent>) {
         failure: (status == TestStatus::Failed).then(|| failure(name)),
         stdout: None,
         stderr: None,
+        parser_defaulted_fields: Vec::new(),
     }));
 }
 
 fn case_from_json(framework: FrameworkArg, value: &Value) -> TestCase {
-    let status = status_from_value(value);
+    let mut defaulted_fields = Vec::new();
+    let status = status_from_value(value, &mut defaulted_fields);
     let message = value
         .get("message")
         .or_else(|| {
@@ -397,19 +403,16 @@ fn case_from_json(framework: FrameworkArg, value: &Value) -> TestCase {
         })
         .and_then(Value::as_str)
         .map(first_line);
+    let name = string_field(
+        value,
+        &["fullName", "title", "name", "nodeid", "test", "Test"],
+        "name",
+        &mut defaulted_fields,
+    );
     TestCase {
         framework: framework.as_str().to_owned(),
         status,
-        name: value
-            .get("fullName")
-            .or_else(|| value.get("title"))
-            .or_else(|| value.get("name"))
-            .or_else(|| value.get("nodeid"))
-            .or_else(|| value.get("test"))
-            .or_else(|| value.get("Test"))
-            .and_then(Value::as_str)
-            .unwrap_or("unnamed test")
-            .to_owned(),
+        name,
         suite: value
             .get("suite")
             .or_else(|| value.get("ancestorTitles").and_then(|items| items.get(0)))
@@ -428,14 +431,12 @@ fn case_from_json(framework: FrameworkArg, value: &Value) -> TestCase {
                     .and_then(|location| location.get("line"))
             })
             .and_then(Value::as_u64),
-        duration_ms: value
-            .get("duration_ms")
-            .or_else(|| value.get("durationMs"))
-            .or_else(|| value.get("duration"))
-            .and_then(Value::as_u64)
-            .unwrap_or_else(|| duration_ms_from_value(value)),
+        duration_ms: duration_ms_from_value(value, &mut defaulted_fields),
         failure: (status == TestStatus::Failed).then(|| TestFailure {
-            message: message.unwrap_or_else(|| "test failed".to_owned()),
+            message: message.unwrap_or_else(|| {
+                defaulted_fields.push("failure.message".to_owned());
+                PARSE_ERROR_SENTINEL.to_owned()
+            }),
             stack: value
                 .get("stack")
                 .and_then(Value::as_str)
@@ -455,7 +456,23 @@ fn case_from_json(framework: FrameworkArg, value: &Value) -> TestCase {
             .get("stderr")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned),
+        parser_defaulted_fields: defaulted_fields,
     }
+}
+
+fn string_field(
+    value: &Value,
+    keys: &[&str],
+    field: &str,
+    defaulted_fields: &mut Vec<String>,
+) -> String {
+    for key in keys {
+        if let Some(text) = value.get(key).and_then(Value::as_str) {
+            return text.to_owned();
+        }
+    }
+    defaulted_fields.push(field.to_owned());
+    PARSE_ERROR_SENTINEL.to_owned()
 }
 
 fn looks_like_case(value: &Value) -> bool {
@@ -471,30 +488,36 @@ fn looks_like_case(value: &Value) -> bool {
     has_status && has_name
 }
 
-fn duration_ms_from_value(value: &Value) -> u64 {
-    value
+fn duration_ms_from_value(value: &Value, defaulted_fields: &mut Vec<String>) -> u64 {
+    let duration = value
         .get("duration_ms")
         .or_else(|| value.get("durationMs"))
         .or_else(|| value.get("duration"))
         .and_then(Value::as_u64)
-        .unwrap_or_else(|| {
-            seconds_to_ms(
-                value
-                    .get("duration_seconds")
-                    .or_else(|| value.get("duration"))
-                    .or_else(|| value.get("elapsed"))
-                    .or_else(|| value.get("Elapsed"))
-                    .and_then(Value::as_f64),
-            )
-        })
+        .or_else(|| {
+            value
+                .get("duration_seconds")
+                .or_else(|| value.get("duration"))
+                .or_else(|| value.get("elapsed"))
+                .or_else(|| value.get("Elapsed"))
+                .and_then(Value::as_f64)
+                .map(|seconds| seconds_to_ms(Some(seconds)))
+        });
+    duration.unwrap_or_else(|| {
+        defaulted_fields.push("duration_ms".to_owned());
+        0
+    })
 }
 
-fn status_from_value(value: &Value) -> TestStatus {
-    let raw = value
+fn status_from_value(value: &Value, defaulted_fields: &mut Vec<String>) -> TestStatus {
+    let Some(raw) = value
         .get("status")
         .or_else(|| value.get("outcome"))
         .and_then(Value::as_str)
-        .unwrap_or("failed");
+    else {
+        defaulted_fields.push("status".to_owned());
+        return TestStatus::Failed;
+    };
     match raw {
         "passed" | "pass" | "ok" | "success" => TestStatus::Passed,
         "skipped" | "skip" | "ignored" => TestStatus::Skipped,

@@ -29,6 +29,9 @@ pub enum DriftError {
     #[error("failed to execute command: {0}")]
     Execute(std::io::Error),
 
+    #[error("command exceeded max duration of {duration_ms} ms")]
+    Timeout { duration_ms: u64 },
+
     #[error("failed to parse snapshot {path}: line {line}: {source}")]
     SnapshotParse {
         path: Utf8PathBuf,

@@ -9,7 +9,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt,
+    fmt, fs,
     path::PathBuf,
 };
 
@@ -100,6 +100,26 @@ pub struct DirtyCount {
     pub modified: usize,
     /// Untracked paths.
     pub untracked: usize,
+}
+
+/// Repository metadata surfaced to dependent commands.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RepositoryInfo {
+    /// Whether this repository is a shallow clone.
+    pub shallow: bool,
+    /// Submodules declared by `.gitmodules`.
+    pub submodules: Vec<SubmoduleInfo>,
+}
+
+/// Submodule metadata surfaced to dependent commands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubmoduleInfo {
+    /// Repository-relative submodule path.
+    pub path: Utf8PathBuf,
+    /// Status of the submodule path in the superproject.
+    pub status: GitStatus,
+    /// Current submodule HEAD object id when the submodule is initialized.
+    pub head: Option<String>,
 }
 
 /// Cached repository status, suitable for repeated lookups in large trees.
@@ -209,6 +229,27 @@ pub fn dirty_count(repo: &RepoHandle) -> Result<DirtyCount> {
     Ok(StatusCache::from_repo(repo)?.dirty_count())
 }
 
+/// Return repository metadata that affects bounded git consumers.
+pub fn repository_info(repo: &RepoHandle) -> Result<RepositoryInfo> {
+    let status = StatusCache::from_repo(repo)?;
+    let submodules = submodule_paths(repo)
+        .into_iter()
+        .map(|path| {
+            let submodule_status = status.status_for_relative(&path);
+            let head = submodule_head(repo, &path);
+            SubmoduleInfo {
+                path,
+                status: submodule_status,
+                head,
+            }
+        })
+        .collect();
+    Ok(RepositoryInfo {
+        shallow: repo.inner.is_shallow(),
+        submodules,
+    })
+}
+
 /// Return repository-relative paths changed between two revisions.
 pub fn diff_paths(repo: &RepoHandle, ref_a: &str, ref_b: &str) -> Result<Vec<Utf8PathBuf>> {
     let old_tree = tree_for_ref(repo, ref_a)?;
@@ -225,6 +266,32 @@ pub fn diff_paths(repo: &RepoHandle, ref_a: &str, ref_b: &str) -> Result<Vec<Utf
         .map_err(|err| git_error("read tree diff", err))?;
 
     Ok(paths.into_iter().collect())
+}
+
+fn submodule_paths(repo: &RepoHandle) -> Vec<Utf8PathBuf> {
+    let modules = repo.root.join(".gitmodules");
+    let Ok(text) = fs::read_to_string(&modules) else {
+        return Vec::new();
+    };
+    let mut paths = Vec::new();
+    for line in text.lines().map(str::trim) {
+        let Some(value) = line.strip_prefix("path") else {
+            continue;
+        };
+        let Some(path) = value.trim().strip_prefix('=') else {
+            continue;
+        };
+        paths.push(Utf8PathBuf::from(path.trim()));
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
+fn submodule_head(repo: &RepoHandle, path: &Utf8Path) -> Option<String> {
+    let submodule_root = repo.root.join(path);
+    let submodule = gix::discover(submodule_root.as_std_path()).ok()?;
+    submodule.head_id().ok().map(|id| id.to_string())
 }
 
 fn tree_for_ref<'repo>(repo: &'repo RepoHandle, name: &str) -> Result<gix::Tree<'repo>> {

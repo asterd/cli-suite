@@ -26,6 +26,7 @@ pub async fn run(args: &Args, ctx: &CommandContext) -> Result<RunOutput> {
         None => run_command(RunRequest {
             args: &args.run,
             base_cwd: &ctx.cwd,
+            max_duration: ctx.max_duration,
         })
         .await
         .map(RunOutput::Run),

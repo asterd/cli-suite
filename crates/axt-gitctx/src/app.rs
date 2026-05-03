@@ -71,11 +71,25 @@ enum GitctxError {
 struct GitctxData {
     repo: String,
     root: String,
+    git: GitRepositoryInfo,
     branch: BranchInfo,
     summary: Summary,
     files: Vec<ChangedFile>,
     commits: Vec<RecentCommit>,
     next: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct GitRepositoryInfo {
+    shallow: bool,
+    submodules: Vec<GitSubmoduleInfo>,
+}
+
+#[derive(Debug, Serialize)]
+struct GitSubmoduleInfo {
+    path: String,
+    status: String,
+    head: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -160,6 +174,8 @@ struct AgentSummary<'a> {
     staged: usize,
     unstaged: usize,
     untracked: usize,
+    shallow: bool,
+    submodules: usize,
     dirty: bool,
     truncated: bool,
     next: &'a [String],
@@ -214,6 +230,7 @@ fn run(args: &Args, ctx: &axt_core::CommandContext) -> Result<GitctxData, Gitctx
     let repo = axt_git::repo_root_for(&input_root)?
         .ok_or_else(|| GitctxError::NoGitRepository(input_root.clone()))?;
     let repo_root = repo.root().clone();
+    let git = git_repository_info(&repo)?;
     let repo_display = args.root.to_string();
     let upstream_ref = upstream_ref();
     let upstream = git_optional_line(
@@ -243,11 +260,28 @@ fn run(args: &Args, ctx: &axt_core::CommandContext) -> Result<GitctxData, Gitctx
     Ok(GitctxData {
         repo: repo_display,
         root: repo_root.to_string(),
+        git,
         branch,
         summary,
         files,
         commits,
         next,
+    })
+}
+
+fn git_repository_info(repo: &axt_git::RepoHandle) -> Result<GitRepositoryInfo, GitctxError> {
+    let info = axt_git::repository_info(repo)?;
+    Ok(GitRepositoryInfo {
+        shallow: info.shallow,
+        submodules: info
+            .submodules
+            .into_iter()
+            .map(|submodule| GitSubmoduleInfo {
+                path: submodule.path.to_string(),
+                status: git_status_label(submodule.status).to_owned(),
+                head: submodule.head,
+            })
+            .collect(),
     })
 }
 
@@ -738,6 +772,18 @@ const fn status_label_optional(slot: StatusSlot) -> Option<&'static str> {
     }
 }
 
+const fn git_status_label(status: axt_git::GitStatus) -> &'static str {
+    match status {
+        axt_git::GitStatus::Clean => "clean",
+        axt_git::GitStatus::Modified => "modified",
+        axt_git::GitStatus::Untracked => "untracked",
+        axt_git::GitStatus::Added => "added",
+        axt_git::GitStatus::Deleted => "deleted",
+        axt_git::GitStatus::Renamed => "renamed",
+        axt_git::GitStatus::Mixed => "mixed",
+    }
+}
+
 fn overall_status(entry: &StatusEntry) -> &'static str {
     if entry.index == StatusSlot::Untracked && entry.worktree == StatusSlot::Untracked {
         return "untracked";
@@ -792,6 +838,12 @@ impl Renderable for GitctxData {
             self.summary.deleted,
             self.summary.dirty,
             self.summary.truncated
+        )?;
+        writeln!(
+            w,
+            "Git        shallow={} submodules={}",
+            self.git.shallow,
+            self.git.submodules.len()
         )?;
         if !self.files.is_empty() {
             writeln!(w)?;
@@ -859,6 +911,8 @@ impl Renderable for GitctxData {
             staged: self.summary.staged,
             unstaged: self.summary.unstaged,
             untracked: self.summary.untracked,
+            shallow: self.git.shallow,
+            submodules: self.git.submodules.len(),
             dirty: self.summary.dirty,
             truncated,
             next: &self.next,
@@ -872,7 +926,21 @@ impl Renderable for GitctxData {
 }
 
 fn agent_detail_records(data: &GitctxData) -> Vec<serde_json::Value> {
-    let mut records = Vec::with_capacity(data.files.len().saturating_add(data.commits.len()));
+    let mut records = Vec::with_capacity(
+        data.files
+            .len()
+            .saturating_add(data.commits.len())
+            .saturating_add(data.git.submodules.len()),
+    );
+    for submodule in &data.git.submodules {
+        records.push(serde_json::json!({
+            "schema": "axt.gitctx.submodule.v1",
+            "type": "submodule",
+            "path": submodule.path,
+            "status": submodule.status,
+            "head": submodule.head,
+        }));
+    }
     for file in &data.files {
         records.push(serde_json::json!({
             "schema": "axt.gitctx.file.v1",
@@ -923,6 +991,8 @@ fn agent_would_truncate(
         staged: data.summary.staged,
         unstaged: data.summary.unstaged,
         untracked: data.summary.untracked,
+        shallow: data.git.shallow,
+        submodules: data.git.submodules.len(),
         dirty: data.summary.dirty,
         truncated: false,
         next: &data.next,

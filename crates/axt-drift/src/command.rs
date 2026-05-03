@@ -22,11 +22,15 @@ pub async fn run(args: &Args, ctx: &CommandContext) -> Result<DriftOutput> {
         Command::Diff(diff_args) => {
             diff_snapshot(&ctx.cwd, &diff_args.since, diff_args.hash).map(DriftOutput::Diff)
         }
-        Command::Run(run_args) => {
-            run_command(&ctx.cwd, &run_args.name, run_args.hash, &run_args.command)
-                .await
-                .map(DriftOutput::Run)
-        }
+        Command::Run(run_args) => run_command(
+            &ctx.cwd,
+            &run_args.name,
+            run_args.hash,
+            &run_args.command,
+            ctx.max_duration,
+        )
+        .await
+        .map(DriftOutput::Run),
         Command::List => list(&ctx.cwd).map(DriftOutput::List),
         Command::Reset => reset(&ctx.cwd).map(DriftOutput::Reset),
     }
@@ -67,16 +71,30 @@ async fn run_command(
     name: &str,
     hash: bool,
     command: &[String],
+    max_duration: Option<std::time::Duration>,
 ) -> Result<DriftData> {
     let (program, args) = command.split_first().ok_or(DriftError::MissingCommand)?;
     let before = CapturedSnapshot::capture(root, hash)?;
     let started = Instant::now();
-    let status = TokioCommand::new(program)
+    let mut child = TokioCommand::new(program)
         .args(args)
         .current_dir(root)
-        .status()
-        .await
+        .spawn()
         .map_err(DriftError::Execute)?;
+    let status = if let Some(max_duration) = max_duration {
+        match tokio::time::timeout(max_duration, child.wait()).await {
+            Ok(status) => status.map_err(DriftError::Execute)?,
+            Err(_elapsed) => {
+                let _kill_result = child.kill().await;
+                let _wait_result = child.wait().await;
+                return Err(DriftError::Timeout {
+                    duration_ms: u64::try_from(max_duration.as_millis()).unwrap_or(u64::MAX),
+                });
+            }
+        }
+    } else {
+        child.wait().await.map_err(DriftError::Execute)?
+    };
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let after = CapturedSnapshot::capture(root, hash)?;
     let path = mark_path(root, name)?;

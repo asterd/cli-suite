@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fs};
+use std::{collections::BTreeSet, fs, time::Instant};
 
 use axt_core::{compile_user_regex, CommandContext, CoreError, UserRegexError, UserRegexLimits};
 use axt_fs::{ContentKind, FsWarningCode, WalkOptions};
@@ -40,8 +40,16 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<CtxpackData> {
     let mut files_scanned = 0;
     let mut bytes_scanned = 0_u64;
     let mut truncated = false;
+    let started = Instant::now();
 
     for file in files {
+        if ctx
+            .max_duration
+            .is_some_and(|max_duration| started.elapsed() >= max_duration)
+        {
+            truncated = true;
+            break;
+        }
         if hits.len() >= ctx.limits.max_records {
             truncated = true;
             break;

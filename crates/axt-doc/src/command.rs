@@ -240,7 +240,7 @@ fn ordering_issues(entries: &[PathEntry], duplicates: &[PathDuplicate]) -> Vec<O
 fn env_report(show_secrets: bool) -> EnvReport {
     let mut vars = env::vars()
         .map(|(name, value)| {
-            let secret_like = is_secret_like(&name);
+            let secret_like = is_secret_like(&name, &value);
             let empty = value.is_empty();
             EnvVarReport {
                 value: if secret_like && !show_secrets {
@@ -481,16 +481,64 @@ fn looks_like_system_bin(path: &str) -> bool {
     ) || normalized.ends_with("/windows/system32")
 }
 
-fn is_secret_like(name: &str) -> bool {
+fn is_secret_like(name: &str, value: &str) -> bool {
     let upper = name.to_ascii_uppercase();
+    is_secret_name(&upper) || (looks_like_secret_value(value) && !is_known_safe_env_name(&upper))
+}
+
+fn is_secret_name(upper: &str) -> bool {
     upper == "PASS"
+        || upper == "DATABASE_URL"
+        || upper == "JWT"
+        || upper.starts_with("JWT_")
+        || upper.starts_with("STRIPE_")
+        || upper.starts_with("OPENAI_API_")
         || upper.ends_with("_TOKEN")
         || upper.contains("_SECRET")
         || upper.ends_with("_KEY")
         || upper.ends_with("_PASSWORD")
+        || upper.ends_with("_DSN")
+        || upper.ends_with("_BEARER")
+        || upper.ends_with("_WEBHOOK_URL")
+        || upper.contains("WEBHOOK_SECRET")
         || upper.contains("_CREDENTIAL")
         || upper.contains("_PRIVATE")
         || upper.contains("_AUTH")
+}
+
+fn looks_like_secret_value(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.len() < 20 {
+        return false;
+    }
+    trimmed
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        || (trimmed.len() >= 40
+            && trimmed
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/' | b'=')))
+}
+
+fn is_known_safe_env_name(upper: &str) -> bool {
+    matches!(
+        upper,
+        "PATH"
+            | "HOME"
+            | "SHELL"
+            | "TERM"
+            | "LANG"
+            | "PWD"
+            | "OLDPWD"
+            | "USER"
+            | "USERNAME"
+            | "LOGNAME"
+            | "TMPDIR"
+            | "TEMP"
+            | "TMP"
+            | "XDG_SESSION_ID"
+            | "COMMAND_MODE"
+    )
 }
 
 #[allow(dead_code)]
@@ -500,11 +548,18 @@ mod tests {
 
     #[test]
     fn detects_secret_like_names() {
-        assert!(is_secret_like("GITHUB_TOKEN"));
-        assert!(is_secret_like("DB_PASSWORD"));
-        assert!(is_secret_like("PASS"));
-        assert!(is_secret_like("AWS_SECRET_ACCESS_KEY"));
-        assert!(!is_secret_like("PATH"));
+        assert!(is_secret_like("GITHUB_TOKEN", "token"));
+        assert!(is_secret_like("DB_PASSWORD", "password"));
+        assert!(is_secret_like("PASS", "password"));
+        assert!(is_secret_like("AWS_SECRET_ACCESS_KEY", "key"));
+        assert!(is_secret_like(
+            "DATABASE_URL",
+            "postgres://user:pass@host/db"
+        ));
+        assert!(is_secret_like("SERVICE_DSN", "dsn"));
+        assert!(is_secret_like("STRIPE_SECRET", "secret"));
+        assert!(is_secret_like("RANDOM_VAR", "abc123abc123abc123abc123"));
+        assert!(!is_secret_like("PATH", "/usr/local/bin:/usr/bin"));
     }
 
     #[test]

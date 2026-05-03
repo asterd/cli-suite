@@ -88,6 +88,7 @@ fn exit_code_for_drift_error(err: &crate::error::DriftError) -> u8 {
         {
             ErrorCode::PermissionDenied.exit_code()
         }
+        crate::error::DriftError::Timeout { .. } => ErrorCode::Timeout.exit_code(),
         crate::error::DriftError::Io { .. }
         | crate::error::DriftError::PathNotUtf8(_)
         | crate::error::DriftError::SnapshotParse { .. }

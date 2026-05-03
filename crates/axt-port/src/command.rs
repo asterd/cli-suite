@@ -11,14 +11,14 @@ use crate::{
     signal,
 };
 
-pub async fn run(args: &Args, _ctx: &CommandContext) -> Result<PortOutput> {
+pub async fn run(args: &Args, ctx: &CommandContext) -> Result<PortOutput> {
     match args.command.as_ref().ok_or(PortError::MissingSubcommand)? {
         Command::List => inspect_action(args, PortAction::List, &[]).map(PortOutput::List),
         Command::Who(port_args) => {
             inspect_action(args, PortAction::Who, &port_args.ports).map(PortOutput::Who)
         }
         Command::Free(free_args) => free(args, free_args).await.map(PortOutput::Free),
-        Command::Watch(watch_args) => watch(args, watch_args).await.map(PortOutput::Watch),
+        Command::Watch(watch_args) => watch(args, watch_args, ctx).await.map(PortOutput::Watch),
     }
 }
 
@@ -73,9 +73,11 @@ async fn free(args: &Args, free_args: &FreeArgs) -> Result<PortData> {
     })
 }
 
-async fn watch(args: &Args, watch_args: &WatchArgs) -> Result<PortData> {
+async fn watch(args: &Args, watch_args: &WatchArgs, ctx: &CommandContext) -> Result<PortData> {
     let started = Instant::now();
-    let timeout = watch_args.timeout;
+    let timeout = ctx.max_duration.map_or(watch_args.timeout, |duration| {
+        duration.min(watch_args.timeout)
+    });
     loop {
         let (sockets, holders) = discovery::inspect(&args.filters, &[watch_args.port])?;
         if holders.is_empty() || started.elapsed() >= timeout {
