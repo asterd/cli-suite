@@ -478,17 +478,19 @@ pub fn write_atomic(path: &Utf8Path, bytes: &[u8]) -> io::Result<()> {
     file.write_all(bytes)?;
     file.as_file().sync_all()?;
     file.persist(path).map_err(|err| err.error)?;
-    sync_parent_dir(parent)
+    #[cfg(unix)]
+    {
+        sync_parent_dir(parent)
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(())
+    }
 }
 
 #[cfg(unix)]
 fn sync_parent_dir(parent: &Utf8Path) -> io::Result<()> {
     fs::File::open(parent)?.sync_all()
-}
-
-#[cfg(not(unix))]
-fn sync_parent_dir(_parent: &Utf8Path) -> io::Result<()> {
-    Ok(())
 }
 
 /// Standard error codes shared by all commands.
