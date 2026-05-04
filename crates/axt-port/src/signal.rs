@@ -13,10 +13,12 @@ use crate::{
     model::{FreeAction, FreeAttempt, FreeResult, PortHolder},
 };
 
+#[allow(clippy::too_many_arguments)]
 pub async fn free_holder(
     holder: &PortHolder,
     signal: SignalArg,
     grace: Duration,
+    kill_grace: Duration,
     dry_run: bool,
     confirm: bool,
     tree: bool,
@@ -104,7 +106,7 @@ pub async fn free_holder(
     }
 
     if signal == SignalArg::Kill {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(kill_grace).await;
     } else {
         tokio::time::sleep(grace).await;
     }
@@ -129,7 +131,7 @@ pub async fn free_holder(
     for target in &targets {
         let _ignored = target.send(SignalArg::Kill);
     }
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(kill_grace).await;
     let held_after_kill = holder_still_present(holder)?;
     Ok(attempt(
         holder,
@@ -156,8 +158,17 @@ fn refusal_reason(holder: &PortHolder, force_self: bool) -> Option<String> {
     if holder.pid == current {
         return Some("refusing to kill the current process".to_owned());
     }
-    if holder.pid == parent_pid() && !force_self {
-        return Some("refusing to kill the parent process without --force-self".to_owned());
+    match parent_pid() {
+        Some(parent) if holder.pid == parent && !force_self => {
+            return Some("refusing to kill the parent process without --force-self".to_owned());
+        }
+        None if !force_self => {
+            return Some(
+                "refusing to kill because the parent process could not be resolved without --force-self"
+                    .to_owned(),
+            );
+        }
+        _ => {}
     }
     None
 }
@@ -215,7 +226,7 @@ fn attempt(holder: &PortHolder, meta: AttemptMeta) -> FreeAttempt {
         result: meta.result,
         ok: meta.ok,
         escalated: meta.escalated,
-        ms: u64::try_from(meta.started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        ms: meta.started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
         error_code: meta.error_code,
         message: meta.message,
     }
@@ -445,12 +456,11 @@ fn tree_pids_from(root: u32, parents: &[(u32, u32)]) -> BTreeSet<u32> {
     pids
 }
 
-fn parent_pid() -> u32 {
+fn parent_pid() -> Option<u32> {
     let current = std::process::id();
     process_parents()
         .into_iter()
         .find_map(|(pid, parent)| (pid == current).then_some(parent))
-        .unwrap_or(0)
 }
 
 fn process_parents() -> Vec<(u32, u32)> {

@@ -49,6 +49,7 @@ async fn free(args: &Args, free_args: &FreeArgs) -> Result<PortData> {
                 holder,
                 free_args.signal,
                 free_args.grace,
+                free_args.kill_grace,
                 free_args.dry_run,
                 free_args.confirm,
                 free_args.tree,
@@ -101,5 +102,5 @@ async fn watch(args: &Args, watch_args: &WatchArgs, ctx: &CommandContext) -> Res
 }
 
 fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64
 }

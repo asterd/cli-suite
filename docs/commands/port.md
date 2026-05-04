@@ -41,6 +41,7 @@ Shared flags are available before the subcommand: `--json`, `--agent`,
 |---|---|
 | `--signal term|kill|int` | Signal to send first. Default `term`. |
 | `--grace <DURATION>` | Wait between `term`/`int` and kill escalation. Default `3s`. Supports `ms`, `s`, and `m`. |
+| `--kill-grace <DURATION>` | Wait after direct or escalated kill before re-checking the port. Default `100ms`. Supports `ms`, `s`, and `m`. |
 | `--dry-run` | Report what would be signaled without mutating processes. |
 | `--confirm` | Ask for confirmation when running interactively. |
 | `--tree` | Also signal recursive child processes of each holder. |

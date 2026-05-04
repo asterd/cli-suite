@@ -7,6 +7,7 @@ pub struct DriftData {
     pub name: Option<String>,
     pub mark_path: Option<String>,
     pub hash: bool,
+    pub hash_skipped_size: usize,
     pub files: usize,
     pub changes: Vec<FileChange>,
     pub marks: Vec<MarkEntry>,
@@ -54,6 +55,7 @@ pub struct FileChange {
     pub size_after: Option<u64>,
     pub size_delta: i64,
     pub hash: Option<String>,
+    pub hash_skipped_size: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -94,4 +96,6 @@ pub struct SnapshotRecord {
     pub size: u64,
     pub mtime_ns: Option<u128>,
     pub hash: Option<String>,
+    #[serde(default)]
+    pub hash_skipped_size: bool,
 }

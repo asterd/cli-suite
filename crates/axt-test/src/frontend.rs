@@ -138,9 +138,9 @@ impl TestFrontend for Frontend {
         }
         command
     }
-
 }
 
+#[must_use]
 pub fn parse_output(framework: FrameworkArg, stdout: &str, stderr: &str) -> Vec<NormalizedEvent> {
     let mut events = Vec::new();
     let parsed_document = serde_json::from_str::<Value>(stdout).is_ok_and(|value| {
@@ -176,6 +176,7 @@ pub fn parse_output(framework: FrameworkArg, stdout: &str, stderr: &str) -> Vec<
     events
 }
 
+#[must_use]
 pub fn parse_stdout_line(framework: FrameworkArg, line: &str) -> Vec<NormalizedEvent> {
     let mut events = Vec::new();
     parse_json_line(framework, line, &mut events);
@@ -588,6 +589,7 @@ fn value_to_lossless_string(value: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn parses_jest_json_document() {
@@ -605,9 +607,15 @@ mod tests {
         let events = parse_output(FrameworkArg::Jest, stdout, "");
 
         assert_eq!(events.len(), 3);
-        assert!(matches!(&events[0], NormalizedEvent::Case(case) if case.status == TestStatus::Passed));
-        assert!(matches!(&events[1], NormalizedEvent::Case(case) if case.failure.as_ref().is_some_and(|failure| failure.message == "expected 200")));
-        assert!(matches!(&events[2], NormalizedEvent::Suite(suite) if suite.failed == 1 && suite.duration_ms == 42));
+        assert!(
+            matches!(&events[0], NormalizedEvent::Case(case) if case.status == TestStatus::Passed)
+        );
+        assert!(
+            matches!(&events[1], NormalizedEvent::Case(case) if case.failure.as_ref().is_some_and(|failure| failure.message == "expected 200"))
+        );
+        assert!(
+            matches!(&events[2], NormalizedEvent::Suite(suite) if suite.failed == 1 && suite.duration_ms == 42)
+        );
     }
 
     #[test]
@@ -623,7 +631,9 @@ mod tests {
 
         assert_eq!(events.len(), 2);
         assert!(matches!(&events[0], NormalizedEvent::Case(case) if case.duration_ms == 12));
-        assert!(matches!(&events[1], NormalizedEvent::Case(case) if case.status == TestStatus::Failed));
+        assert!(
+            matches!(&events[1], NormalizedEvent::Case(case) if case.status == TestStatus::Failed)
+        );
     }
 
     #[test]
@@ -642,8 +652,12 @@ mod tests {
         let events = parse_output(FrameworkArg::Vitest, stdout, "");
 
         assert_eq!(events.len(), 3);
-        assert!(matches!(&events[0], NormalizedEvent::Case(case) if case.suite.as_deref() == Some("math") && case.duration_ms == 7));
-        assert!(matches!(&events[2], NormalizedEvent::Suite(suite) if suite.passed == 1 && suite.skipped == 1));
+        assert!(
+            matches!(&events[0], NormalizedEvent::Case(case) if case.suite.as_deref() == Some("math") && case.duration_ms == 7)
+        );
+        assert!(
+            matches!(&events[2], NormalizedEvent::Suite(suite) if suite.passed == 1 && suite.skipped == 1)
+        );
     }
 
     #[test]
@@ -654,7 +668,9 @@ mod tests {
         );
 
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0], NormalizedEvent::Case(case) if case.framework == "deno" && case.duration_ms == 4));
+        assert!(
+            matches!(&events[0], NormalizedEvent::Case(case) if case.framework == "deno" && case.duration_ms == 4)
+        );
     }
 
     #[test]
@@ -662,7 +678,9 @@ mod tests {
         let events = parse_output(FrameworkArg::Bun, "{not-json", "fatal error\nsecond line");
 
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0], NormalizedEvent::Case(case) if case.status == TestStatus::Failed && case.stderr.is_some()));
+        assert!(
+            matches!(&events[0], NormalizedEvent::Case(case) if case.status == TestStatus::Failed && case.stderr.is_some())
+        );
     }
 
     #[test]
@@ -671,5 +689,23 @@ mod tests {
         assert_eq!(seconds_to_ms(Some(f64::NAN)), 0);
         assert_eq!(seconds_to_ms(Some(f64::INFINITY)), 0);
         assert_eq!(seconds_to_ms(Some(f64::MAX)), u64::MAX);
+    }
+
+    proptest! {
+        #[test]
+        fn parser_accepts_arbitrary_text_without_panicking(stdout in ".*", stderr in ".*") {
+            for framework in [
+                FrameworkArg::Jest,
+                FrameworkArg::Vitest,
+                FrameworkArg::Pytest,
+                FrameworkArg::Cargo,
+                FrameworkArg::Go,
+                FrameworkArg::Bun,
+                FrameworkArg::Deno,
+            ] {
+                let _events = parse_output(framework, &stdout, &stderr);
+                let _line_events = parse_stdout_line(framework, &stdout);
+            }
+        }
     }
 }

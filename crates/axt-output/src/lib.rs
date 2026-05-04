@@ -257,6 +257,7 @@ impl<'a, W: Write + ?Sized> AgentJsonlWriter<'a, W> {
 
         if let Some(reason) = self.truncated {
             write_truncation_warning(self.inner, warn_schema, reason)?;
+            self.inner.flush()?;
             if self.limits.strict {
                 return Err(OutputError::TruncatedStrict);
             }

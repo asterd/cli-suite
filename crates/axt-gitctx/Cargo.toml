@@ -27,6 +27,7 @@ dist = true
 
 [dependencies]
 axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-fs = { package = "axt-fs", path = "../axt-fs", version = "0.1.0-rc1" }
 axt-git = { package = "axt-git", path = "../axt-git", version = "0.1.0-rc1" }
 axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
 anyhow.workspace = true
@@ -41,4 +42,5 @@ time.workspace = true
 assert_cmd.workspace = true
 insta.workspace = true
 jsonschema.workspace = true
+proptest.workspace = true
 tempfile.workspace = true

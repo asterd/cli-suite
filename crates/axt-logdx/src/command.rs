@@ -1,9 +1,7 @@
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, HashMap},
     fs::File,
     io::{self, BufRead, BufReader},
-    str,
 };
 
 use axt_core::CommandContext;
@@ -94,7 +92,11 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<LogdxData, LogdxError> {
         until: parse_filter_time("until", args.until.as_deref())?,
     };
     let retained = retained_group_limit(args.top, ctx.limits.max_records);
-    let mut collector = Collector::new(filters, ctx.clock.now_utc().year(), group_capacity(retained));
+    let mut collector = Collector::new(
+        filters,
+        ctx.clock.now_utc().year(),
+        group_capacity(retained),
+    );
     let mut sources = Vec::new();
 
     for path in &args.paths {
@@ -117,6 +119,17 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<LogdxData, LogdxError> {
     }
 
     Ok(collector.finish(sources, args.top, ctx.limits.max_records))
+}
+
+#[allow(dead_code)]
+pub fn fuzz_parse_bytes(bytes: &[u8]) {
+    let filters = Filters {
+        min_severity: Severity::Trace,
+        since: None,
+        until: None,
+    };
+    let mut collector = Collector::new(filters, 2026, 128);
+    let _summary = collector.read_source("fuzz.log".to_owned(), std::io::Cursor::new(bytes));
 }
 
 impl Collector {
@@ -166,15 +179,17 @@ impl Collector {
             self.summary_lines = self.summary_lines.saturating_add(1);
 
             let line_bytes = trim_line_bytes(&line);
-            let decoded = decode_line_lossy(line_bytes);
-            if matches!(decoded, Cow::Owned(_)) {
+            let decoded = axt_fs::decode_text_smart(line_bytes);
+            if decoded.lossy || decoded.converted {
                 self.invalid_utf8_lines = self.invalid_utf8_lines.saturating_add(1);
             }
-            let normalized = strip_ansi(decoded.as_ref());
+            let normalized = strip_ansi(&decoded.text);
             if pending.is_some() && is_stack_continuation(&normalized, year) {
                 if let Some(record) = pending.as_mut() {
                     if record.stack.len() < MAX_STACK_LINES {
-                        record.stack.push(truncate_chars(&normalized, MAX_SNIPPET_CHARS));
+                        record
+                            .stack
+                            .push(truncate_chars(&normalized, MAX_SNIPPET_CHARS));
                     }
                 }
             } else if let Some(record) = parse_record(&source_name, line_no, &normalized, year) {
@@ -306,12 +321,7 @@ impl Collector {
         }
     }
 
-    fn finish(
-        mut self,
-        sources: Vec<SourceSummary>,
-        top: usize,
-        limit: usize,
-    ) -> LogdxData {
+    fn finish(mut self, sources: Vec<SourceSummary>, top: usize, limit: usize) -> LogdxData {
         if self.evicted_groups > 0 {
             self.warnings.push(LogdxWarning {
                 code: crate::model::WarningCode::InputTruncated,
@@ -421,7 +431,11 @@ fn resolve_path(cwd: &Utf8Path, path: &Utf8Path) -> Utf8PathBuf {
 }
 
 const fn retained_group_limit(top: usize, limit: usize) -> usize {
-    if top < limit { top } else { limit }
+    if top < limit {
+        top
+    } else {
+        limit
+    }
 }
 
 fn group_capacity(retained: usize) -> usize {
@@ -437,10 +451,6 @@ fn group_capacity(retained: usize) -> usize {
 fn trim_line_bytes(line: &[u8]) -> &[u8] {
     let without_lf = line.strip_suffix(b"\n").unwrap_or(line);
     without_lf.strip_suffix(b"\r").unwrap_or(without_lf)
-}
-
-fn decode_line_lossy(line: &[u8]) -> Cow<'_, str> {
-    str::from_utf8(line).map_or_else(|_| String::from_utf8_lossy(line), Cow::Borrowed)
 }
 
 fn parse_filter_time(
@@ -997,6 +1007,7 @@ fn format_time(value: OffsetDateTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn normalizes_digits_for_dedup() {
@@ -1008,7 +1019,10 @@ mod tests {
 
     #[test]
     fn strips_ansi_sequences() {
-        assert_eq!(strip_ansi("\u{1b}[31mERROR\u{1b}[0m failed"), "ERROR failed");
+        assert_eq!(
+            strip_ansi("\u{1b}[31mERROR\u{1b}[0m failed"),
+            "ERROR failed"
+        );
     }
 
     #[test]
@@ -1016,5 +1030,18 @@ mod tests {
         let parsed = detect_timestamp("Apr 28 10:00:01 host app ERROR failed", 2026);
         assert!(parsed.is_some());
         assert_eq!(parsed.map(OffsetDateTime::year), Some(2026));
+    }
+
+    proptest! {
+        #[test]
+        fn parser_accepts_arbitrary_bytes_without_panicking(bytes in proptest::collection::vec(any::<u8>(), 0..4096)) {
+            let filters = Filters {
+                min_severity: Severity::Trace,
+                since: None,
+                until: None,
+            };
+            let mut collector = Collector::new(filters, 2026, 128);
+            let _summary = collector.read_source("fuzz.log".to_owned(), std::io::Cursor::new(bytes));
+        }
     }
 }

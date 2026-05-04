@@ -17,6 +17,7 @@ path = "src/lib.rs"
 blake3.workspace = true
 camino.workspace = true
 ignore.workspace = true
+encoding_rs.workspace = true
 infer.workspace = true
 mime_guess.workspace = true
 serde.workspace = true

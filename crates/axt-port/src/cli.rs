@@ -63,6 +63,9 @@ pub struct FreeArgs {
     #[arg(long, default_value = "3s", value_parser = parse_duration)]
     pub grace: Duration,
 
+    #[arg(long, default_value = "100ms", value_parser = parse_duration)]
+    pub kill_grace: Duration,
+
     #[arg(long)]
     pub dry_run: bool,
 

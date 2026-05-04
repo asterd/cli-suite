@@ -6,9 +6,9 @@ after builds, generators, migrations, and test runs.
 ## Usage
 
 ```bash
-axt-drift [OPTIONS] mark [--name <NAME>] [--hash]
-axt-drift [OPTIONS] diff [--since <NAME>] [--hash]
-axt-drift [OPTIONS] run [--name <NAME>] [--hash] -- <CMD> [ARGS]...
+axt-drift [OPTIONS] mark [--name <NAME>] [--hash] [--hash-max-bytes <BYTES>]
+axt-drift [OPTIONS] diff [--since <NAME>] [--hash] [--hash-max-bytes <BYTES>]
+axt-drift [OPTIONS] run [--name <NAME>] [--hash] [--hash-max-bytes <BYTES>] -- <CMD> [ARGS]...
 axt-drift [OPTIONS] list
 axt-drift [OPTIONS] reset
 ```
@@ -28,6 +28,7 @@ JSONL under `.axt/drift/<NAME>.jsonl`.
 | `--name <NAME>` | Mark name for `mark` and `run`. Default `default`. |
 | `--since <NAME>` | Mark name for `diff`. Default `default`. |
 | `--hash` | Include BLAKE3 hashes in snapshots. Slower but detects content changes beyond metadata. |
+| `--hash-max-bytes <BYTES>` | Skip hashing files larger than this limit and record metadata only. Default `268435456` (256 MiB). |
 | `--json` | Emit the `axt.drift.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
 | `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
@@ -60,7 +61,8 @@ Agent record schemas:
 
 ## Storage
 
-Snapshots contain relative path, size, mtime, and optional hash records.
+Snapshots contain relative path, size, mtime, optional hash records, and
+`hash_skipped_size` when a file exceeded `--hash-max-bytes`.
 `.axt/drift` is excluded from captured snapshots so marks do not report
 themselves as changes.
 

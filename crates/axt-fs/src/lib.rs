@@ -20,6 +20,7 @@ use std::{
 };
 
 use camino::{Utf8Path, Utf8PathBuf};
+use encoding_rs::{UTF_16BE, UTF_16LE, WINDOWS_1252};
 use ignore::{Error as IgnoreError, WalkBuilder};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -137,6 +138,32 @@ pub enum Encoding {
     Latin1,
     /// Unknown or binary content.
     Unknown,
+}
+
+impl Encoding {
+    /// Stable lowercase label for human and machine diagnostics.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Utf8 => "utf-8",
+            Self::Utf16 => "utf-16",
+            Self::Latin1 => "latin1",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+/// Result from tolerant text decoding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedText {
+    /// Decoded text.
+    pub text: String,
+    /// Encoding used for decoding.
+    pub encoding: Encoding,
+    /// Whether bytes were converted from a non-UTF-8 encoding.
+    pub converted: bool,
+    /// Whether invalid sequences were replaced during decoding.
+    pub lossy: bool,
 }
 
 /// Newline style found in a file sample.
@@ -296,6 +323,68 @@ pub fn collect_metadata_with_warnings(
 
     entries.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(MetadataCollection { entries, warnings })
+}
+
+/// Read a file as text with BOM-aware UTF-16 and Windows-1252 fallback.
+pub fn read_to_string_smart(path: &Utf8Path) -> Result<DecodedText> {
+    let bytes = fs::read(path).map_err(|source| FsError::Read {
+        path: path.to_owned(),
+        source,
+    })?;
+    Ok(decode_text_smart(&bytes))
+}
+
+/// Decode bytes as text with BOM-aware UTF-16 and Windows-1252 fallback.
+#[must_use]
+pub fn decode_text_smart(bytes: &[u8]) -> DecodedText {
+    if let Some(rest) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
+        return decode_utf8(rest, false);
+    }
+    if let Some(rest) = bytes.strip_prefix(&[0xFF, 0xFE]) {
+        let (text, _encoding, had_errors) = UTF_16LE.decode(rest);
+        return DecodedText {
+            text: text.into_owned(),
+            encoding: Encoding::Utf16,
+            converted: true,
+            lossy: had_errors,
+        };
+    }
+    if let Some(rest) = bytes.strip_prefix(&[0xFE, 0xFF]) {
+        let (text, _encoding, had_errors) = UTF_16BE.decode(rest);
+        return DecodedText {
+            text: text.into_owned(),
+            encoding: Encoding::Utf16,
+            converted: true,
+            lossy: had_errors,
+        };
+    }
+    decode_utf8(bytes, true)
+}
+
+fn decode_utf8(bytes: &[u8], allow_fallback: bool) -> DecodedText {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => DecodedText {
+            text: text.to_owned(),
+            encoding: Encoding::Utf8,
+            converted: false,
+            lossy: false,
+        },
+        Err(_err) if allow_fallback => {
+            let (text, _encoding, had_errors) = WINDOWS_1252.decode(bytes);
+            DecodedText {
+                text: text.into_owned(),
+                encoding: Encoding::Latin1,
+                converted: true,
+                lossy: had_errors,
+            }
+        }
+        Err(_err) => DecodedText {
+            text: String::from_utf8_lossy(bytes).into_owned(),
+            encoding: Encoding::Utf8,
+            converted: false,
+            lossy: true,
+        },
+    }
 }
 
 fn handle_walk_warning(warnings: &mut Vec<FsWarning>, err: &IgnoreError) -> bool {
@@ -795,6 +884,15 @@ mod tests {
         assert!(!has_path(&small_only, "src/main.rs"));
 
         Ok(())
+    }
+
+    #[test]
+    fn smart_decode_handles_utf16le_bom() {
+        let decoded = decode_text_smart(&[0xFF, 0xFE, b'h', 0, b'i', 0]);
+        assert_eq!(decoded.text, "hi");
+        assert_eq!(decoded.encoding, Encoding::Utf16);
+        assert!(decoded.converted);
+        assert!(!decoded.lossy);
     }
 
     #[test]

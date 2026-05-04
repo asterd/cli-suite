@@ -139,6 +139,27 @@ fn hash_mode_includes_hashes_for_changed_files() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
+fn hash_mode_skips_files_above_configured_limit() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    fs::write(temp.path().join("large.txt"), "before")?;
+
+    let assert = Command::cargo_bin("axt-drift")?
+        .env("AXT_OUTPUT", "human")
+        .current_dir(temp.path())
+        .args(["--json", "mark", "--hash", "--hash-max-bytes", "1"])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
+    validate_json_schema(&stdout)?;
+    let value: Value = serde_json::from_str(&stdout)?;
+
+    assert_eq!(value["data"]["hash_skipped_size"], 1);
+    let snapshot = fs::read_to_string(temp.path().join(".axt/drift/default.jsonl"))?;
+    assert!(snapshot.contains(r#""hash_skipped_size":true"#));
+    Ok(())
+}
+
+#[test]
 fn diff_hash_mode_does_not_modify_unchanged_metadata_mark() -> Result<(), Box<dyn std::error::Error>>
 {
     let temp = tempfile::tempdir()?;

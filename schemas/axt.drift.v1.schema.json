@@ -19,6 +19,7 @@
         "name",
         "mark_path",
         "hash",
+        "hash_skipped_size",
         "files",
         "changes",
         "marks",
@@ -32,6 +33,7 @@
         "name": { "type": ["string", "null"] },
         "mark_path": { "type": ["string", "null"] },
         "hash": { "type": "boolean" },
+        "hash_skipped_size": { "type": "integer", "minimum": 0 },
         "files": { "type": "integer", "minimum": 0 },
         "changes": {
           "type": "array",
@@ -52,14 +54,23 @@
     },
     "FileChange": {
       "type": "object",
-      "required": ["path", "action", "size_before", "size_after", "size_delta", "hash"],
+      "required": [
+        "path",
+        "action",
+        "size_before",
+        "size_after",
+        "size_delta",
+        "hash",
+        "hash_skipped_size"
+      ],
       "properties": {
         "path": { "type": "string" },
         "action": { "enum": ["created", "modified", "deleted"] },
         "size_before": { "type": ["integer", "null"], "minimum": 0 },
         "size_after": { "type": ["integer", "null"], "minimum": 0 },
         "size_delta": { "type": "integer" },
-        "hash": { "type": ["string", "null"] }
+        "hash": { "type": ["string", "null"] },
+        "hash_skipped_size": { "type": "boolean" }
       },
       "additionalProperties": false
     },

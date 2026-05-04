@@ -35,6 +35,7 @@ clap.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+rayon.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 time.workspace = true

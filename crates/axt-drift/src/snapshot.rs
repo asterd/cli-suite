@@ -5,6 +5,7 @@ use std::{
 };
 
 use camino::{Utf8Path, Utf8PathBuf};
+use rayon::prelude::*;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
@@ -19,6 +20,7 @@ pub struct CapturedSnapshot {
     file: NamedTempFile,
     source: Utf8PathBuf,
     len: usize,
+    hash_skipped_size: usize,
 }
 
 struct SnapshotCursor {
@@ -28,12 +30,29 @@ struct SnapshotCursor {
     current: Option<SnapshotRecord>,
 }
 
+struct SnapshotCandidate {
+    full_path: Utf8PathBuf,
+    record: SnapshotRecord,
+}
+
 impl CapturedSnapshot {
-    pub fn capture(root: &Utf8Path, hash: bool) -> Result<Self> {
-        Self::from_records(collect_records(root, hash)?)
+    pub fn capture(root: &Utf8Path, hash: bool, hash_max_bytes: u64) -> Result<Self> {
+        let mut candidates = collect_candidates(root)?;
+        if hash {
+            hash_candidates(&mut candidates, hash_max_bytes)?;
+        }
+        let hash_skipped_size = candidates
+            .iter()
+            .filter(|candidate| candidate.record.hash_skipped_size)
+            .count();
+        let records = candidates
+            .into_iter()
+            .map(|candidate| candidate.record)
+            .collect::<Vec<_>>();
+        Self::from_records(records, hash_skipped_size)
     }
 
-    fn from_records(records: Vec<SnapshotRecord>) -> Result<Self> {
+    fn from_records(records: Vec<SnapshotRecord>, hash_skipped_size: usize) -> Result<Self> {
         let len = records.len();
         let mut chunks = Vec::new();
         for chunk in records.chunks(SORT_CHUNK_RECORDS) {
@@ -52,12 +71,22 @@ impl CapturedSnapshot {
                 path: self_path(&source),
                 source: err,
             })?;
-        Ok(Self { file, source, len })
+        Ok(Self {
+            file,
+            source,
+            len,
+            hash_skipped_size,
+        })
     }
 
     #[must_use]
     pub const fn len(&self) -> usize {
         self.len
+    }
+
+    #[must_use]
+    pub const fn hash_skipped_size(&self) -> usize {
+        self.hash_skipped_size
     }
 
     pub fn persist_to(&self, path: &Utf8Path) -> Result<()> {
@@ -190,8 +219,8 @@ fn diff_cursors(
     Ok(changes)
 }
 
-fn collect_records(root: &Utf8Path, hash: bool) -> Result<Vec<SnapshotRecord>> {
-    let mut records = Vec::new();
+fn collect_candidates(root: &Utf8Path) -> Result<Vec<SnapshotCandidate>> {
+    let mut candidates = Vec::new();
     for entry in WalkDir::new(root).follow_links(false) {
         let entry = entry.map_err(|err| DriftError::Io {
             path: root.to_owned(),
@@ -208,6 +237,7 @@ fn collect_records(root: &Utf8Path, hash: bool) -> Result<Vec<SnapshotRecord>> {
             path: path.clone(),
             source: std::io::Error::other(err.to_string()),
         })?;
+        let snapshot_path = relative_snapshot_path(rel);
         if is_internal_axt_path(rel) {
             continue;
         }
@@ -220,14 +250,35 @@ fn collect_records(root: &Utf8Path, hash: bool) -> Result<Vec<SnapshotRecord>> {
                 .into_io_error()
                 .unwrap_or_else(|| std::io::Error::other("failed to read entry metadata")),
         })?;
-        records.push(SnapshotRecord {
-            path: relative_snapshot_path(rel),
-            size: metadata.len(),
-            mtime_ns: metadata.modified().ok().and_then(system_time_ns),
-            hash: if hash { Some(hash_file(&path)?) } else { None },
+        candidates.push(SnapshotCandidate {
+            full_path: path,
+            record: SnapshotRecord {
+                path: snapshot_path,
+                size: metadata.len(),
+                mtime_ns: metadata.modified().ok().and_then(system_time_ns),
+                hash: None,
+                hash_skipped_size: false,
+            },
         });
     }
-    Ok(records)
+    Ok(candidates)
+}
+
+fn hash_candidates(candidates: &mut [SnapshotCandidate], hash_max_bytes: u64) -> Result<()> {
+    candidates
+        .par_iter_mut()
+        .map(|candidate| {
+            if candidate.record.size > hash_max_bytes {
+                candidate.record.hash = None;
+                candidate.record.hash_skipped_size = true;
+                Ok(())
+            } else {
+                candidate.record.hash = Some(hash_file(&candidate.full_path)?);
+                Ok(())
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(())
 }
 
 fn write_sorted_chunk(mut records: Vec<SnapshotRecord>) -> Result<NamedTempFile> {
@@ -460,6 +511,7 @@ fn modified_change(before: &SnapshotRecord, current: &SnapshotRecord) -> FileCha
         size_after: Some(current.size),
         size_delta: size_delta(Some(before.size), Some(current.size)),
         hash: current.hash.clone(),
+        hash_skipped_size: current.hash_skipped_size,
     }
 }
 
@@ -471,6 +523,7 @@ fn deleted_change(before: &SnapshotRecord) -> FileChange {
         size_after: None,
         size_delta: size_delta(Some(before.size), None),
         hash: None,
+        hash_skipped_size: before.hash_skipped_size,
     }
 }
 
@@ -482,6 +535,7 @@ fn created_change(current: &SnapshotRecord) -> FileChange {
         size_after: Some(current.size),
         size_delta: size_delta(None, Some(current.size)),
         hash: current.hash.clone(),
+        hash_skipped_size: current.hash_skipped_size,
     }
 }
 
@@ -520,6 +574,7 @@ fn record_changed(before: &SnapshotRecord, after: &SnapshotRecord) -> bool {
         || before.mtime_ns != after.mtime_ns
         || match (&before.hash, &after.hash) {
             (Some(before_hash), Some(after_hash)) => before_hash != after_hash,
+            (None, None) => before.hash_skipped_size != after.hash_skipped_size,
             _ => false,
         }
 }

@@ -232,10 +232,24 @@ fn collect_manifests(root: &Utf8PathBuf) -> Result<Vec<BundleManifest>, BundleEr
         if !path.is_file() {
             continue;
         }
-        let text = fs::read_to_string(&path).map_err(|source| BundleError::ReadManifest {
-            path: path.clone(),
-            source,
-        })?;
+        let decoded =
+            axt_fs::read_to_string_smart(&path).map_err(|source| BundleError::ReadManifest {
+                path: path.clone(),
+                source: std::io::Error::other(source.to_string()),
+            })?;
+        if decoded.converted || decoded.lossy {
+            eprintln!(
+                "Warning: manifest {} decoded as {}{}",
+                path,
+                decoded.encoding.as_str(),
+                if decoded.lossy {
+                    " with replacement characters"
+                } else {
+                    ""
+                }
+            );
+        }
+        let text = decoded.text;
         let preview = text.lines().take(12).collect::<Vec<_>>().join("\n");
         let bytes = fs::metadata(&path)
             .map_err(|source| BundleError::ReadManifest {

@@ -27,6 +27,7 @@ dist = true
 
 [dependencies]
 axt-core = { package = "axt-core", path = "../axt-core", version = "0.1.0-rc1" }
+axt-fs = { package = "axt-fs", path = "../axt-fs", version = "0.1.0-rc1" }
 axt-output = { package = "axt-output", path = "../axt-output", version = "0.1.0-rc1" }
 anyhow.workspace = true
 blake3.workspace = true

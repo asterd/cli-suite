@@ -63,8 +63,6 @@ enum GitctxError {
         path: Utf8PathBuf,
         source: io::Error,
     },
-    #[error("git output was not valid UTF-8 for {operation}")]
-    GitOutputUtf8 { operation: &'static str },
 }
 
 #[derive(Debug, Serialize)]
@@ -328,6 +326,10 @@ fn ahead_behind(
 
 fn status_entries(repo_root: &Utf8Path) -> Result<Vec<StatusEntry>, GitctxError> {
     let output = git_output(repo_root, &["status", "--porcelain=v1", "-z"])?;
+    Ok(status_entries_from_bytes(&output))
+}
+
+fn status_entries_from_bytes(output: &[u8]) -> Vec<StatusEntry> {
     let fields = output
         .split(|byte| *byte == 0)
         .filter(|field| !field.is_empty())
@@ -336,41 +338,40 @@ fn status_entries(repo_root: &Utf8Path) -> Result<Vec<StatusEntry>, GitctxError>
     let mut index = 0;
     while index < fields.len() {
         let field = fields[index];
-        let text = std::str::from_utf8(field)
-            .map_err(|_err| GitctxError::GitOutputUtf8 { operation: "status" })?;
+        let text = decode_git_output("status", field);
         if text.len() < 4 {
             index += 1;
             continue;
         }
-        let status = &text[..2];
-        let path = &text[3..];
-        let mut chars = status.chars();
+        let mut chars = text.chars();
         let index_status = chars.next().map_or(StatusSlot::Unknown, status_slot);
         let worktree_status = chars.next().map_or(StatusSlot::Unknown, status_slot);
+        let path = chars.as_str().strip_prefix(' ').unwrap_or(chars.as_str()).to_owned();
         let mut previous_path = None;
         if matches!(index_status, StatusSlot::Renamed | StatusSlot::Copied)
             || matches!(worktree_status, StatusSlot::Renamed | StatusSlot::Copied)
         {
             if let Some(previous) = fields.get(index + 1) {
                 previous_path = Some(
-                    std::str::from_utf8(previous)
-                        .map_err(|_err| GitctxError::GitOutputUtf8 {
-                            operation: "status rename",
-                        })?
-                        .to_owned(),
+                    decode_git_output("status rename", previous),
                 );
                 index += 1;
             }
         }
         entries.push(StatusEntry {
-            path: path.to_owned(),
+            path,
             previous_path,
             index: index_status,
             worktree: worktree_status,
         });
         index += 1;
     }
-    Ok(entries)
+    entries
+}
+
+pub fn fuzz_parse_status_bytes(bytes: &[u8]) {
+    let _entries = status_entries_from_bytes(bytes);
+    let _text = decode_git_output("fuzz", bytes);
 }
 
 fn changed_file(
@@ -514,16 +515,7 @@ fn synthetic_untracked_diff(repo_root: &Utf8Path, path: &str) -> Result<String, 
     if absolute.is_dir() {
         return Ok(String::new());
     }
-    let text = match fs::read_to_string(&absolute) {
-        Ok(value) => value,
-        Err(err) if err.kind() == io::ErrorKind::InvalidData => return Ok(String::new()),
-        Err(source) => {
-            return Err(GitctxError::ReadFile {
-                path: absolute,
-                source,
-            });
-        }
-    };
+    let text = read_text_file_smart(&absolute)?;
     let diff_path_a = quote_diff_path(&format!("a/{path}"));
     let diff_path_b = quote_diff_path(&format!("b/{path}"));
     let mut diff = format!(
@@ -585,14 +577,7 @@ fn line_count(repo_root: &Utf8Path, path: &str) -> Result<usize, GitctxError> {
     if absolute.is_dir() {
         return Ok(0);
     }
-    match fs::read_to_string(&absolute) {
-        Ok(text) => Ok(text.lines().count()),
-        Err(err) if err.kind() == io::ErrorKind::InvalidData => Ok(0),
-        Err(source) => Err(GitctxError::ReadFile {
-            path: absolute,
-            source,
-        }),
-    }
+    read_text_file_smart(&absolute).map(|text| text.lines().count())
 }
 
 fn recent_commits(
@@ -738,8 +723,37 @@ fn git_output(repo_root: &Utf8Path, args: &[&str]) -> Result<Vec<u8>, GitctxErro
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn utf8_output(operation: &'static str, bytes: &[u8]) -> Result<String, GitctxError> {
-    String::from_utf8(bytes.to_vec()).map_err(|_err| GitctxError::GitOutputUtf8 { operation })
+    Ok(decode_git_output(operation, bytes))
+}
+
+fn decode_git_output(operation: &'static str, bytes: &[u8]) -> String {
+    let decoded = axt_fs::decode_text_smart(bytes);
+    if decoded.converted || decoded.lossy {
+        eprintln!(
+            "Warning: git {operation} output decoded as {}{}",
+            decoded.encoding.as_str(),
+            if decoded.lossy { " with replacement characters" } else { "" }
+        );
+    }
+    decoded.text
+}
+
+fn read_text_file_smart(path: &Utf8Path) -> Result<String, GitctxError> {
+    let decoded = axt_fs::read_to_string_smart(path).map_err(|source| GitctxError::ReadFile {
+        path: path.to_owned(),
+        source: io::Error::other(source.to_string()),
+    })?;
+    if decoded.converted || decoded.lossy {
+        eprintln!(
+            "Warning: file {} decoded as {}{}",
+            path,
+            decoded.encoding.as_str(),
+            if decoded.lossy { " with replacement characters" } else { "" }
+        );
+    }
+    Ok(decoded.text)
 }
 
 const fn status_slot(ch: char) -> StatusSlot {
@@ -1055,9 +1069,20 @@ fn exit_code_for_error(err: &GitctxError) -> u8 {
         {
             ErrorCode::PermissionDenied.exit_code()
         }
-        GitctxError::ReadFile { .. } | GitctxError::Metadata { .. } => {
-            ErrorCode::IoError.exit_code()
+        GitctxError::ReadFile { .. } | GitctxError::Metadata { .. } => ErrorCode::IoError.exit_code(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn porcelain_parser_accepts_arbitrary_bytes_without_panicking(bytes in proptest::collection::vec(any::<u8>(), 0..4096)) {
+            let _entries = status_entries_from_bytes(&bytes);
+            let _text = decode_git_output("fuzz", &bytes);
         }
-        GitctxError::GitOutputUtf8 { .. } => ErrorCode::RuntimeError.exit_code(),
     }
 }

@@ -1,4 +1,5 @@
 /target/
+/fuzz/target/
 /target-dist/
 /.DS_Store
 __pycache__/

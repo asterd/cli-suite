@@ -19,6 +19,7 @@ struct JsonlSummary<'a> {
     operation: &'static str,
     name: Option<&'a str>,
     files: usize,
+    hash_skipped_size: usize,
     changes: usize,
     marks: usize,
     removed: usize,
@@ -109,6 +110,7 @@ fn jsonl_summary<'a>(data: &'a DriftData, truncated: bool, next: Vec<String>) ->
         operation: data.operation.as_str(),
         name: data.name.as_deref(),
         files: data.files,
+        hash_skipped_size: data.hash_skipped_size,
         changes: data.changes.len(),
         marks: data.marks.len(),
         removed: data.removed,
@@ -142,7 +144,8 @@ fn jsonl_detail_records(data: &DriftData) -> Vec<Value> {
             "size_before": change.size_before,
             "size_after": change.size_after,
             "size_delta": change.size_delta,
-            "hash": change.hash
+            "hash": change.hash,
+            "hash_skipped_size": change.hash_skipped_size
         }));
     }
     for mark in &data.marks {

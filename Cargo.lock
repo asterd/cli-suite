@@ -254,6 +254,7 @@ dependencies = [
  "camino",
  "clap",
  "jsonschema",
+ "rayon",
  "schemars",
  "serde",
  "serde_json",
@@ -270,6 +271,7 @@ version = "0.1.0-rc1"
 dependencies = [
  "blake3",
  "camino",
+ "encoding_rs",
  "ignore",
  "infer",
  "mime_guess",
@@ -297,12 +299,14 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "axt-core",
+ "axt-fs",
  "axt-git",
  "axt-output",
  "camino",
  "clap",
  "insta",
  "jsonschema",
+ "proptest",
  "serde",
  "serde_json",
  "tempfile",
@@ -317,6 +321,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "axt-core",
+ "axt-fs",
  "axt-output",
  "blake3",
  "camino",
@@ -483,6 +488,7 @@ dependencies = [
  "clap",
  "insta",
  "jsonschema",
+ "proptest",
  "schemars",
  "serde",
  "serde_json",
@@ -2881,6 +2887,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "rayon"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb39b166781f92d482534ef4b4b1b2568f42613b53e5b6c160e24cfbfa30926d"
+dependencies = [
+ "either",
+ "rayon-core",
+]
+
+[[package]]
+name = "rayon-core"
+version = "1.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
+dependencies = [
+ "crossbeam-deque",
+ "crossbeam-utils",
 ]
 
 [[package]]
