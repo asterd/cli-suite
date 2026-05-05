@@ -43,6 +43,37 @@ fn json_output_uses_envelope() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[test]
+fn max_files_truncates_in_stable_path_order() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = fixture_project()?;
+    fs::create_dir(temp.path().join("aaa"))?;
+    fs::write(temp.path().join("aaa/first.txt"), "first\n")?;
+    fs::write(temp.path().join("zzz.txt"), "last\n")?;
+
+    let assert = Command::cargo_bin("axt-bundle")?
+        .env("AXT_OUTPUT", "human")
+        .args([
+            "--json",
+            "--max-files",
+            "3",
+            temp.path().to_string_lossy().as_ref(),
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone())?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    let files = value["data"]["files"]
+        .as_array()
+        .ok_or_else(|| io::Error::other("files must be an array"))?;
+    let paths = files
+        .iter()
+        .filter_map(|file| file["path"].as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(paths, ["Cargo.toml", "aaa", "aaa/first.txt"]);
+    assert_eq!(value["data"]["summary"]["truncated"], true);
+    Ok(())
+}
+
 fn validate_json_schema(stdout: &str) -> Result<(), Box<dyn std::error::Error>> {
     let schema: Value =
         serde_json::from_str(include_str!("../../../schemas/axt.bundle.v1.schema.json"))?;

@@ -221,6 +221,7 @@ fn diff_cursors(
 
 fn collect_candidates(root: &Utf8Path) -> Result<Vec<SnapshotCandidate>> {
     let mut candidates = Vec::new();
+    let mut skipped_symlinks = 0_usize;
     for entry in WalkDir::new(root).follow_links(false) {
         let entry = entry.map_err(|err| DriftError::Io {
             path: root.to_owned(),
@@ -239,6 +240,10 @@ fn collect_candidates(root: &Utf8Path) -> Result<Vec<SnapshotCandidate>> {
         })?;
         let snapshot_path = relative_snapshot_path(rel);
         if is_internal_axt_path(rel) {
+            continue;
+        }
+        if entry.file_type().is_symlink() {
+            skipped_symlinks += 1;
             continue;
         }
         if !entry.file_type().is_file() {
@@ -260,6 +265,9 @@ fn collect_candidates(root: &Utf8Path) -> Result<Vec<SnapshotCandidate>> {
                 hash_skipped_size: false,
             },
         });
+    }
+    if skipped_symlinks > 0 {
+        eprintln!("Warning: skipped {skipped_symlinks} symlink entries");
     }
     Ok(candidates)
 }

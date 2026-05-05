@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use axt_fs::{EntryMetadata, HashAlgorithm, WalkOptions};
+use axt_fs::{EntryMetadata, HashAlgorithm, MetadataCollection, WalkOptions};
 use camino::{Utf8Path, Utf8PathBuf};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
@@ -21,7 +21,7 @@ pub fn collect(args: &Args, cwd: &Utf8Path) -> Result<PeekData> {
 
     for root in &roots {
         let mut root_result = collect_root(root, args)?;
-        ignored += ignored_count(root, args)?;
+        ignored += ignored_count(&root_result.collection, root, args)?;
         entries.append(&mut root_result.entries);
         warnings.append(&mut root_result.warnings);
     }
@@ -61,6 +61,7 @@ fn normalize_roots(paths: &[Utf8PathBuf], cwd: &Utf8Path) -> Result<Vec<Utf8Path
 }
 
 struct RootCollection {
+    collection: MetadataCollection,
     entries: Vec<Entry>,
     warnings: Vec<PeekWarning>,
 }
@@ -77,17 +78,22 @@ fn collect_root(root: &Utf8Path, args: &Args) -> Result<RootCollection> {
 
     let entries = metadata
         .entries
-        .into_iter()
+        .iter()
         .filter(|entry| changed_since_matches(entry, changed_since.as_ref()))
-        .map(|entry| entry_from_metadata(root, &prefix, entry, &git))
+        .map(|entry| entry_from_metadata(root, &prefix, entry.clone(), &git))
         .collect::<Result<Vec<_>>>()?;
     let warnings = metadata
         .warnings
-        .into_iter()
+        .iter()
+        .cloned()
         .map(peek_warning_from_fs)
         .collect();
 
-    Ok(RootCollection { entries, warnings })
+    Ok(RootCollection {
+        collection: metadata,
+        entries,
+        warnings,
+    })
 }
 
 fn walk_options(args: &Args) -> WalkOptions {
@@ -107,13 +113,14 @@ fn walk_options(args: &Args) -> WalkOptions {
     }
 }
 
-fn ignored_count(root: &Utf8Path, args: &Args) -> Result<usize> {
+fn ignored_count(collection: &MetadataCollection, root: &Utf8Path, args: &Args) -> Result<usize> {
     if args.no_ignore {
         return Ok(0);
     }
-    let visible = axt_fs::collect_metadata(root, walk_options(args))?
-        .into_iter()
-        .map(|entry| entry.path)
+    let visible = collection
+        .entries
+        .iter()
+        .map(|entry| entry.path.clone())
         .collect::<BTreeSet<_>>();
     let all = axt_fs::collect_metadata(
         root,
@@ -125,7 +132,7 @@ fn ignored_count(root: &Utf8Path, args: &Args) -> Result<usize> {
     .into_iter()
     .map(|entry| entry.path)
     .collect::<BTreeSet<_>>();
-    Ok(all.difference(&visible).count())
+    Ok(all.iter().filter(|path| !visible.contains(*path)).count())
 }
 
 fn peek_warning_from_fs(warning: axt_fs::FsWarning) -> PeekWarning {
@@ -182,7 +189,8 @@ fn entry_from_metadata(
         metadata.path.to_string()
     } else {
         format!("{prefix}/{}", metadata.path)
-    };
+    }
+    .replace('\\', "/");
 
     Ok(Entry {
         path,

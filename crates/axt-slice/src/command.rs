@@ -380,7 +380,7 @@ fn read_source(path: &Utf8Path) -> Result<String> {
         path: path.to_owned(),
         source,
     })?;
-    if bytes.contains(&0) {
+    if !axt_fs::is_text_bytes(&bytes) {
         return Err(SliceError::NonUtf8(path.to_owned()));
     }
     String::from_utf8(bytes).map_err(|_| SliceError::NonUtf8(path.to_owned()))

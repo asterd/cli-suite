@@ -456,6 +456,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "axt-core",
+ "axt-fs",
  "axt-output",
  "camino",
  "clap",

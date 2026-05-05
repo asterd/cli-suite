@@ -218,8 +218,54 @@ fn epoch_timestamps_parse_for_filters_and_timeline() -> Result<(), Box<dyn std::
         .success();
     let data = json_data(&String::from_utf8(assert.get_output().stdout.clone())?)?;
     assert_eq!(data["summary"]["groups"], 2);
-    assert_eq!(data["timeline"][0]["bucket"], "2026-04-28T10:00:00Z");
-    assert_eq!(data["timeline"][0]["error"], 2);
+    assert!(data["timeline"][0]["bucket"]
+        .as_str()
+        .is_some_and(|bucket| bucket.starts_with("2026-04-28T10:00:00")));
+    let timeline_errors = data["timeline"]
+        .as_array()
+        .ok_or_else(|| io::Error::other("timeline must be an array"))?
+        .iter()
+        .filter_map(|bucket| bucket["error"].as_u64())
+        .sum::<u64>();
+    assert_eq!(timeline_errors, 2);
+    Ok(())
+}
+
+#[test]
+fn fractional_epoch_timestamps_parse_and_bad_rfc3339_delimiters_do_not(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let input = concat!(
+        "1777370400.250 error fractional seconds failure\n",
+        "1777370400000.250 error fractional millis failure\n",
+        "[2026-04-28T10:00:00Z} error mismatched delimiter should not enter timeline\n"
+    );
+    let assert = command()?
+        .env("AXT_OUTPUT", "human")
+        .args([
+            "--stdin",
+            "--json",
+            "--severity",
+            "error",
+            "--since",
+            "2026-04-28T09:59:00Z",
+            "--until",
+            "2026-04-28T10:01:00Z",
+        ])
+        .write_stdin(input)
+        .assert()
+        .success();
+    let data = json_data(&String::from_utf8(assert.get_output().stdout.clone())?)?;
+    assert_eq!(data["summary"]["groups"], 2);
+    assert!(data["timeline"][0]["bucket"]
+        .as_str()
+        .is_some_and(|bucket| bucket.starts_with("2026-04-28T10:00:00")));
+    let timeline_errors = data["timeline"]
+        .as_array()
+        .ok_or_else(|| io::Error::other("timeline must be an array"))?
+        .iter()
+        .filter_map(|bucket| bucket["error"].as_u64())
+        .sum::<u64>();
+    assert_eq!(timeline_errors, 2);
     Ok(())
 }
 

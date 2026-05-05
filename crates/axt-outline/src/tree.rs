@@ -408,12 +408,20 @@ fn go_visibility(name: &str) -> Visibility {
 }
 
 fn signature(language: Language, node: Node<'_>, source: &str) -> String {
-    let end = if matches!(language, Language::Python) {
+    let end = if matches!(language, Language::Python) && node.kind() != "function_definition" {
         line_end(source, node.start_byte())
     } else {
-        body_start(node).unwrap_or_else(|| node.end_byte())
+        body_start(node).unwrap_or_else(|| {
+            if matches!(language, Language::Python) {
+                line_end(source, node.start_byte())
+            } else {
+                node.end_byte()
+            }
+        })
     };
-    source[node.start_byte()..end]
+    source
+        .get(node.start_byte()..end)
+        .unwrap_or_default()
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
@@ -492,7 +500,10 @@ fn doc_line(line: &str) -> Option<String> {
 }
 
 fn text(node: Node<'_>, source: &str) -> String {
-    source[node.start_byte()..node.end_byte()].to_owned()
+    source
+        .get(node.start_byte()..node.end_byte())
+        .unwrap_or_default()
+        .to_owned()
 }
 
 fn line_start(source: &str, index: usize) -> usize {

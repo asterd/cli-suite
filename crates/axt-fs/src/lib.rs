@@ -361,6 +361,13 @@ pub fn decode_text_smart(bytes: &[u8]) -> DecodedText {
     decode_utf8(bytes, true)
 }
 
+/// Return whether a byte sample looks text-like according to the shared
+/// filesystem classifier.
+#[must_use]
+pub fn is_text_bytes(bytes: &[u8]) -> bool {
+    content_kind(EntryKind::File, bytes) == ContentKind::Text
+}
+
 fn decode_utf8(bytes: &[u8], allow_fallback: bool) -> DecodedText {
     match std::str::from_utf8(bytes) {
         Ok(text) => DecodedText {

@@ -68,7 +68,7 @@ pub fn run(args: &Args, ctx: &CommandContext) -> Result<CtxpackData> {
                 return Err(CtxpackError::Io { path: file, source });
             }
         };
-        if is_binary(&bytes) {
+        if !axt_fs::is_text_bytes(&bytes) {
             warnings.push(CtxpackWarning {
                 code: WarningCode::BinarySkipped,
                 path: Some(relative_path(&file, &ctx.cwd)),
@@ -365,10 +365,6 @@ fn snippet(lines: &[SourceLine<'_>], line_index: usize, context: usize) -> Strin
         .map(|line| format!("{}:{}", line.number, line.text))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn is_binary(bytes: &[u8]) -> bool {
-    bytes.contains(&0)
 }
 
 fn absolutize(path: &Utf8Path, cwd: &Utf8Path) -> Utf8PathBuf {

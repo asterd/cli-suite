@@ -796,18 +796,59 @@ fn parse_flexible_timestamp(raw: &str) -> Option<OffsetDateTime> {
 }
 
 fn parse_rfc3339(raw: &str) -> Option<OffsetDateTime> {
-    let trimmed = raw.trim_matches(|ch: char| ch == '[' || ch == ']' || ch == ',' || ch == '"');
+    let trimmed = trim_timestamp_token(raw);
     OffsetDateTime::parse(trimmed, &time::format_description::well_known::Rfc3339).ok()
 }
 
 fn parse_epoch_timestamp(raw: &str) -> Option<OffsetDateTime> {
-    let trimmed = raw.trim_matches(|ch: char| {
-        ch == '[' || ch == ']' || ch == ',' || ch == '"' || ch == '\'' || ch == ';'
-    });
+    let trimmed = trim_timestamp_token(raw);
+    if let Some((whole, fraction)) = trimmed.split_once('.') {
+        if !matches!(whole.len(), 10 | 13)
+            || !whole.bytes().all(|byte| byte.is_ascii_digit())
+            || fraction.is_empty()
+            || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return None;
+        }
+        return parse_fractional_epoch(whole, fraction);
+    }
     if !matches!(trimmed.len(), 10 | 13) || !trimmed.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
     parse_epoch_number(trimmed.parse::<i64>().ok()?)
+}
+
+fn trim_timestamp_token(raw: &str) -> &str {
+    let trimmed = raw.trim_end_matches([',', ';']);
+    if trimmed.len() >= 2 {
+        let bytes = trimmed.as_bytes();
+        let paired = matches!(
+            (bytes[0], bytes[trimmed.len() - 1]),
+            (b'[', b']') | (b'"', b'"') | (b'\'', b'\'')
+        );
+        if paired {
+            return &trimmed[1..trimmed.len() - 1];
+        }
+    }
+    trimmed
+}
+
+fn parse_fractional_epoch(whole: &str, fraction: &str) -> Option<OffsetDateTime> {
+    let whole = whole.parse::<i128>().ok()?;
+    let unit_nanos = if whole >= 10_000_000_000 {
+        1_000_000
+    } else {
+        1_000_000_000
+    };
+    let mut nanos = whole.checked_mul(unit_nanos)?;
+    let mut fractional_nanos = 0_i128;
+    let mut scale = unit_nanos / 10;
+    for digit in fraction.bytes().take(9) {
+        fractional_nanos += i128::from(digit - b'0') * scale;
+        scale /= 10;
+    }
+    nanos = nanos.checked_add(fractional_nanos)?;
+    OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
 }
 
 fn parse_epoch_number(raw: i64) -> Option<OffsetDateTime> {

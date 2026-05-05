@@ -193,10 +193,16 @@ fn run(args: &Args, cwd: &Utf8PathBuf) -> Result<BundleData, BundleError> {
         .iter()
         .filter(|entry| entry.kind == EntryKind::Dir)
         .count();
-    let files = collection
+    let walk_entries = collection
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, EntryKind::File | EntryKind::Dir))
+        .collect::<Vec<_>>();
+    debug_assert!(walk_entries
+        .windows(2)
+        .all(|items| items[0].path <= items[1].path));
+    let files = walk_entries
+        .iter()
         .take(args.max_files)
         .map(|entry| BundleFile {
             path: entry.path.to_string(),
@@ -216,7 +222,7 @@ fn run(args: &Args, cwd: &Utf8PathBuf) -> Result<BundleData, BundleError> {
             dirs: total_dirs,
             manifests: manifests.len(),
             git: git.is_some(),
-            truncated: collection.entries.len() > files.len(),
+            truncated: walk_entries.len() > files.len(),
         },
         files,
         manifests,

@@ -121,7 +121,11 @@ pub fn clean(root: &Utf8Path, older_than: Option<Duration>) -> Result<usize> {
             path: path.clone(),
             source,
         })?;
-        let Ok(age) = now.duration_since(metadata.modified().unwrap_or(now)) else {
+        let Ok(modified) = metadata.modified() else {
+            eprintln!("Warning: skipped {} because mtime is unavailable", path);
+            continue;
+        };
+        let Ok(age) = now.duration_since(modified) else {
             continue;
         };
         if age >= cutoff {
