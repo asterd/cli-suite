@@ -35,6 +35,32 @@ At least one `--pattern <NAME=REGEX>` is required. `ROOT` defaults to `.`.
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Find TODO comments with compact JSON:
+
+```bash
+axt-ctxpack --pattern todo=TODO src --json
+```
+
+Search for panic-prone Rust calls and include nearby context:
+
+```bash
+axt-ctxpack crates --include '**/*.rs' --pattern panic='unwrap\(|expect\(' --context 2 --agent
+```
+
+Run two named searches in one bounded scan:
+
+```bash
+axt-ctxpack --pattern route='app\\.route' --pattern auth='Authorization' src --agent
+```
+
+Search hidden files while bypassing ignore rules:
+
+```bash
+axt-ctxpack . --pattern secret='API_KEY' --hidden --no-ignore --limit 25
+```
+
 ## Scope
 
 The command supports local UTF-8 text files. Directory traversal is

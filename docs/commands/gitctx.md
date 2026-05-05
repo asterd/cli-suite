@@ -31,6 +31,32 @@ axt-gitctx --changed-only --agent
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Summarize the current repository for an agent:
+
+```bash
+axt-gitctx . --agent
+```
+
+Emit JSON including recent commits and inline diffs up to the default cap:
+
+```bash
+axt-gitctx --json
+```
+
+Focus only on changed files when preparing a commit message:
+
+```bash
+axt-gitctx --changed-only --agent
+```
+
+Raise the inline diff cap and limit commit history:
+
+```bash
+axt-gitctx --commits 3 --inline-diff-max-bytes 24000 --json
+```
+
 ## Scope
 
 The command is read-only and local-only. It uses local repository data and never

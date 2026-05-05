@@ -10,7 +10,7 @@ Use `axt-doc` for local environment and toolchain diagnostics without network ca
 
 ## Rules
 
-- Prefer `axt-doc all <command> --agent` for compact command and environment context.
+- Prefer `axt-doc --agent all <command>` for compact command and environment context.
 - Use `which` to resolve one executable.
 - Use `path` to inspect missing or duplicate PATH entries.
 - Use `env` to inspect redacted environment variables.
@@ -19,10 +19,10 @@ Use `axt-doc` for local environment and toolchain diagnostics without network ca
 ## Examples
 
 ```bash
-axt-doc which cargo --agent
-axt-doc path --json
-axt-doc env --agent
-axt-doc all rustc --json
+axt-doc --agent which cargo
+axt-doc --json path
+axt-doc --agent env
+axt-doc --json all rustc
 ```
 
 Inspect contracts with `axt-doc --print-schema agent` or `axt-doc --print-schema json`.

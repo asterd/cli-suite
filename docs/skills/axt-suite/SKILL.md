@@ -77,10 +77,10 @@ Use `--no-save` for disposable runs. Use `show last` when a previous run already
 Use to diagnose local toolchain and environment state.
 
 ```bash
-axt-doc which cargo --agent
-axt-doc path --json
-axt-doc env --agent
-axt-doc all rustc --json
+axt-doc --agent which cargo
+axt-doc --json path
+axt-doc --agent env
+axt-doc --json all rustc
 ```
 
 Environment values that look secret are redacted by default. Do not use `--show-secrets` unless the user explicitly needs local secret debugging.
@@ -91,8 +91,8 @@ Use to detect filesystem changes from a mark or a command.
 
 ```bash
 axt-drift mark --name before
-axt-drift diff --since before --agent
-axt-drift run --agent -- cargo build
+axt-drift --agent diff --since before
+axt-drift --agent run -- cargo build
 ```
 
 Use `--hash` when metadata-only detection is not strong enough.
@@ -102,9 +102,9 @@ Use `--hash` when metadata-only detection is not strong enough.
 Use to inspect local port holders and, with explicit intent, free ports.
 
 ```bash
-axt-port who 3000 --agent
-axt-port list --proto both --json
-axt-port free 3000 --dry-run --agent
+axt-port --agent who 3000
+axt-port --json --proto both list
+axt-port --agent free 3000 --dry-run
 ```
 
 Treat `free` as mutating and prefer `--dry-run` first. Never use it for remote hosts; the scope is local sockets only.
@@ -117,7 +117,7 @@ Use to run tests through a normalized schema.
 axt-test --agent
 axt-test --framework cargo --json
 axt-test --changed --agent
-axt-test list-frameworks --json
+axt-test --json list-frameworks
 ```
 
 Supported frameworks: Jest, Vitest, Pytest, Cargo test, Go test, Bun test, and Deno test.

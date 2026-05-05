@@ -35,6 +35,32 @@ code.
 | `--max-bytes <BYTES>` | Maximum line-oriented output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Warm up an agent session from the repository root:
+
+```bash
+axt-bundle . --agent
+```
+
+Inspect a project as JSON for a script:
+
+```bash
+axt-bundle /work/repo --json
+```
+
+Capture a deeper first-pass inventory:
+
+```bash
+axt-bundle . --depth 3 --max-files 80 --agent
+```
+
+Include dotfiles when project configuration is likely hidden:
+
+```bash
+axt-bundle . --include-hidden --no-ignore
+```
+
 ## Manifest Detection
 
 The command previews up to 12 lines from recognized local manifests:

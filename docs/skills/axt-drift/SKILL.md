@@ -20,9 +20,9 @@ Use `axt-drift` to compare filesystem state before and after a task.
 
 ```bash
 axt-drift mark --name before
-axt-drift diff --since before --agent
-axt-drift run --agent -- cargo build
-axt-drift list --json
+axt-drift --agent diff --since before
+axt-drift --agent run -- cargo build
+axt-drift --json list
 axt-drift reset
 ```
 

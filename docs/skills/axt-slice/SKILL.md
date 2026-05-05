@@ -1,3 +1,9 @@
+---
+name: axt-slice
+description: Use axt-slice to extract local source by symbol or enclosing line with stable parser-derived ranges.
+license: MIT OR Apache-2.0
+---
+
 # axt-slice
 
 Use `axt-slice` when you need source for a known function, method, class, impl,

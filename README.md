@@ -58,7 +58,7 @@ axt-ctxpack --pattern todo=TODO --pattern panic='unwrap\(|expect\(' crates --age
 axt-gitctx . --changed-only --agent
 axt-logdx target/test.log --severity error --top 20 --agent
 axt-test --framework cargo --agent
-axt-port free 3000 --dry-run --agent
+axt-port --agent free 3000 --dry-run
 ```
 
 Example agent output:

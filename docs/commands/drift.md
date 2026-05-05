@@ -37,6 +37,33 @@ JSONL under `.axt/drift/<NAME>.jsonl`.
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Create the default mark before running a generator:
+
+```bash
+axt-drift mark
+```
+
+Compare current files with the default mark:
+
+```bash
+axt-drift --agent diff
+```
+
+Run a build and report generated or modified files:
+
+```bash
+axt-drift run --name build -- cargo build
+```
+
+Use content hashes when metadata-only detection is too coarse:
+
+```bash
+axt-drift mark --name exact --hash
+axt-drift --json diff --since exact --hash
+```
+
 ## Output
 
 Human mode prints compact counts:

@@ -47,6 +47,32 @@ axt-peek . --changed --kind file --type code
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Get the default human summary for the current directory:
+
+```bash
+axt-peek
+```
+
+List only changed Rust files as agent JSONL for a follow-up agent step:
+
+```bash
+axt-peek . --changed --kind file --lang rust --agent
+```
+
+Collect a deeper JSON inventory while skipping Git status for speed:
+
+```bash
+axt-peek crates --depth 4 --no-git --json
+```
+
+Find large files by size without crossing filesystem boundaries:
+
+```bash
+axt-peek . --kind file --sort size --reverse --max-file-size 10485760
+```
+
 ## Output
 
 Human mode prints a compact table:

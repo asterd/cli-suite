@@ -42,6 +42,38 @@ Shared flags are available before the subcommand or run options: `--json`,
 | `--pass-through -- <FLAGS>` | Append raw framework flags after a `--` separator. |
 | `list-frameworks` | Print supported frameworks and detection markers. |
 
+## Examples
+
+Auto-detect and run local tests with agent output:
+
+```bash
+axt-test --agent
+```
+
+Force Cargo and return the stable JSON envelope:
+
+```bash
+axt-test --framework cargo --json
+```
+
+Run only tests whose names match a framework filter:
+
+```bash
+axt-test --framework pytest --filter checkout --include-output
+```
+
+Pass framework-specific flags after the separator:
+
+```bash
+axt-test --framework cargo --pass-through -- --test integration_smoke
+```
+
+List supported frameworks and detection markers:
+
+```bash
+axt-test list-frameworks
+```
+
 ## Detection
 
 Detection order:

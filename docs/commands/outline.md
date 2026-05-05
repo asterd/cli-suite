@@ -35,6 +35,32 @@ recursively up to `--max-depth`.
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Outline a single Rust file in human mode:
+
+```bash
+axt-outline src/lib.rs
+```
+
+Find exported TypeScript symbols for agent consumption:
+
+```bash
+axt-outline src --lang typescript --public-only --agent
+```
+
+Return compact symbol-only records for a large crate:
+
+```bash
+axt-outline crates/axt-test/src --symbols-only --limit 100 --agent
+```
+
+Preserve source order when preparing to extract a nearby symbol:
+
+```bash
+axt-outline src --sort source --json
+```
+
 ## Language Support
 
 Embedded tree-sitter grammars are used for:

@@ -73,6 +73,12 @@ cargo publish -p axt-doc --dry-run
 cargo publish -p axt-drift --dry-run
 cargo publish -p axt-port --dry-run
 cargo publish -p axt-test --dry-run
+cargo publish -p axt-outline --dry-run
+cargo publish -p axt-slice --dry-run
+cargo publish -p axt-ctxpack --dry-run
+cargo publish -p axt-bundle --dry-run
+cargo publish -p axt-gitctx --dry-run
+cargo publish -p axt-logdx --dry-run
 ```
 
 For a real release, remove `--dry-run` and wait for each crate to be available on crates.io before publishing dependents.

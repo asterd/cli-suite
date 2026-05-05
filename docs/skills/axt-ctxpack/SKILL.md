@@ -16,3 +16,11 @@ Use `axt-ctxpack --agent` when searching for several related patterns in local f
 - Use `kind`, `node`, `symbol`, and `src` in agent output to distinguish code, comments, strings, and tests before reading full files.
 - Treat `src=ast` as parser-backed classification and `src=heuristic` as a weaker fallback.
 - Do not use it for semantic search, embeddings, edit application, or AST queries.
+
+## Examples
+
+```bash
+axt-ctxpack --pattern todo=TODO src --agent
+axt-ctxpack crates --include '**/*.rs' --pattern panic='unwrap\(|expect\(' --context 2 --agent
+axt-ctxpack --pattern route='app\\.route' --pattern auth='Authorization' src --json
+```

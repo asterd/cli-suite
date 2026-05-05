@@ -21,3 +21,11 @@ directly and you need grouped failures, stack traces, timelines, and snippets.
   numbers to narrow the follow-up.
 - Do not use it for live tailing, remote log ingestion, dashboards, or general
   observability queries.
+
+## Examples
+
+```bash
+axt-logdx app.log --severity error --top 20 --agent
+cat build.log | axt-logdx --stdin --severity warn --json
+axt-logdx service.log --since 2026-04-28T10:00:00Z --until 2026-04-28T11:00:00Z
+```

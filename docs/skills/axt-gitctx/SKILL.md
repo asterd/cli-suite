@@ -1,3 +1,9 @@
+---
+name: axt-gitctx
+description: Use axt-gitctx for bounded local Git branch, status, commit, and diff context.
+license: MIT OR Apache-2.0
+---
+
 # axt-gitctx
 
 Use `axt-gitctx` before summarizing local changes, preparing a commit message,
@@ -18,5 +24,6 @@ or deciding which changed files need deeper inspection.
 ```bash
 axt-gitctx --agent
 axt-gitctx --changed-only --inline-diff-max-bytes 4000 --agent
+axt-gitctx --commits 3 --inline-diff-max-bytes 24000 --json
 axt-gitctx --json
 ```

@@ -13,7 +13,7 @@ Use `axt-test` when test output should be compact and normalized across framewor
 - Prefer `axt-test --agent` for agent context.
 - Use `--framework <NAME>` when detection would be ambiguous.
 - Use `--changed` when only tests mapped from changed files should run.
-- Use `list-frameworks --json` to inspect supported frontends.
+- Use `--json list-frameworks` to inspect supported frontends.
 - Missing local test tools should be treated as `feature_unsupported`, not as network-install prompts.
 
 ## Examples
@@ -22,7 +22,7 @@ Use `axt-test` when test output should be compact and normalized across framewor
 axt-test --agent
 axt-test --framework cargo --json
 axt-test --changed --agent
-axt-test list-frameworks --json
+axt-test --json list-frameworks
 ```
 
 Supported frameworks: `jest`, `vitest`, `pytest`, `cargo`, `go`, `bun`, and `deno`.

@@ -34,6 +34,32 @@ axt-slice src/lib.rs --line 150 --agent
 
 Exactly one selector is required: `--symbol` or `--line`.
 
+## Examples
+
+Extract a function by name:
+
+```bash
+axt-slice src/lib.rs --symbol process_request
+```
+
+Extract the smallest symbol enclosing an edited line:
+
+```bash
+axt-slice src/lib.rs --line 150 --agent
+```
+
+Include syntactically matched imports with the selected symbol:
+
+```bash
+axt-slice src/lib.rs --symbol Handler::process_request --include-imports=matched
+```
+
+Disambiguate overloaded or repeated names with a kind-qualified selector:
+
+```bash
+axt-slice src/parser.rs --symbol fn::parse --json
+```
+
 ## Language Support
 
 Embedded tree-sitter grammars are used for:

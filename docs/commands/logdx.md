@@ -32,6 +32,32 @@ At least one `PATH` or `--stdin` is required.
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Group the top errors in a local application log:
+
+```bash
+axt-logdx app.log --severity error --top 20 --agent
+```
+
+Diagnose captured command output from stdin:
+
+```bash
+cat build.log | axt-logdx --stdin --severity warn --json
+```
+
+Restrict analysis to a deployment window:
+
+```bash
+axt-logdx service.log --since 2026-04-28T10:00:00Z --until 2026-04-28T11:00:00Z
+```
+
+Keep only the most frequent fatal groups:
+
+```bash
+axt-logdx worker.log --severity fatal --top 5 --agent
+```
+
 ## Scope
 
 The command supports local text logs and explicit stdin. It detects plain text

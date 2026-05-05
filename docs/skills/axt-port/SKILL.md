@@ -19,10 +19,10 @@ Use `axt-port` for local port inspection and controlled local process cleanup.
 ## Examples
 
 ```bash
-axt-port who 3000 --agent
-axt-port list --proto both --json
-axt-port watch 3000 --timeout 10s --agent
-axt-port free 3000 --dry-run --agent
+axt-port --agent who 3000
+axt-port --json --proto both list
+axt-port --agent watch 3000 --timeout 10s
+axt-port --agent free 3000 --dry-run
 ```
 
 Inspect contracts with `axt-port --print-schema agent` or `axt-port --print-schema json`.

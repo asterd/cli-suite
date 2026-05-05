@@ -15,7 +15,9 @@ axt-port [OPTIONS] watch <PORT> [--timeout 30s]
 Shared flags are available before the subcommand: `--json`, `--agent`,
 `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
 
-## Shared Filters
+## Options
+
+Shared filters:
 
 | Option | Description |
 |---|---|
@@ -25,8 +27,6 @@ Shared flags are available before the subcommand: `--json`, `--agent`,
 | `--host <ADDR>` | Match a local bind address such as `127.0.0.1`, `0.0.0.0`, or `::1`. |
 | `--owner <USER>` | Keep sockets whose process owner matches. Best-effort on platforms that expose owner metadata. |
 | `--pid <PID>` | Inverse lookup: keep sockets owned by a specific PID. |
-
-## Subcommands
 
 | Subcommand | Description |
 |---|---|

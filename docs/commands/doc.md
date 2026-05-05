@@ -35,6 +35,32 @@ Passing `axt-doc <CMD>` without a subcommand is shorthand for
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
 | `--strict` | Exit with `output_truncated_strict` when truncation is required. |
 
+## Examples
+
+Diagnose a command, PATH, and secret-like environment variables in one call:
+
+```bash
+axt-doc cargo
+```
+
+Resolve a command and return machine-readable output:
+
+```bash
+axt-doc --json which node
+```
+
+Inspect PATH health without probing a tool version:
+
+```bash
+axt-doc --agent path
+```
+
+List redacted secret-like environment variables:
+
+```bash
+axt-doc env
+```
+
 ## Output
 
 JSON mode emits `axt.doc.v1`:
