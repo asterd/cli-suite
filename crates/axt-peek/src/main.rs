@@ -42,6 +42,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     let result = match mode {
         OutputMode::Human => data.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => data.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => data.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => data.render_agent(&mut stdout, &render_ctx),
     };
@@ -60,6 +61,9 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Json => print!("{}", include_str!("../../../schemas/axt.peek.v1.schema.json")),
         SchemaFormat::Agent => println!(
             "schema=axt.peek.agent.v1 records=axt.peek.summary.v1,axt.peek.entry.v1,axt.peek.warn.v1 first=summary"
+        ),
+        SchemaFormat::Compact => println!(
+            "schema=axt.peek.compact.v1 format=text records=summary,entry,warn default=non-tty"
         ),
         SchemaFormat::Human => println!(
             "schema=axt.peek.human.v1 sections=tree,summary columns=path,bytes,lang,git"

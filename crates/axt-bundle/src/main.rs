@@ -151,6 +151,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
     let result = match mode {
         OutputMode::Human => data.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => data.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => data.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => data.render_agent(&mut stdout, &render_ctx),
     };
@@ -327,6 +328,47 @@ impl Renderable for BundleData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "bundle root={} files={} dirs={} manifests={} git={} truncated={}",
+            self.root,
+            self.summary.files,
+            self.summary.dirs,
+            self.summary.manifests,
+            self.summary.git,
+            self.summary.truncated
+        )?;
+        for manifest in &self.manifests {
+            writeln!(
+                w,
+                "manifest path={} kind={} bytes={}",
+                manifest.path, manifest.kind, manifest.bytes
+            )?;
+        }
+        if let Some(git) = &self.git {
+            writeln!(
+                w,
+                "git branch={} modified={} untracked={} root={}",
+                git.branch.as_deref().unwrap_or("detached"),
+                git.modified,
+                git.untracked,
+                git.root
+            )?;
+        }
+        for file in &self.files {
+            writeln!(
+                w,
+                "file path={} kind={} bytes={} lang={}",
+                file.path,
+                file.kind,
+                file.bytes,
+                file.lang.as_deref().unwrap_or("-")
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new("axt.bundle.v1", self, Vec::new(), Vec::new());
         serde_json::to_writer(&mut *w, &envelope)?;
@@ -390,6 +432,9 @@ fn print_schema(format: SchemaFormat) {
         }
         SchemaFormat::Agent => println!(
             "schema=axt.bundle.agent.v1 records=axt.bundle.summary.v1,axt.bundle.manifest.v1,axt.bundle.git.v1,axt.bundle.file.v1,axt.bundle.warn.v1 first=summary"
+        ),
+        SchemaFormat::Compact => println!(
+            "schema=axt.bundle.compact.v1 format=text records=summary,manifest,git,file default=non-tty"
         ),
         SchemaFormat::Human => {
             println!("schema=axt.bundle.human.v1 sections=summary,manifests,git");

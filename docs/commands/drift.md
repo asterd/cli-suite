@@ -31,7 +31,7 @@ JSONL under `.axt/drift/<NAME>.jsonl`.
 | `--hash-max-bytes <BYTES>` | Skip hashing files larger than this limit and record metadata only. Default `268435456` (256 MiB). |
 | `--json` | Emit the `axt.drift.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -66,10 +66,21 @@ axt-drift --json diff --since exact --hash
 
 ## Output
 
-Human mode prints compact counts:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints readable operation summaries:
 
 ```text
-created=2 modified=1 deleted=0 since=default
+changed files: 1
+  created dist/app.js 1204
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+drift op=diff ok=true name=default files=12 changes=1 marks=0 removed=0 exit=- hash_skipped_size=0
+file action=created path=dist/app.js before=- after=1204 delta=1204
 ```
 
 JSON mode emits `axt.drift.v1`. Agent mode emits summary-first JSONL:

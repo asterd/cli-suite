@@ -72,6 +72,41 @@ impl Renderable for RunOutput {
         }
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        match self {
+            Self::Run(data) | Self::Show(data) => render_run_compact(w, data),
+            Self::Stream { name, stream, text } => {
+                writeln!(
+                    w,
+                    "run stream name={name} stream={stream} bytes={}",
+                    text.len()
+                )?;
+                write!(w, "{text}")?;
+                Ok(())
+            }
+            Self::List { runs } => {
+                writeln!(w, "run list count={}", runs.len())?;
+                for run in runs {
+                    writeln!(
+                        w,
+                        "run name={} ok={} exit={} ms={} cmd={}",
+                        run.name,
+                        run.ok,
+                        run.exit
+                            .map_or_else(|| "timeout".to_owned(), |exit| exit.to_string()),
+                        run.duration_ms,
+                        run.command
+                    )?;
+                }
+                Ok(())
+            }
+            Self::Clean { removed } => {
+                writeln!(w, "run clean removed={removed}")?;
+                Ok(())
+            }
+        }
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         match self {
             Self::Run(data) | Self::Show(data) => {
@@ -195,6 +230,37 @@ fn render_run_human(w: &mut dyn Write, data: &RunData) -> RenderResult<()> {
     }
     if let Some(saved) = &data.saved {
         writeln!(w, "saved: {}", saved.path)?;
+    }
+    Ok(())
+}
+
+fn render_run_compact(w: &mut dyn Write, data: &RunData) -> RenderResult<()> {
+    writeln!(
+        w,
+        "run ok={} cmd={} exit={} ms={} stdout_lines={} stderr_lines={} changed={} saved={} truncated={}",
+        data.ok(),
+        command_string(data),
+        data.exit
+            .map_or_else(|| "timeout".to_owned(), |exit| exit.to_string()),
+        data.duration_ms,
+        data.stdout.lines,
+        data.stderr.lines,
+        data.changed_count,
+        data.saved
+            .as_ref()
+            .map_or_else(|| "-".to_owned(), |saved| saved.name.clone()),
+        data.truncated
+    )?;
+    for change in &data.changed {
+        writeln!(
+            w,
+            "file action={} path={} bytes={}",
+            change.action.as_str(),
+            change.path,
+            change
+                .bytes
+                .map_or_else(|| "-".to_owned(), |bytes| bytes.to_string())
+        )?;
     }
     Ok(())
 }

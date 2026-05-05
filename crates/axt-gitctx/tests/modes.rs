@@ -37,7 +37,8 @@ fn human_json_and_agent_match_snapshots() -> Result<(), Box<dyn std::error::Erro
     fs::write(root.join("new.txt"), "new\nfile\n")?;
 
     let human = run_axt_gitctx(&root, &["--commits", "1", "--inline-diff-max-bytes", "0"])?;
-    insta::assert_snapshot!(normalize_output(&human, &root), @r###"Repository .
+    insta::assert_snapshot!(normalize_output(&human, &root), @r###"
+Repository .
 Branch     main upstream=none ahead=0 behind=0
 Summary    changed=2 staged=0 unstaged=2 untracked=1 +3 -1 dirty=true truncated=false
 Git        shallow=false submodules=0
@@ -62,7 +63,8 @@ Commits
         &root,
         &["--agent", "--commits", "1", "--inline-diff-max-bytes", "0"],
     )?;
-    insta::assert_snapshot!(normalize_output(&agent, &root), @r###"{"schema":"axt.gitctx.summary.v1","type":"summary","ok":true,"repo":".","branch":"main","upstream":null,"ahead":0,"behind":0,"changed":2,"staged":0,"unstaged":2,"untracked":1,"shallow":false,"submodules":0,"dirty":true,"truncated":false,"next":["axt-slice tracked.txt --agent","axt-slice new.txt --agent"]}
+    insta::assert_snapshot!(normalize_output(&agent, &root), @r###"
+{"schema":"axt.gitctx.summary.v1","type":"summary","ok":true,"repo":".","branch":"main","upstream":null,"ahead":0,"behind":0,"changed":2,"staged":0,"unstaged":2,"untracked":1,"shallow":false,"submodules":0,"dirty":true,"truncated":false,"next":["axt-slice tracked.txt --agent","axt-slice new.txt --agent"]}
 {"schema":"axt.gitctx.file.v1","type":"file","p":"tracked.txt","prev":null,"g":"modified","idx":null,"wt":"modified","add":1,"del":1,"hunks":1,"b":12,"diff_inline":false,"diff_truncated":true,"diff":null}
 {"schema":"axt.gitctx.file.v1","type":"file","p":"new.txt","prev":null,"g":"untracked","idx":"untracked","wt":"untracked","add":2,"del":0,"hunks":0,"b":9,"diff_inline":false,"diff_truncated":true,"diff":null}
 {"schema":"axt.gitctx.commit.v1","type":"commit","hash":"<hash>","subject":"initial","author":"axt tests","ts":"<ts>","age":"<age>"}

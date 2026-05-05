@@ -41,7 +41,7 @@ axt-peek . --changed --kind file --type code
 | `--json` | Emit the `axt.peek.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
 | `--color auto|always|never` | Color policy for human output. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -75,11 +75,30 @@ axt-peek . --kind file --sort size --reverse --max-file-size 10485760
 
 ## Output
 
-Human mode prints a compact table:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints a formatted table:
 
 ```text
-path        kind  bytes  lang  git    mtime
-Cargo.toml  file  2102   toml  clean  2026-04-26T18:02:11Z
+fixtures/fs-small/
+  README.md                            56 B  markdown   clean
+  dist/                                 0 B             clean
+  src/main.rs                          45 B  rust       clean
+
+Summary
+  files     4        modified   0
+  dirs      2        untracked  0
+  bytes     718 B    ignored    1
+  git       clean    truncated  no
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+peek root=. files=42 dirs=8 bytes=381204 git=dirty modified=5 untracked=2 ignored=138 truncated=false
+file Cargo.toml b=2102 lang=toml git=clean
+dir src b=0 lang=- git=clean
 ```
 
 JSON mode emits `axt.peek.v1`. Agent mode emits summary-first JSONL:

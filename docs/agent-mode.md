@@ -7,13 +7,17 @@ follow only when useful for the command result.
 Selection:
 
 - TTY stdout defaults to human output.
-- Non-TTY stdout defaults to agent output.
-- `--agent`, `--json`, and human auto-selection are the only primary modes.
-- `AXT_OUTPUT=human|agent|json` overrides the automatic default.
+- Non-TTY stdout defaults to compact text output.
+- `--agent`, `--json`, compact auto-selection, and human auto-selection are the output behaviors.
+- `AXT_OUTPUT=human|compact|agent|json` overrides the automatic default.
 - `--json` emits the canonical envelope `{schema, ok, data, warnings, errors}`.
 
 `--plain`, `--json-data`, and `--jsonl` are retired. Use human output, `jq .data`,
 or `--agent` respectively.
+
+Compact text is distinct from agent mode. It is the implicit non-TTY format:
+short plain-text records with a dense `key=value` summary first. `--agent` is
+only the explicit schema-versioned JSONL mode.
 
 ## Shared Fields
 

@@ -37,7 +37,7 @@ Every command supports:
 ```bash
 --json
 --agent
---print-schema [human|json|agent]
+--print-schema [human|compact|json|agent]
 --list-errors
 --limit <N>
 --max-bytes <BYTES>

@@ -29,7 +29,7 @@ Passing `axt-doc <CMD>` without a subcommand is shorthand for
 | `--show-secrets` | Show secret-like values. Default is redacted. Always warns on stderr. |
 | `--json` | Emit the `axt.doc.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -62,6 +62,31 @@ axt-doc env
 ```
 
 ## Output
+
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints sectioned local diagnostics:
+
+```text
+which cargo
+  primary: /Users/me/.cargo/bin/cargo
+  version: cargo 1.86.0
+path
+  entries: 18
+  duplicates: 1
+env
+  vars: 96
+  secret-like: 2
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+doc which cmd=cargo found=true primary=/Users/me/.cargo/bin/cargo matches=1 version_ok=true version_timeout=false
+doc path entries=18 duplicates=1 missing=0 broken_symlinks=0
+doc env vars=96 secret_like=2 suspicious=1
+```
 
 JSON mode emits `axt.doc.v1`:
 

@@ -75,6 +75,46 @@ impl Renderable for DriftOutput {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let data = self.data();
+        writeln!(
+            w,
+            "drift op={} ok={} name={} files={} changes={} marks={} removed={} exit={} hash_skipped_size={}",
+            data.operation.as_str(),
+            data.ok(),
+            data.name.as_deref().unwrap_or("-"),
+            data.files,
+            data.changes.len(),
+            data.marks.len(),
+            data.removed,
+            data.exit.map_or_else(|| "-".to_owned(), |exit| exit.to_string()),
+            data.hash_skipped_size
+        )?;
+        for change in &data.changes {
+            writeln!(
+                w,
+                "file action={} path={} before={} after={} delta={}",
+                change.action.as_str(),
+                change.path,
+                change
+                    .size_before
+                    .map_or_else(|| "-".to_owned(), |size| size.to_string()),
+                change
+                    .size_after
+                    .map_or_else(|| "-".to_owned(), |size| size.to_string()),
+                change.size_delta
+            )?;
+        }
+        for mark in &data.marks {
+            writeln!(
+                w,
+                "mark name={} files={} path={}",
+                mark.name, mark.files, mark.path
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::with_status(
             "axt.drift.v1",

@@ -83,6 +83,44 @@ impl Renderable for LogdxData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "logdx sources={} lines={} groups={} errors={} warnings={} bytes_scanned={} truncated={}",
+            self.sources.len(),
+            self.summary.lines,
+            self.summary.groups,
+            self.summary.errors,
+            self.summary.warnings,
+            self.summary.bytes_scanned,
+            self.summary.truncated
+        )?;
+        for group in &self.groups {
+            writeln!(
+                w,
+                "group sev={} count={} fp={} first={}:{} last={}:{} msg={}",
+                group.severity.as_str(),
+                group.count,
+                group.fingerprint,
+                group.first.source,
+                group.first.line,
+                group.last.source,
+                group.last.line,
+                group.message
+            )?;
+        }
+        for warning in &self.warnings {
+            writeln!(
+                w,
+                "warn code={} path={} message={}",
+                warning.code.as_str(),
+                warning.path.as_deref().unwrap_or("-"),
+                warning.message
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
             "axt.logdx.v1",

@@ -223,8 +223,9 @@ Every approved command must follow the suite contract:
 
 - Binary name must be `axt-<name>`.
 - Unprefixed alias must be opt-in through an `aliases` feature.
-- Three primary output modes are required: human, `--json`, and `--agent`.
-  Agent output is minified summary-first JSONL.
+- Four output behaviors are required: human on TTY stdout, compact text on
+  non-TTY stdout, explicit `--json`, and explicit `--agent`. Agent output is
+  minified summary-first JSONL.
 - Shared flags are required: `--print-schema`, `--list-errors`, `--limit`,
   `--max-bytes`, and `--strict`. Commands may add focused command-specific
   flags, but `--plain`, `--json-data`, and `--jsonl` are retired public flags.

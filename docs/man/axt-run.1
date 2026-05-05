@@ -58,7 +58,7 @@ Run through the platform shell.
 .B --rerun-last
 Show the latest saved run.
 .SH OUTPUT
-Supports human, --json, and --agent. JSON emits schema axt.run.v1. Agent mode emits summary-first JSONL.
+Supports human, compact, --json, and --agent. Compact text is the non-TTY default. JSON emits schema axt.run.v1. Agent mode emits summary-first JSONL.
 .SH FILES
 .I .axt/runs/<name>/
 contains meta.json, stdout.log, stderr.log, changed.json, and summary.agent.jsonl.

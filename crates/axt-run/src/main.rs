@@ -46,6 +46,7 @@ async fn main() -> anyhow::Result<ExitCode> {
 
     let result = match mode {
         OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => output.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
@@ -71,6 +72,9 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Agent => println!(
             "schema=axt.run.agent.v1 records=axt.run.summary.v1,axt.run.file.v1,axt.run.stream.v1,axt.run.list.v1,axt.run.clean.v1,axt.run.warn.v1 first=summary"
         ),
+        SchemaFormat::Compact => {
+            println!("schema=axt.run.compact.v1 format=text records=summary,file,stream,run default=non-tty");
+        }
         SchemaFormat::Human => {
             println!("schema=axt.run.human.v1 sections=summary,stderr_tail,changed_files,saved")
         }

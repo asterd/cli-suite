@@ -26,7 +26,7 @@ axt-slice src/lib.rs --line 150 --agent
 | `--after-symbol` | Include the immediately following symbol block. |
 | `--json` | Emit the `axt.slice.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human\|json\|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human\|compact\|json\|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -77,6 +77,9 @@ Unsupported extensions, binary files, and non-UTF-8 files exit with
 
 ## Output
 
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
 Human mode prints a summary, the selected range, then the exact source text:
 
 ```text
@@ -87,6 +90,13 @@ src/lib.rs:10-13 fn pub process_request
 pub fn process_request(req: Request) -> Response {
     Response::ok(req.id)
 }
+```
+
+Compact mode is the default for non-TTY capture and omits source bodies:
+
+```text
+slice path=src/lib.rs language=Rust status=Selected matches=1 candidates=0 source_bytes=82 truncated=false
+source src/lib.rs:10-13 kind=fn vis=pub qn=process_request
 ```
 
 JSON mode emits `axt.slice.v1`:

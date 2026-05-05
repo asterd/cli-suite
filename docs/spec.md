@@ -126,17 +126,35 @@ The suite ships under one synchronized version line (`axt 0.1.0`, `axt 0.2.0`, â
 
 ## 3. Output modes â€” the contract
 
-Every binary supports four primary output modes. These are the contract; everything else is implementation.
+Every binary supports four output behaviors. These are the contract; everything else is implementation.
 
 ### 3.1 Human mode (default)
 
 - TTY-aware: colors only when stdout is a TTY, `NO_COLOR` and `CLICOLOR_FORCE` and `FORCE_COLOR` honored.
-- Designed to be skimmed, not parsed. No promises of stability across versions.
+- Designed to be skimmed, not parsed. Human output should be visibly formatted
+  for the command's domain: tables for inventories, aligned summaries for
+  status, and sectioned output for multi-part reports. No promises of stability
+  across versions.
 - Diagnostics on stderr; data on stdout.
 - Width-aware: respects `COLUMNS` and terminal size, with sensible defaults when neither is set.
 - Suggestions only when actionable.
 
-### 3.2 JSON mode (`--json`)
+### 3.2 Compact mode (default on non-TTY stdout)
+
+Compact mode is plain text for agent terminals, logs, and shell pipelines. It is
+the automatic default when stdout is not a TTY and no explicit output flag is
+set.
+
+Rules:
+
+- Text only: no JSON, no JSONL, no ANSI, no decorative prose.
+- The first line is a dense command summary using stable `key=value` fields.
+- Detail lines use short record prefixes such as `file`, `hit`, `symbol`,
+  `warn`, or command-specific nouns.
+- It is optimized for quick model reading and RTK-like terminal capture, not for
+  strict machine parsing.
+
+### 3.3 JSON mode (`--json`)
 
 - A single JSON document on stdout.
 - Top-level envelope, always:
@@ -160,7 +178,7 @@ Every binary supports four primary output modes. These are the contract; everyth
 - snake_case keys.
 - The `schema` field is **versioned independently per command**: `axt.peek.v1`, `axt.run.v1`, etc. Breaking the JSON shape bumps it.
 
-### 3.3 Agent mode (`--agent`)
+### 3.4 Agent mode (`--agent`)
 
 `--agent` is the headline LLM-first format. It emits minified JSONL: one JSON
 object per line, summary first, then detail records. This replaces the earlier
@@ -186,11 +204,11 @@ Example (`axt-peek . --agent`):
 
 The summary line is sufficient for many agent decisions. Agents only consume detail lines when the task needs them.
 
-### 3.4 Mode selection rules
+### 3.5 Mode selection rules
 
 - `--json` and `--agent` are mutually exclusive. The CLI parser rejects both at parse time.
-- If no mode flag is set, stdout TTY uses human and non-TTY stdout uses agent.
-- `AXT_OUTPUT=human|agent|json` overrides the automatic default.
+- If no mode flag is set, stdout TTY uses human and non-TTY stdout uses compact.
+- `AXT_OUTPUT=human|compact|agent|json` overrides the automatic default.
 - `--plain`, `--json-data`, and `--jsonl` are retired. Use human output, `jq .data`, and `--agent` respectively.
 - Stdin tty-ness has no effect on mode.
 
@@ -417,6 +435,7 @@ The renderer trait every command implements:
 ```rust
 pub trait Renderable {
     fn render_human(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
+    fn render_compact(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
     fn render_json(&self,  w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
     fn render_agent(&self, w: &mut dyn Write, ctx: &RenderContext) -> Result<()>;
 }
@@ -495,7 +514,7 @@ axt-peek [PATHS]...                  # default: "."
   --limit <N>                       # default 200
   --max-bytes <SIZE>                # default 64KiB
   --strict
-  --print-schema human|json|agent
+  --print-schema human|compact|json|agent
   --list-errors
   --version
   --help

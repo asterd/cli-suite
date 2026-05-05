@@ -63,7 +63,8 @@ fn validate_json_schema(stdout: &str) -> Result<(), Box<dyn std::error::Error>> 
 #[test]
 fn human_mode_matches_small_tree_snapshot() -> Result<(), Box<dyn std::error::Error>> {
     let stdout = run_axt_peek(&[&fixture("fs-small")])?;
-    insta::assert_snapshot!(normalize_timestamps(&stdout), @r###"fixtures/fs-small/
+    insta::assert_snapshot!(normalize_timestamps(&stdout), @r###"
+fixtures/fs-small/
   README.md                            56 B  markdown   clean
   dist/                                 0 B             clean
   dist/app.min.js                     561 B  javascript clean

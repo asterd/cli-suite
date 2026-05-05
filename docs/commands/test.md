@@ -20,7 +20,8 @@ axt-test list-frameworks
 
 Shared flags are available before the subcommand or run options: `--json`,
 `--agent`, `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and
-`--strict`.
+`--strict`. TTY stdout defaults to human mode; non-TTY stdout defaults to
+compact text.
 
 ## Options
 
@@ -118,8 +119,25 @@ uses deterministic fallback parsers covered by fixtures.
 
 ## Output
 
-Human mode prints totals and expands failed tests. JSON mode emits
-`axt.test.v1`:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints totals and expands failed tests:
+
+```text
+frameworks=jest total=3 passed=1 failed=1 skipped=1 todo=0 ms=120
+FAILED checkout.test.ts fails
+  expected 200, got 500
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+test frameworks=jest total=3 passed=1 failed=1 skipped=1 todo=0 ms=120
+fail framework=jest file=checkout.test.ts line=20 name=fails
+```
+
+JSON mode emits `axt.test.v1`:
 
 ```json
 {

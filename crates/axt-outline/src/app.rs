@@ -42,6 +42,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
     let result = match mode {
         OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => output.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
@@ -63,6 +64,9 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Agent => println!(
             "schema=axt.outline.agent.v1 records=axt.outline.summary.v1,axt.outline.symbol.v1,axt.outline.warn.v1 first=summary"
         ),
+        SchemaFormat::Compact => {
+            println!("schema=axt.outline.compact.v1 format=text records=summary,symbol,warn default=non-tty");
+        }
         SchemaFormat::Human => {
             println!("schema=axt.outline.human.v1 sections=summary,symbols,warnings");
         }

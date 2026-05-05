@@ -40,6 +40,42 @@ impl Renderable for DocOutput {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let data = self.data();
+        if let Some(which) = &data.which {
+            writeln!(
+                w,
+                "doc which cmd={} found={} primary={} matches={} version_ok={} version_timeout={}",
+                which.cmd,
+                which.found,
+                which.primary.as_deref().unwrap_or("-"),
+                which.matches.len(),
+                which.version.ok,
+                which.version.timed_out
+            )?;
+        }
+        if let Some(path) = &data.path {
+            writeln!(
+                w,
+                "doc path entries={} duplicates={} missing={} broken_symlinks={}",
+                path.entries.len(),
+                path.duplicates.len(),
+                path.missing.len(),
+                path.broken_symlinks.len()
+            )?;
+        }
+        if let Some(env) = &data.env {
+            writeln!(
+                w,
+                "doc env vars={} secret_like={} suspicious={}",
+                env.total,
+                env.secret_like.len(),
+                env.suspicious.len()
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new("axt.doc.v1", self.data(), Vec::new(), Vec::new());
         serde_json::to_writer(&mut *w, &envelope)?;

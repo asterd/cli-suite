@@ -14,6 +14,7 @@ axt-port [OPTIONS] watch <PORT> [--timeout 30s]
 
 Shared flags are available before the subcommand: `--json`, `--agent`,
 `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict`.
+TTY stdout defaults to human mode; non-TTY stdout defaults to compact text.
 
 ## Options
 
@@ -75,6 +76,26 @@ Port 3000 (tcp, listening)
 ```
 
 ## Output
+
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints tables or holder sections:
+
+```text
+Port 3000 (tcp, listening)
+  PID 47281    node    node server.js
+  Cwd:         /Users/dario/projects/api
+  Bound:       0.0.0.0:3000
+  Owner:       dario
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+port action=who ok=true ports=[3000] sockets=1 holders=1 held=true freed=false timed_out=false ms=12
+holder port=3000 proto=tcp pid=47281 name=node bound=0.0.0.0:3000
+```
 
 JSON mode emits `axt.port.v1`:
 

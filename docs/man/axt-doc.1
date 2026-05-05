@@ -28,7 +28,7 @@ Print secret-like environment variable values. Values are redacted by default.
 .B --timeout \fIDURATION\fR
 Limit version probing for subcommands that execute a local command.
 .SH OUTPUT
-Supports human, --json, and --agent. JSON emits schema axt.doc.v1. Agent mode emits summary-first JSONL.
+Supports human, compact, --json, and --agent. Compact text is the non-TTY default. JSON emits schema axt.doc.v1. Agent mode emits summary-first JSONL.
 .SH SECURITY
 Secret-like names such as TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, PRIVATE, and
 AUTH variants are redacted unless --show-secrets is explicitly passed.

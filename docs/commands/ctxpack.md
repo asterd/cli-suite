@@ -29,7 +29,7 @@ At least one `--pattern <NAME=REGEX>` is required. `ROOT` defaults to `.`.
 | `--no-ignore` | Disable ignore, gitignore, global gitignore, and git exclude filters. |
 | `--json` | Emit the `axt.ctxpack.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum retained hits and maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -77,11 +77,22 @@ query language.
 
 ## Output
 
-Human mode groups hits by path/pattern and prints compact snippets:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode groups hits by path/pattern and prints readable snippets:
 
 ```text
+root=. patterns=1 files=10 hits=3 warnings=0 bytes_scanned=8192 truncated=false
 src/lib.rs:12:5 todo comment "TODO"
   12:// TODO: tighten this
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+ctxpack root=. patterns=1 files_scanned=10 files_matched=1 hits=3 warnings=0 bytes_scanned=8192 truncated=false
+hit pat=todo src/lib.rs:12:5 kind=comment text="TODO"
 ```
 
 JSON mode emits `axt.ctxpack.v1`:

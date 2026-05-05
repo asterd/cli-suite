@@ -58,14 +58,16 @@ pub enum CoreError {
 
 /// Output modes shared by all binaries.
 ///
-/// The suite collapses to three primary modes:
-/// `Human` for terminals, `Agent` for non-TTY pipelines and AI agents
-/// (JSONL minified with a summary-first record), and `Json` for the canonical
+/// The suite exposes four output modes:
+/// `Human` for terminals, `Compact` for non-TTY pipelines by default,
+/// `Agent` for explicit JSONL agent output, and `Json` for the canonical
 /// envelope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
     /// Human-readable, TTY-aware output.
     Human,
+    /// Compact text optimized for non-TTY pipelines and agent terminal capture.
+    Compact,
     /// Standard JSON envelope.
     Json,
     /// Agent JSONL: summary record first, detail records after, schema-versioned.
@@ -77,6 +79,8 @@ pub enum OutputMode {
 pub enum SchemaFormat {
     /// Human output description.
     Human,
+    /// Compact text output description.
+    Compact,
     /// JSON envelope schema.
     Json,
     /// Agent JSONL schema or description.
@@ -87,6 +91,7 @@ impl fmt::Display for SchemaFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Human => "human",
+            Self::Compact => "compact",
             Self::Json => "json",
             Self::Agent => "agent",
         })
@@ -113,8 +118,8 @@ impl OutputMode {
     ///
     /// Precedence:
     /// 1. An explicit `--json` or `--agent` flag.
-    /// 2. The `AXT_OUTPUT` environment variable (`human|agent|json`).
-    /// 3. Auto: `Agent` when stdout is not a terminal, otherwise `Human`.
+    /// 2. The `AXT_OUTPUT` environment variable (`human|compact|agent|json`).
+    /// 3. Auto: `Compact` when stdout is not a terminal, otherwise `Human`.
     #[must_use]
     pub fn resolve(explicit: Self, env_value: Option<&str>, stdout_tty: bool) -> Self {
         if explicit != Self::Human {
@@ -128,7 +133,7 @@ impl OutputMode {
         if stdout_tty {
             Self::Human
         } else {
-            Self::Agent
+            Self::Compact
         }
     }
 }
@@ -137,6 +142,7 @@ impl fmt::Display for OutputMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Human => "human",
+            Self::Compact => "compact",
             Self::Json => "json",
             Self::Agent => "agent",
         })
@@ -149,6 +155,7 @@ impl FromStr for OutputMode {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "human" => Ok(Self::Human),
+            "compact" => Ok(Self::Compact),
             "json" => Ok(Self::Json),
             "agent" => Ok(Self::Agent),
             other => Err(CoreError::UnknownOutputMode(other.to_owned())),
@@ -1005,12 +1012,16 @@ mod tests {
             OutputMode::Json
         );
         assert_eq!(
+            OutputMode::resolve(OutputMode::Human, Some("compact"), true),
+            OutputMode::Compact
+        );
+        assert_eq!(
             OutputMode::resolve(OutputMode::Human, Some("garbage"), false),
-            OutputMode::Agent
+            OutputMode::Compact
         );
         assert_eq!(
             OutputMode::resolve(OutputMode::Human, None, false),
-            OutputMode::Agent
+            OutputMode::Compact
         );
         assert_eq!(
             OutputMode::resolve(OutputMode::Human, None, true),
@@ -1078,6 +1089,12 @@ mod tests {
 
         let agent_schema = TestCli::try_parse_from(["test", "--print-schema", "agent"])?;
         assert_eq!(agent_schema.common.print_schema, Some(SchemaFormat::Agent));
+
+        let compact_schema = TestCli::try_parse_from(["test", "--print-schema", "compact"])?;
+        assert_eq!(
+            compact_schema.common.print_schema,
+            Some(SchemaFormat::Compact)
+        );
 
         Ok(())
     }

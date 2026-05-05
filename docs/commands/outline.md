@@ -29,7 +29,7 @@ recursively up to `--max-depth`.
 | `--sort path|name|kind|source` | Output ordering. Default `path`; `source` preserves collection/source order. |
 | `--json` | Emit the `axt.outline.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -79,11 +79,23 @@ If no supported source file is found, the command exits with
 
 ## Output
 
-Human mode prints a summary and one compact line per symbol:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints a readable summary and symbol details:
 
 ```text
-files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240
-src/lib.rs:42 pub fn parse_config(input: &str) -> Result<Config, Error>
+root=. files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240 truncated=false
+src/lib.rs:42-57 fn pub parse_config
+  pub fn parse_config(input: &str) -> Result<Config, Error>
+  docs: Parse the configuration text.
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+outline root=. files=1 symbols=3 warnings=0 source_bytes=8192 signature_bytes=240 truncated=false
+symbol src/lib.rs:42-57 kind=fn vis=pub name=parse_config sig=pub fn parse_config(input: &str) -> Result<Config, Error>
 ```
 
 JSON mode emits `axt.outline.v1`:

@@ -207,6 +207,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut stdout = std::io::stdout().lock();
     let result = match mode {
         OutputMode::Human => data.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => data.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => data.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => data.render_agent(&mut stdout, &render_ctx),
     };
@@ -901,6 +902,47 @@ impl Renderable for GitctxData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "gitctx repo={} branch={} upstream={} ahead={} behind={} changed={} staged={} unstaged={} untracked={} dirty={} truncated={}",
+            self.repo,
+            self.branch.name.as_deref().unwrap_or("detached"),
+            self.branch.upstream.as_deref().unwrap_or("none"),
+            self.branch.ahead,
+            self.branch.behind,
+            self.summary.changed,
+            self.summary.staged,
+            self.summary.unstaged,
+            self.summary.untracked,
+            self.summary.dirty,
+            self.summary.truncated
+        )?;
+        for file in &self.files {
+            writeln!(
+                w,
+                "file status={} path={} add={} del={} hunks={} bytes={} diff_inline={} diff_truncated={}",
+                file.status,
+                file.path,
+                file.additions,
+                file.deletions,
+                file.hunks,
+                file.bytes,
+                file.diff_inline,
+                file.diff_truncated
+            )?;
+        }
+        for commit in &self.commits {
+            let short = commit.hash.get(..7).unwrap_or(commit.hash.as_str());
+            writeln!(
+                w,
+                "commit hash={} author={} subject={}",
+                short, commit.author, commit.subject
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new("axt.gitctx.v1", self, Vec::new(), Vec::new());
         serde_json::to_writer(&mut *w, &envelope)?;
@@ -1037,6 +1079,9 @@ fn print_schema(format: SchemaFormat) {
         }
         SchemaFormat::Agent => println!(
             "schema=axt.gitctx.agent.v1 records=axt.gitctx.summary.v1,axt.gitctx.file.v1,axt.gitctx.commit.v1,axt.gitctx.warn.v1 first=summary"
+        ),
+        SchemaFormat::Compact => println!(
+            "schema=axt.gitctx.compact.v1 format=text records=summary,file,commit default=non-tty"
         ),
         SchemaFormat::Human => println!(
             "schema=axt.gitctx.human.v1 sections=repository,branch,summary,changes,commits,diffs"

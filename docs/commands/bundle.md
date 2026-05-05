@@ -29,7 +29,7 @@ code.
 | `--no-ignore` | Disable ignore, gitignore, global gitignore, and git exclude filters. |
 | `--json` | Emit the `axt.bundle.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human|json|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human|compact|json|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum line-oriented records for agent output. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum line-oriented output bytes. Default `65536`. |
@@ -77,12 +77,24 @@ analysis.
 
 ## Output
 
-Human mode prints a one-line summary plus manifest and Git summaries:
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints a readable summary plus manifest and Git sections:
 
 ```text
 root=. files=42 dirs=12 manifests=2 git=true truncated=false
 manifest Cargo.toml 1842B
 git branch=main modified=1 untracked=0
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+bundle root=. files=42 dirs=12 manifests=2 git=true truncated=false
+manifest path=Cargo.toml kind=rust bytes=1842
+git branch=main modified=1 untracked=0 root=/repo
+file path=src/lib.rs kind=file bytes=4210 lang=rust
 ```
 
 JSON mode emits the canonical envelope:

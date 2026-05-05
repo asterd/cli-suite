@@ -95,6 +95,43 @@ impl Renderable for PeekData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "peek root={} files={} dirs={} bytes={} git={} modified={} untracked={} ignored={} truncated={}",
+            self.root,
+            self.summary.files,
+            self.summary.dirs,
+            self.summary.bytes,
+            self.summary.git_state.as_str(),
+            self.summary.modified,
+            self.summary.untracked,
+            self.summary.ignored,
+            self.summary.truncated
+        )?;
+        for entry in &self.entries {
+            writeln!(
+                w,
+                "{} {} b={} lang={} git={}",
+                entry.kind.as_str(),
+                entry.path,
+                entry.bytes,
+                entry.language.as_deref().unwrap_or("-"),
+                entry.git.as_str()
+            )?;
+        }
+        for warning in &self.warnings {
+            writeln!(
+                w,
+                "warn code={} path={} reason={}",
+                warning.code.as_str(),
+                warning.path.as_deref().unwrap_or("-"),
+                warning.reason
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
             "axt.peek.v1",

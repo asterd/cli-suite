@@ -40,7 +40,7 @@ You are implementing the `axt` Foundation CLI Suite. Source of truth: `docs/spec
 5. **No network calls in the binaries.** Ever. The string `reqwest` and friends should not appear in `crates/axt-*/Cargo.toml`.
 6. **No telemetry, no analytics, no postinstall scripts that fetch anything.**
 7. **Diagnostics on stderr, data on stdout.** Always.
-8. **Three primary output modes always**: human, `--json`, and `--agent`. `--agent` is minified summary-first JSONL. `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict` are standard shared flags.
+8. **Four output behaviors always**: human on TTY stdout, compact text on non-TTY stdout, explicit `--json`, and explicit `--agent`. `--agent` is minified summary-first JSONL. `--print-schema`, `--list-errors`, `--limit`, `--max-bytes`, and `--strict` are standard shared flags.
 9. **Cross-platform parity is the default.** When a feature degrades on Windows or macOS, document it in the per-command cross-platform matrix (`docs/commands/<cmd>.md`) and exit with code 9 (`feature_unsupported`) rather than fail silently.
 10. **Conventional commits.** Format: `<type>(<scope>): <subject>` where type ∈ {feat, fix, chore, docs, test, refactor, perf, build, ci} and scope is the crate name (e.g., `axt-peek`, `axt-core`).
 

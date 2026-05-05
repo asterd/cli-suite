@@ -28,7 +28,7 @@ python3 scripts/agent/install-skills.py --agent both --scope project --skill all
 
 - Use `--agent` for low-token agent context.
 - Use `--json` when you need a stable envelope with `schema`, `ok`, `data`, `warnings`, and `errors`.
-- Agent mode is minified JSONL with a summary record first. Non-TTY stdout defaults to agent mode.
+- Agent mode is minified JSONL with a summary record first. Non-TTY stdout defaults to compact text.
 - Keep diagnostics and logs separate: axt commands write data to stdout and diagnostics to stderr.
 - Do not assume network access. The suite is designed for offline local inspection.
 - Inspect supported failures with `--list-errors`.

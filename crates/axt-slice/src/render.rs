@@ -79,6 +79,54 @@ impl Renderable for SliceData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "slice path={} language={:?} status={:?} matches={} candidates={} source_bytes={} truncated={}",
+            self.path,
+            self.language,
+            self.status,
+            self.summary.matches,
+            self.summary.candidates,
+            self.summary.source_bytes,
+            self.summary.truncated
+        )?;
+        if let (Some(symbol), Some(range)) = (&self.symbol, &self.range) {
+            writeln!(
+                w,
+                "source {}:{}-{} kind={} vis={} qn={}",
+                self.path,
+                range.start_line,
+                range.end_line,
+                symbol.kind.as_str(),
+                symbol.visibility.as_str(),
+                symbol.qualified_name
+            )?;
+        }
+        for candidate in &self.candidates {
+            writeln!(
+                w,
+                "candidate {}:{}-{} kind={} vis={} qn={}",
+                self.path,
+                candidate.range.start_line,
+                candidate.range.end_line,
+                candidate.kind.as_str(),
+                candidate.visibility.as_str(),
+                candidate.qualified_name
+            )?;
+        }
+        for warning in &self.warnings {
+            writeln!(
+                w,
+                "warn code={} path={} message={}",
+                warning.code.as_str(),
+                warning.path.as_ref().map_or("-", |path| path.as_str()),
+                warning.message
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
             "axt.slice.v1",

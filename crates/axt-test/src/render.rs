@@ -26,6 +26,28 @@ impl Renderable for TestOutput {
         }
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        match self {
+            Self::Frameworks { frameworks } => {
+                writeln!(w, "test frameworks count={}", frameworks.len())?;
+                for framework in frameworks {
+                    writeln!(
+                        w,
+                        "framework name={} marker={} detection={}",
+                        framework.name, framework.marker, framework.detection
+                    )?;
+                }
+                Ok(())
+            }
+            Self::Run {
+                data,
+                top_failures,
+                include_output: _,
+                failures_only,
+            } => render_run_compact(w, data, *top_failures, *failures_only),
+        }
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope =
             JsonEnvelope::with_status("axt.test.v1", self.ok(), self, Vec::new(), errors(self));
@@ -138,6 +160,39 @@ fn render_run_human(
                 writeln!(w, "  stderr: {stderr}")?;
             }
         }
+    }
+    Ok(())
+}
+
+fn render_run_compact(
+    w: &mut dyn Write,
+    data: &TestData,
+    top_failures: usize,
+    failures_only: bool,
+) -> RenderResult<()> {
+    writeln!(
+        w,
+        "test frameworks={} total={} passed={} failed={} skipped={} todo={} ms={}",
+        data.frameworks.join(","),
+        data.total,
+        data.passed,
+        data.failed,
+        data.skipped,
+        data.todo,
+        data.duration_ms
+    )?;
+    for case in selected_cases(data, top_failures, failures_only)
+        .into_iter()
+        .filter(|case| case.status == TestStatus::Failed)
+    {
+        writeln!(
+            w,
+            "fail framework={} file={} line={} name={}",
+            case.framework,
+            case.file.as_ref().map_or("-", |file| file.as_str()),
+            case.line.map_or_else(|| "-".to_owned(), |line| line.to_string()),
+            case.name
+        )?;
     }
     Ok(())
 }

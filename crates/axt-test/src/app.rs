@@ -56,6 +56,7 @@ fn main() -> anyhow::Result<ExitCode> {
     };
     let result = match mode {
         OutputMode::Human => output.render_human(&mut stdout, &render_ctx),
+        OutputMode::Compact => output.render_compact(&mut stdout, &render_ctx),
         OutputMode::Json => output.render_json(&mut stdout, &render_ctx),
         OutputMode::Agent => output.render_agent(&mut stdout, &render_ctx),
     };
@@ -83,6 +84,9 @@ fn print_schema(format: SchemaFormat) {
         SchemaFormat::Agent => println!(
             "schema=axt.test.agent.v1 records=axt.test.summary.v1,axt.test.suite.v1,axt.test.case.v1,axt.test.framework.v1,axt.test.warn.v1 first=summary"
         ),
+        SchemaFormat::Compact => {
+            println!("schema=axt.test.compact.v1 format=text records=summary,fail,framework default=non-tty");
+        }
         SchemaFormat::Human => {
             println!("schema=axt.test.human.v1 sections=summary,failures,frameworks");
         }

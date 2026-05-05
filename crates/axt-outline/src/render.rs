@@ -66,6 +66,43 @@ impl Renderable for OutlineData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "outline root={} files={} symbols={} warnings={} source_bytes={} signature_bytes={} truncated={}",
+            self.root,
+            self.summary.files,
+            self.summary.symbols,
+            self.summary.warnings,
+            self.summary.source_bytes,
+            self.summary.signature_bytes,
+            self.summary.truncated
+        )?;
+        for symbol in &self.symbols {
+            writeln!(
+                w,
+                "symbol {}:{}-{} kind={} vis={} name={} sig={}",
+                symbol.path,
+                symbol.range.start_line,
+                symbol.range.end_line,
+                symbol.kind.as_str(),
+                symbol.visibility.as_str(),
+                symbol.name,
+                symbol.signature
+            )?;
+        }
+        for warning in &self.warnings {
+            writeln!(
+                w,
+                "warn code={} path={} message={}",
+                warning.code.as_str(),
+                warning.path.as_ref().map_or("-", |path| path.as_str()),
+                warning.message
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
             "axt.outline.v1",

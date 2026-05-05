@@ -52,7 +52,7 @@ Include captured stdout/stderr when available.
 .B --pass-through -- \fIARGS\fR...
 Pass framework-specific arguments.
 .SH OUTPUT
-Supports human, --json, and --agent. JSON emits schema axt.test.v1. Agent mode emits summary-first JSONL and defaults to failure-only case records.
+Supports human, compact, --json, and --agent. Compact text is the non-TTY default. JSON emits schema axt.test.v1. Agent mode emits summary-first JSONL and defaults to failure-only case records.
 .SH FRAMEWORKS
 Supported frameworks are Jest, Vitest, Pytest, Cargo test, Go test, Bun test,
 and Deno test. Missing local toolchains return feature_unsupported.

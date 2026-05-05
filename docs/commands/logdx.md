@@ -26,7 +26,7 @@ At least one `PATH` or `--stdin` is required.
 | `--top <N>` | Maximum retained failure groups before shared limits. Default `20`. |
 | `--json` | Emit the `axt.logdx.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human\|json\|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human\|compact\|json\|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records and retained groups. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -82,6 +82,25 @@ that matched severity but had no parseable timestamp, `axt-logdx` emits a
 trace graph, or query language.
 
 ## Output
+
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints grouped diagnostics with representative samples:
+
+```text
+sources=1 lines=10 groups=1 errors=1 warnings=0 bytes_scanned=900 truncated=false
+blake3:... count=2 severity=error first=app.log:3 last=app.log:8
+  message: connection refused
+  sample: 2026-04-28T10:00:00Z ERROR connection refused
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+logdx sources=1 lines=10 groups=1 errors=1 warnings=0 bytes_scanned=900 truncated=false
+group sev=error count=2 fp=blake3:... first=app.log:3 last=app.log:8 msg=connection refused
+```
 
 JSON mode emits `axt.logdx.v1`:
 

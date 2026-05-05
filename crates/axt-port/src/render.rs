@@ -109,6 +109,60 @@ impl Renderable for PortOutput {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        let data = self.data();
+        writeln!(
+            w,
+            "port action={} ok={} ports={:?} sockets={} holders={} held={} freed={} timed_out={} ms={}",
+            data.action.as_str(),
+            data.ok(),
+            data.ports,
+            data.sockets.len(),
+            data.holders.len(),
+            data.held,
+            data.freed,
+            data.timed_out,
+            data.duration_ms
+        )?;
+        for socket in &data.sockets {
+            writeln!(
+                w,
+                "socket port={} proto={} pid={} process={} bound={} state={}",
+                socket.port,
+                socket.proto.as_str(),
+                socket
+                    .pid
+                    .map_or_else(|| "-".to_owned(), |pid| pid.to_string()),
+                socket.process.as_deref().unwrap_or("-"),
+                socket.bound,
+                socket.state
+            )?;
+        }
+        for holder in &data.holders {
+            writeln!(
+                w,
+                "holder port={} proto={} pid={} name={} bound={}",
+                holder.port,
+                holder.proto.as_str(),
+                holder.pid,
+                holder.name,
+                holder.bound.join(",")
+            )?;
+        }
+        for attempt in &data.attempts {
+            writeln!(
+                w,
+                "action port={} pid={} signal={} result={} ok={}",
+                attempt.port,
+                attempt.pid,
+                attempt.signal,
+                attempt.result.as_str(),
+                attempt.ok
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::with_status(
             "axt.port.v1",

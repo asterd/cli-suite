@@ -43,7 +43,7 @@ axt-run clean [--older-than <DURATION>]
 | `--hash` | Add BLAKE3 hashes to changed-file detection. |
 | `--json` | Emit the `axt.run.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human\|json\|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human\|compact\|json\|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -87,6 +87,27 @@ axt-run clean --older-than 7d
 ```
 
 ## Output
+
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints a readable command summary with stream and changed-file
+sections:
+
+```text
+cargo test exit=0 1832ms
+stdout: 12 bytes, 1 lines (.axt/runs/20260427/stdout.log)
+stderr: 0 bytes, 0 lines (.axt/runs/20260427/stderr.log)
+changed files:
+  modified target/.rustc_info.json 210
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+run ok=true cmd=cargo test exit=0 ms=1832 stdout_lines=1 stderr_lines=0 changed=1 saved=20260427 truncated=false
+file action=modified path=target/.rustc_info.json bytes=210
+```
 
 `--json` emits an `axt.run.v1` envelope and validates against
 `schemas/axt.run.v1.schema.json`.

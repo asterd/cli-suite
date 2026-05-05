@@ -25,7 +25,7 @@ axt-gitctx --changed-only --agent
 | `--changed-only` | Omit recent commits. |
 | `--json` | Emit the `axt.gitctx.v1` JSON envelope. |
 | `--agent` | Emit minified summary-first JSONL records. |
-| `--print-schema [human\|json\|agent]` | Print the selected output contract and exit. |
+| `--print-schema [human\|compact\|json\|agent]` | Print the selected output contract and exit. |
 | `--list-errors` | Print the standard error catalog as JSONL and exit. |
 | `--limit <N>` | Maximum agent records. Default `200`. |
 | `--max-bytes <BYTES>` | Maximum agent output bytes. Default `65536`. |
@@ -68,6 +68,28 @@ Inline diffs are included only when the generated per-file diff is at or below
 `--inline-diff-max-bytes`.
 
 ## Output
+
+TTY stdout defaults to human mode. Non-TTY stdout defaults to compact text.
+`--json` and `--agent` are explicit structured modes.
+
+Human mode prints a repository summary with aligned change and commit sections:
+
+```text
+Repository .
+Branch     main upstream=origin/main ahead=1 behind=0
+Summary    changed=1 staged=0 unstaged=1 untracked=0 +2 -1 dirty=true truncated=false
+
+Changes
+  modified   src/lib.rs                       +2 -1 hunks=1 bytes=420
+```
+
+Compact mode is the default for non-TTY capture:
+
+```text
+gitctx repo=. branch=main upstream=origin/main ahead=1 behind=0 changed=1 staged=0 unstaged=1 untracked=0 dirty=true truncated=false
+file status=modified path=src/lib.rs add=2 del=1 hunks=1 bytes=420 diff_inline=true diff_truncated=false
+commit hash=abc1234 author=axt tests subject=initial
+```
 
 JSON mode emits `axt.gitctx.v1`:
 

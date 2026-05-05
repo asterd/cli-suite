@@ -71,8 +71,9 @@ impl<'a> RenderContext<'a> {
 
 /// Command output rendering contract.
 ///
-/// Three primary modes are required:
+/// Four primary modes are required:
 /// - `render_human` for terminals,
+/// - `render_compact` for default non-TTY text,
 /// - `render_json` for the canonical envelope,
 /// - `render_agent` for JSONL agent output.
 ///
@@ -81,6 +82,11 @@ impl<'a> RenderContext<'a> {
 pub trait Renderable {
     /// Render human-readable output.
     fn render_human(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;
+
+    /// Render compact text output for non-TTY capture.
+    fn render_compact(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()> {
+        self.render_human(w, ctx)
+    }
 
     /// Render the canonical JSON envelope.
     fn render_json(&self, w: &mut dyn Write, ctx: &RenderContext<'_>) -> Result<()>;

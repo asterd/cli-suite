@@ -49,7 +49,7 @@ Wait before escalation.
 .B --confirm
 Prompt before signaling when interactive.
 .SH OUTPUT
-Supports human, --json, and --agent. JSON emits schema axt.port.v1. Agent mode emits summary-first JSONL.
+Supports human, compact, --json, and --agent. Compact text is the non-TTY default. JSON emits schema axt.port.v1. Agent mode emits summary-first JSONL.
 .SH SAFETY
 Only free mutates external state. The command refuses PID 1, itself, and its
 parent unless explicitly forced for the parent case.

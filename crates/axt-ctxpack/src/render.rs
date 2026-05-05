@@ -76,6 +76,43 @@ impl Renderable for CtxpackData {
         Ok(())
     }
 
+    fn render_compact(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
+        writeln!(
+            w,
+            "ctxpack root={} patterns={} files_scanned={} files_matched={} hits={} warnings={} bytes_scanned={} truncated={}",
+            self.root,
+            self.patterns.len(),
+            self.summary.files_scanned,
+            self.summary.files_matched,
+            self.summary.hits,
+            self.summary.warnings,
+            self.summary.bytes_scanned,
+            self.summary.truncated
+        )?;
+        for hit in &self.hits {
+            writeln!(
+                w,
+                "hit pat={} {}:{}:{} kind={} text={:?}",
+                hit.pattern,
+                hit.path,
+                hit.line,
+                hit.column,
+                hit.kind.as_str(),
+                hit.matched_text
+            )?;
+        }
+        for warning in &self.warnings {
+            writeln!(
+                w,
+                "warn code={} path={} message={}",
+                warning.code.as_str(),
+                warning.path.as_ref().map_or("-", |path| path.as_str()),
+                warning.message
+            )?;
+        }
+        Ok(())
+    }
+
     fn render_json(&self, w: &mut dyn Write, _ctx: &RenderContext<'_>) -> RenderResult<()> {
         let envelope = JsonEnvelope::new(
             "axt.ctxpack.v1",
